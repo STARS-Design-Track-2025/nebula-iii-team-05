@@ -3,64 +3,61 @@ module t05_translation (
     input logic [31:0] totChar,
     input logic [7:0] charIn,
     input logic [127:0] path,
-    output logic writeBin
+    output logic writeBin, nextCharEn, outEn
 );
 
-    logic [7:0] index, index_n;
-    logic [3:0] count, count_n;
-    logic countEn, countEn_n, nextCharEn, nextCharEn_n, totalEn, totalEn_n, writeBin_n;
-    logic [1:0]state, state_n;
+    logic [6:0] index, index_n;
+    logic resEn, resEn_n;
+    logic outEn_n, nextCharEn_n, totalEn, totalEn_n;
 
     always_ff @(posedge clk, posedge rst) begin
         if(rst) begin
-            index <= 8'd31;
-            writeBin <= '0;
-            countEn <= '0;
+            index <= 7'd31;
+            outEn <= '0;
             nextCharEn <= '0;
-            state <= '0;
             totalEn <= 1;
+            resEn <= '0;
         end else begin
-            writeBin <= writeBin_n;
-            countEn <= countEn_n;
+            outEn <= outEn_n;
             nextCharEn <= nextCharEn_n;
             index <= index_n;
-            state <= state_n;
             totalEn <= totalEn_n;
+            resEn <= resEn_n;
         end
     end
-
-    always_ff @(posedge clk, posedge rst) begin
-        if(rst) begin
-            count <= '0;
-        end else if (countEn) begin
-            count <= count_n;
-        end
-    end
-
-
 
     always_comb begin
         index_n = index;
         nextCharEn_n = nextCharEn;
-        countEn_n = countEn;
-        writeBin_n = writeBin;
-        count_n = count;
-        state_n = state;
+        outEn_n = outEn;
+        resEn_n = resEn;
         totalEn_n = totalEn;
+        writeBin = 0;
 
-        if(index == 0 && totalEn == 1) begin 
+        if(resEn == 1) begin 
             totalEn_n = 0;
-            index_n = 8'd127;
-        end
-
-        if(totalEn == 1) begin
-            writeBin_n = totChar[index[4:0]];
-            if(index != 0) begin
-                index_n = index - 1;  
+            index_n = 7'd127;
+            nextCharEn_n = 1;
+            outEn_n = 0;
+            resEn_n = 0;
+        end else if(totalEn == 1) begin
+            writeBin = totChar[index[4:0]];
+            index_n = index - 1;  
+            if(index == 0 && index_n == 127) begin
+                resEn_n = 1;
             end
         end else if(totalEn == 0) begin
-            
-
+            nextCharEn_n = 0;
+            index_n = index - 1;
+            if(path[index] == 1) begin
+                outEn_n = 1;
+            end
+            if(outEn == 1) begin
+                writeBin = path[index];
+            end
+            if(index == 0 && index_n == 127) begin
+                resEn_n = 1;
+            end
         end
     end
 endmodule
