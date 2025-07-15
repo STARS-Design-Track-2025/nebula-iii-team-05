@@ -1,5 +1,5 @@
 `default_nettype none
-module t05_htree (
+module t05_hTree (
   input logic clk, rst_n,
   input logic [8:0] least1, least2,
   input logic [45:0] sum,
