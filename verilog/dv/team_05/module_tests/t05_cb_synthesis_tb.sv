@@ -20,10 +20,13 @@ module t05_cb_synthesis_tb;
     state_cb state;
     logic [70:0] htree [127:0];
     logic [127:0] curr_path;
+    logic [8:0] least1;
+    logic [8:0] least2;
+    logic [9:0] header;
 
     always #5 clk = ~clk;
-
-    t05_cb_synthesis cb1(.clk(clk), .rst(reset), .max_index(max_index), .curr_path(curr_path), .curr_index(curr_index), .h_element(h_element), .curr_state(state), .char_path(char_path), .char_index(char_index), .char_found(char_found), .finished(finished));
+    t05_cb_synthesis cb1(.clk(clk), .least1(least1), .least2(least2), .rst(reset), .max_index(max_index), .curr_path(curr_path), .curr_index(curr_index), .h_element(h_element), .curr_state(state), .char_path(char_path), .char_index(char_index), .char_found(char_found), .finished(finished));
+    t05_header_synthesis hd1 (.clk(clk), .rst(reset), .char_index(char_index), .char_path(char_path), .char_found(char_found), .least1(least1), .least2(least2), .header(header));
     task reset_fsm();
       begin
         reset = 1;
@@ -49,6 +52,7 @@ module t05_cb_synthesis_tb;
       reset = 0;
       h_element = {{7'd8}, {1'b1, 8'd6}, {1'b1, 8'd7}, {46'd52}};
       max_index = 8;
+      //header = 0;
       htree[0] = {{7'd8}, {1'b0, 8'd67}, {1'b0, 8'd66}, {46'd5}}; // max_index=8, C=2, B=3, sum=5
       htree[1] = {{7'd8}, {1'b0, 8'd68}, {1'b0, 8'd69}, {46'd7}}; // max_index=8, D=3, E=4, sum=7
       htree[2] = {{7'd8}, {1'b0, 8'd72}, {1'b0, 8'd73}, {46'd8}}; // max_index=8, H=4, I=4, sum=8
@@ -403,6 +407,8 @@ module t05_cb_synthesis_tb;
       #100;
 
       #1 $finish;
+
     end
+  
 endmodule
   

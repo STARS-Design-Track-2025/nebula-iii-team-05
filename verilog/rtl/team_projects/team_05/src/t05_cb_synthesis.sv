@@ -19,6 +19,8 @@ module t05_cb_synthesis (
     output state_cb curr_state,
     output logic [6:0] curr_index,
     output logic [127:0] curr_path,
+    output logic [8:0] least1,
+    output logic [8:0] least2,
     output logic finished
 );
 //logic [127:0] curr_path; // store current path
@@ -31,9 +33,6 @@ logic [6:0] next_index; // htree element index
 state_cb next_state; // current codebook state
 logic [6:0] next_track_length; // current path length (for tracking state)
 logic [6:0] next_pos; // current position in path (for tracking state)
-//logic curr_bit;
-logic [8:0] least1;
-logic [8:0] least2;
 logic wait_cycle = 0;
 
 
