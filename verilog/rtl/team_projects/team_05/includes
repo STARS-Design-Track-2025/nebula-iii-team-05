@@ -5,3 +5,4 @@
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_findLeastValue.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_translation.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_spiClockDivider.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_SPI.sv
