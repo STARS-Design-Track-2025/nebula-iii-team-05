@@ -13,7 +13,8 @@ module t05_SPI (
     output logic slave_select,
     output logic [7:0] read_output,
     input logic writebit,
-    input logic read_en, write_en,
+    input logic read_en, write_en, read_stop,
+    input logic [31:0] read_address, write_address,
     output logic finish 
 );
 
@@ -25,8 +26,10 @@ localparam
     CMD12 = 48'b010011000000000000000000000000000000000000000001, // Stop reading multiple blocks
     CMD8 =  48'b010010000000000000000000000000011010101010000111; // Check the voltage range and if the card is compatible
 
-logic [47:0] cmd18 = {8'b01010010, read_address, 8'b00000001}, // Read multiple blocks until termination code
-cmd24 = 48'b01011000; /* ARGUMENT ADDRESS */ //00000001 // Write single 
+logic [47:0] cmd18;
+assign cmd18 = {8'b01010010, read_address, 8'b00000001};  // Read multiple blocks until termination code
+logic [47:0] cmd24; 
+assign cmd24 = {8'b01011000, write_address, 8'b00000001}; // Write single 
 
 // Logic declarations
 logic [47:0] cmd_line, cmd_line_n; 
@@ -40,9 +43,7 @@ logic [5:0] index_counter, index_counter_n; // Used to count the number of bits 
 logic [5:0] timer_50, timer_50_n; 
 logic [5:0] read_in_timer, read_in_timer_n;
 logic read_in_40, read_in_40_n;
-logic [31:0] read_address, read_address_n; 
 logic read_cmd_en, read_cmd_en_n, write_cmd_en, write_cmd_en_n; // Used to enable the read command
-logic read_stop, read_stop_n; // Used to stop reading data
 logic cmd_en, cmd_en_n; // Used to enable the command
 
 always_ff @(posedge clk, posedge rst) begin
@@ -62,11 +63,9 @@ always_ff @(posedge clk, posedge rst) begin
         read_in_timer <= 0; // Timer for reading in 40 bits
         index_counter <= 0; // Counter for the number of bits received
         timer_50 <= 0; // Timer for 50 clock cycles
-        read_cmd_en <= 0; // Enable the read command
-        read_stop <= 0; // Stop reading data
+        read_cmd_en <= 1; // Enable the read command
         cmd_en <= 0; // Enable the command
         warmup_counter <= 0; // Counter for the warmup
-        read_address <= '0; // Address for reading data
         write_cmd_en <= 0; // Enable the write command
         read_cmd_en <= 0; 
     end else if (serial_clk) begin
@@ -86,10 +85,8 @@ always_ff @(posedge clk, posedge rst) begin
         index_counter <= index_counter_n; // Counter for the number of bits received
         timer_50 <= timer_50_n; // Timer for 50 clock cycles
         read_cmd_en <= read_cmd_en_n; // Enable the read command
-        read_stop <= read_stop_n; // Stop reading data
         cmd_en <= cmd_en_n; // Enable the command
         warmup_counter <= warmup_counter_n; // Counter for the warmup
-        read_address <= read_address_n; // Address for reading data
         write_cmd_en <= write_cmd_en_n; // Enable the write command
         read_cmd_en <= read_cmd_en_n; // Enable the read command   
     end
@@ -113,7 +110,6 @@ always_comb begin
     index_counter_n = index_counter;
     timer_50_n = timer_50;
     read_cmd_en_n = read_cmd_en;
-    read_stop_n = read_stop;
     mosi = 0;
     read_output = '0;
     cmd_en_n = cmd_en;
@@ -132,6 +128,7 @@ always_comb begin
                     else if (warmup_counter == 74) begin
                         enable_0_n = 1; // Enable the first bit of the command
                         warmup_enable_n = 0;
+                        warmup_counter_n = 0; // Reset the warmup counter
                     end
                 end
 
@@ -163,6 +160,7 @@ always_comb begin
                     else if (response_holder[39:32] == 8'b00000000) begin
                         state_n = READ;
                         response_holder_n = '0; // Reset the response holder after reading the response
+                        read_cmd_en_n = 1; // Enable the read command
                     end
                     else if (response_holder[39:32] == 8'b00000001) begin
                         enable_41_n = 0;
@@ -200,7 +198,6 @@ always_comb begin
                 
                 else if (enable_8) begin
                     cmd_line_n = CMD8; 
-
                     if (timer_50 < 50) begin
                         timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
                         if(timer_50 < 48) begin
@@ -250,32 +247,38 @@ always_comb begin
 
         READ: begin  // Logic for reading data from MISO
             if(read_en) begin
+                read_output = read_byte; 
+                read_in_timer_n = 0;
                 if(read_cmd_en) begin
                     cmd_line_n = cmd18;
                     cmd_en_n = 1;
                     if(cmd_en) begin
-                        if (index_counter == 48) begin
+                        if (index_counter == 47) begin
                             index_counter_n = 0; // Reset the index counter after sending the command
                             cmd_en_n = 0;
                             read_cmd_en_n = 0;
                         end
-                        if (index_counter < 48) begin
+                        else if (index_counter < 47) begin
                             index_counter_n = index_counter + 1; // Increment the index counter for each bit
                         end
                         mosi = cmd_line[47 - index_counter]; // Shift out the command bit
                     end
                 end
             end
-            else if (read_stop) begin
+            else if(write_en == 1 && read_stop == 1) begin
+                state_n = WRITE;  
+                write_cmd_en_n = 1; 
+            end  
+            else if (read_stop)  begin
                 cmd_line_n = CMD12;    
                 cmd_en_n = 1;
                 if(cmd_en) begin
-                    if (index_counter == 48) begin
+                    if (index_counter == 47) begin
                         index_counter_n = 0; // Reset the index counter after sending the command
                         cmd_en_n = 0;
                         read_cmd_en_n = 0;
                     end
-                    if (index_counter < 48) begin
+                    else if (index_counter < 47) begin
                         index_counter_n = index_counter + 1; // Increment the index counter for each bit
                     end
                     mosi = cmd_line[47 - index_counter]; // Shift out the command bit
@@ -286,26 +289,22 @@ always_comb begin
                     read_in_timer_n = read_in_timer + 1; // Increment the read-in timer for each bit
                     read_byte_n = {read_byte[6:0], miso}; // Shift in data on MISO
                 end else begin
-                    read_output = read_byte; 
                     read_in_timer_n = 0; 
                 end
-            end
-            else if(write_en == 1) begin
-                state_n = WRITE;
             end
         end
         WRITE: begin // Logic for writing data to MISO can be added here
             if(write_en) begin
                 if(write_cmd_en) begin
-                    cmd_line_n = CMD12;    
+                    cmd_line_n = cmd24;    
                     cmd_en_n = 1;
                     if(cmd_en) begin
-                        if (index_counter == 48) begin
+                        if (index_counter == 47) begin
                             index_counter_n = 0; // Reset the index counter after sending the command
                             cmd_en_n = 0;
                             write_cmd_en_n = 0;
                         end
-                        if (index_counter < 48) begin
+                        else if (index_counter < 47) begin
                             index_counter_n = index_counter + 1; // Increment the index counter for each bit
                         end
                         mosi = cmd_line[47 - index_counter]; // Shift out the command bit
@@ -323,7 +322,7 @@ always_comb begin
         DONE: begin // Logic for finalizing the operation can be added here
             slave_select = 1;
             if (warmup_counter < 8) begin
-                warmup_counter_n = warmup_counter + 1; // Warmup counter to stabilize the SD
+                warmup_counter_n = warmup_counter + 1; // Warmup counter variable is just used to stabilize the SD
             end 
             else if (warmup_counter == 8) begin
                 finish = 1; // Enable the first bit of the command
