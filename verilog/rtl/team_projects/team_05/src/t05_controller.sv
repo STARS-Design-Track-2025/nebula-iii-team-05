@@ -51,22 +51,20 @@ module t05_controller (
     always_ff @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             state <= IDLE;
+            state_reg <= IDLE;
             en_reg <= 1'b0;
             fin_reg <= IDLE_FIN;
-        end else if (cont_en) begin
+            finished_signal <= 1'b0;
+        end else begin
+            // Always update state machine - not conditional on cont_en
             state <= next_state;
             fin_reg <= finState_next;
             state_reg <= next_state;
             finished_signal <= finished;
-            if (cont_en != 1'b0) begin // en will be on if ever pressed
-                en_reg <= cont_en;
-            end else begin
-                en_reg <= en_reg;
-            end
-            if (finished != 1'b0) begin // en will be on if ever pressed
-                finished_signal <= finished;
-            end else begin
-                finished_signal <= finished_signal;
+            
+            // Track enable signal
+            if (cont_en) begin
+                en_reg <= 1'b1;
             end
         end
     end

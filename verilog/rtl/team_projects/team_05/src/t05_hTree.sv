@@ -10,7 +10,7 @@ module t05_hTree (
   output logic HT_Finished,HT_fin_reg,
   //temp
   output logic [3:0] state_reg,
-  output logic ERROR
+  output logic ERROR, WorR
 );
     logic [6:0] clkCount_reg, nullSumIndex_reg;
     logic [8:0] least1_reg, least2_reg;
@@ -90,20 +90,21 @@ end
             end else begin
                 case(state)
                     NEWNODE: begin
-                        
+                        WorR = 1'b0; 
                         // if only least 1 is valid then l1 will be what it is and l2 is 11 then 0's
                         // no element least values are 11000... null characters are all 0's
                         tree = {clkCount_reg, least1, least2, sum};  // Uses clkCount_reg, not clkCount
                         clkCount = clkCount_reg + 1;  // Output current count (will be incremented next cycle)
-                        if (least1[8]) begin
+                        if (least1[8] && least1 != 9'b11000000) begin // sum node not null node
                             next_state = L1SRAM;
-                        end else if (least2[8]) begin
+                        end else if (least2[8] && least2 != 9'b11000000) begin
                             next_state = L2SRAM;
                         end else begin
                             next_state = FIN;
                         end
                     end
                     L1SRAM: begin
+                        WorR = 1'b1;
                         nullSumIndex_reg = least1[6:0]; 
                         if (SRAM_finished) begin 
                             next_state = NULLSUM1;
@@ -113,6 +114,7 @@ end
                         end
                     end
                     NULLSUM1: begin
+                        WorR = 1'b0;
                         null1 = {least1[6:0], nulls[63:46], 46'b0};
                         nullSumIndex_reg = 7'b0;
                         if (least2[8]) begin
@@ -122,6 +124,7 @@ end
                         end
                     end
                     L2SRAM: begin
+                        WorR = 1'b1;
                         nullSumIndex_reg = least2[6:0];
                         if (SRAM_finished) begin
                             next_state = NULLSUM2;
@@ -130,6 +133,7 @@ end
                         end
                     end
                     NULLSUM2: begin
+                        WorR = 1'b0;
                         null2 = {least2[6:0], nulls[63:46], 46'b0};
                         nullSumIndex_reg = 7'b0;
                         next_state = FIN;
@@ -153,6 +157,7 @@ end
             null2 = 71'b0;
             nullSumIndex_reg = 7'b0;
             HT_fin = 1'b0;
+            WorR = 1'b0;
         end
 
         // Error detection logic
