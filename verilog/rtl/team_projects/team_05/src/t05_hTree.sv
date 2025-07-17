@@ -83,6 +83,7 @@ end
         next_state = state;
         HT_fin = HT_fin_reg;
         HT_finished = 1'b0;
+        WorR = 1'b0; // Default write operation
 
         if (HT_en) begin
             if (sum == 46'b0) begin
