@@ -1,14 +1,38 @@
 module t05_sram(
     input logic clk, rst, 
+    input logic [31:0] histogram,
+    input logic [7:0] histgram_addr, 
+    input logic [8:0] find_least,
+    input logic [70:0] htreewrite,
+    input logic [6:0] htreeread,
+    input logic [7:0] codebook, 
+    input logic [127:0] codebook_path, 
+    input logic [7:0] translation, 
     input logic [3:0] word_i, state,  // might not need the word, the state bit of which module the data is from
     input logic[31:0] sram_in, //data coimng into the sram interface to be stored
     output logic busy_o, 
+    output logic [31:0] old_char,
+    output logic [70:0] h_element, 
+    output logic [128:0] char_code,
+    output logic [31:0] trn_histo_element,
+    output logic [31:0] flv_histo_element,
+    output logic [70:0] comp_val,
+    output logic [3:0] ctrl,
     output logic [31:0] data_o, addr //output data going from the wishbone and sram as well as the address associated with it going to the staemachine for the controller
 );
-//for the state machine going to the controller should read the input
-    logic do_wr, do_r,  wr_en, r_en; //enables for reading and writing
+//the goal of the sram is to input data from different addresses and either store the data that is given to it or output the data that the address pulls
+    logic do_wr, do_r,  wr_en, r_en; //enables for reading and writing should be given from the controller because the sram will not be able to determine what data to read/write on its own
     // logic [31:0] read_addr_reg;
-    logic [31:0] base_addr; //created address
+    logic [31:0] base_addr; //the addresses will already be created within the sram interface
+
+//address assignment
+
+always_ff @( posedge clk, posedge rst ) begin : blockName
+    if (rst) begin
+
+    end else if 
+end
+
 
     // assign read_addr = read_addr_reg;
 //States to write
