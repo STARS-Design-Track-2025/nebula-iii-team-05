@@ -56,6 +56,7 @@ module t05_translation (
                 writeBin = path[index];
             end
             if(index == 0 && index_n == 127) begin
+                outEn_n = 0;
                 resEn_n = 1;
             end
         end
