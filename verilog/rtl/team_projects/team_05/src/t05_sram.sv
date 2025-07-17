@@ -1,37 +1,129 @@
 module t05_sram(
-    input logic clk, rst, 
-    input logic [31:0] histogram,
-    input logic [7:0] histgram_addr, 
+    input logic clk, rst, ready, //enable for when the data has been read
+    input logic [31:0] histogram, //new histogram value to write
+    input logic [7:0] histgram_addr, //address from the histogram
     input logic [8:0] find_least,
     input logic [70:0] htreewrite,
     input logic [6:0] htreeread,
     input logic [7:0] codebook, 
     input logic [127:0] codebook_path, 
     input logic [7:0] translation, 
-    input logic [3:0] word_i, state,  // might not need the word, the state bit of which module the data is from
+    input logic [2:0] word_i, state,  // might not need the word, the state bit of which module the data is from
     input logic[31:0] sram_in, //data coimng into the sram interface to be stored
-    output logic busy_o, 
-    output logic [31:0] old_char,
+    output logic busy_o, ready_h,
+    output logic [31:0] old_char, //output value to read from sram
     output logic [70:0] h_element, 
     output logic [128:0] char_code,
     output logic [31:0] trn_histo_element,
     output logic [31:0] flv_histo_element,
-    output logic [70:0] comp_val,
+    output logic [63:0] comp_val, //find least value
     output logic [3:0] ctrl,
     output logic [31:0] data_o, addr //output data going from the wishbone and sram as well as the address associated with it going to the staemachine for the controller
 );
 //the goal of the sram is to input data from different addresses and either store the data that is given to it or output the data that the address pulls
+    logic [31:0] sram [255:0];
+    logic in_ready;
+    
     logic do_wr, do_r,  wr_en, r_en; //enables for reading and writing should be given from the controller because the sram will not be able to determine what data to read/write on its own
     // logic [31:0] read_addr_reg;
     logic [31:0] base_addr; //the addresses will already be created within the sram interface
 
-//address assignment
+//HISTOGRAM
+    // pulls the 32 bit value for the histogram and give it to it then takes in the new 32 bit number from the histogram and stores it
+        //examine the ready input, it may need to be moved to an output in the future
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            old_char <= 0;
+            ready_h  <= 0;
+        end else if (in_ready) begin
+            if (r_en) begin //include that if the histogram enable from the controller is on too
+                old_char <= sram[histgram_addr]; // Read 32-bit value at 8-bit address
+                ready_h  <= 1;
+            end else if (wr_en) begin
+                sram[histgram_addr] <= histogram; // Write new 32-bit value
+                ready_h <= 0;
+                // the histogram done enable from the sram going to the controller will be high
+            end else if (!r_en && !wr_en) begin
+                old_char <= '0;
+            end else begin
+                ready_h <= 0;
+            end
+        end
+    end
 
-always_ff @( posedge clk, posedge rst ) begin : blockName
-    if (rst) begin
 
-    end else if 
-end
+//FIND LEAST VALUE
+    //gives the sram a address and the sram gives back a64 bit value
+    always_ff @( posedge clk, posedge rst) begin : blockName
+        if (rst) begin
+
+        end else begin
+
+        end
+    end
+
+
+//TRANSLATION
+    //inputs an address and outputs 128 bits and 32 bits
+    always_ff @(posedge clk, posedge rst) begin
+        if (rst) begin
+
+        end else begin
+
+        end 
+    end
+
+//CODEBOOK
+    //inputs an address and 128 bit path and outputs 71 bits
+        always_ff @(posedge clk, posedge rst) begin
+        if (rst) begin
+
+        end else begin
+
+        end 
+    end
+
+//HTREE
+    //inputs 71 and 7 bits and a read/write enable and stores it
+
+
+//CONTROLLER
+    // enable signals to and from sram for each module
+    typedef enum logic [2:0] { 
+        A_IDLE = 3'b000,
+        HIST = 3'b001,
+        FLV = 3'b010,
+        HTREE = 3'b011,
+        CODEBOOK = 3'b101,
+        TRANSLATION = 3'b110
+    } name;
+
+    always_comb begin : blockName  //example only for the idle and histogram right now
+        if (A_IDLE) begin
+            wr_en = 0;
+            r_en = 0;
+            //any other enables would be 0
+        end if (HIST) begin
+            wr_en = 1;
+            //or "must get clarification from controller"
+            r_en =1;
+            in_ready = 1;
+        end
+        
+    end
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     // assign read_addr = read_addr_reg;
