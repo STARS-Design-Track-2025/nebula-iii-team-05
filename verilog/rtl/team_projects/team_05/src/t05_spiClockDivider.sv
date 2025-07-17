@@ -1,7 +1,8 @@
 module t05_spiClockDivider (
     input  logic current_clock_signal,
     input  logic reset,
-    output logic divided_clock_signal
+    output logic divided_clock_signal,
+    output logic sclk
 );
     logic [9:0] counter, counter_n; 
     logic divided_clock_signal_n; 
@@ -19,7 +20,12 @@ module t05_spiClockDivider (
     always_comb begin
         counter_n = counter;
         divided_clock_signal_n = divided_clock_signal;
-        if(counter < 512) begin
+        if(counter > 100) begin
+            sclk = 0;
+        end else begin
+            sclk = 1;
+        end
+        if(counter < 200) begin
             counter_n = counter + 1;
             divided_clock_signal_n = 0; // Keep the divided clock low until the counter reaches 512
         end else begin

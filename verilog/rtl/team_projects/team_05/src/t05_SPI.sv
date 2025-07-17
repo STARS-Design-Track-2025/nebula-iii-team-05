@@ -110,7 +110,7 @@ always_comb begin
     index_counter_n = index_counter;
     timer_50_n = timer_50;
     read_cmd_en_n = read_cmd_en;
-    mosi = 0;
+    mosi = 1;
     read_output = '0;
     cmd_en_n = cmd_en;
     idle_enable_n = idle_enable;
@@ -120,18 +120,20 @@ always_comb begin
 
     case (state)
         INIT: begin
-            if (slave_select == 0) begin
                 if(warmup_enable) begin 
-                    if (warmup_counter < 74) begin
+                    if (warmup_counter < 75) begin
                         warmup_counter_n = warmup_counter + 1; // Warmup counter to stabilize the SD
+                        mosi = 1;
+                        slave_select = 1;
                     end 
-                    else if (warmup_counter == 74) begin
+                    else begin
                         enable_0_n = 1; // Enable the first bit of the command
                         warmup_enable_n = 0;
                         warmup_counter_n = 0; // Reset the warmup counter
+                        slave_select = 1;
+                       // mosi = 1; // Set MOSI high
                     end
-                end
-
+                end else begin
                 if(read_in_40) begin
                     response_holder_n = {response_holder[38:0], miso}; // Shift in data on MISO
                     if(read_in_timer < 39) begin
@@ -146,13 +148,13 @@ always_comb begin
                 // Response for CMD0 
                 if (response_enable) begin
                     response_enable_n = 0; 
-                    if (response_holder[39:32] == 8'b00000001 && idle_enable) begin
+                    if (response_holder[38:32] == 7'b0000001 && idle_enable) begin
                         enable_8_n = 1;
                         idle_enable_n = 0;
                         response_holder_n = '0; // Reset the response holder after reading the response
                     end 
                     // Response for CMD8
-                    else if (response_holder == 40'b000000100000000000000000000000110101010) begin
+                    else if (response_holder[38:0] == 39'b00000100000000000000000000000110101010) begin
                         enable_55_n = 1;
                         response_holder_n = '0; // Reset the response holder after reading the response
                     end
@@ -170,6 +172,7 @@ always_comb begin
                 end 
 
                 if (cmd_en) begin
+                    slave_select = 0;
                     if (index_counter == 47) begin
                         index_counter_n = 0; // Reset the index counter after sending the command
                         cmd_en_n = 0;
@@ -187,12 +190,15 @@ always_comb begin
                         if(timer_50 < 48) begin
                             cmd_en_n = 1;
                         end
-                    end else begin
+                    end else if (timer_50 > 49) begin
                         timer_50_n = 0; 
                         read_in_40_n = 1; 
                         enable_0_n = 0;
                         idle_enable_n = 1;
                         cmd_en_n = 0;
+                    end
+                    else if(miso == 0) begin
+                        response_enable_n = 1;
                     end
                 end
                 
@@ -204,6 +210,7 @@ always_comb begin
                             cmd_en_n = 1;
                         end
                     end else begin
+                        response_enable_n = 1; // Enable the response for CMD8
                         timer_50_n = 0; 
                         read_in_40_n = 1; 
                         enable_8_n = 0;
