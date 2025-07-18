@@ -282,7 +282,7 @@ module wishbone_manager_tb();
 
         tb_read_occur = 1'b0;
 
-        if(data != tb_CPU_DAT_O) begin
+        if(data != tb_CPU_DAT_O || (^~tb_CPU_DAT_O !== 1'b1 && ^~tb_CPU_DAT_O !== 1'b0) ) begin
             $error("expected: %h actual: %h", data, tb_CPU_DAT_O);
         end
         else begin

@@ -56,7 +56,7 @@ module sram_WB_Wrapper #(
     // Outputs from SRAM
     always_comb begin
         wbs_dat_o = '0;
-        if (ram_en) begin
+        if (ram_en & ~wbs_we_i) begin
             if (wbs_sel_i[0]) wbs_dat_o[7:0] = dout1[7:0];
             if (wbs_sel_i[1]) wbs_dat_o[15:8] = dout1[15:8];
             if (wbs_sel_i[2]) wbs_dat_o[23:16] = dout1[23:16];
