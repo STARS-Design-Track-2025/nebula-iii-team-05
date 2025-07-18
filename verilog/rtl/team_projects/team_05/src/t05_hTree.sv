@@ -87,7 +87,12 @@ end
         WorR = 1'b0; // Default write operation
 
         if (HT_en == 4'b0011) begin
-            if (sum == 46'b0) begin
+            if (((least1[8] && least2 == 9'b110000000) || (least2[8] && least1 == 9'b110000000)) && least1 != least2) begin // single character file
+                tree = {clkCount_reg, least1, 9'b110000000, sum};
+                clkCount = clkCount_reg + 1;
+                HT_finished = 1'b0; // If both least are null nodes, finish immediately
+                next_state = RESET; // Go to reset state
+            end else if (least1 == 9'b110000000 && least2 == 9'b110000000) begin // only activates if both are null
                 HT_finished = 1'b1;
             end else begin
                 case(state)
@@ -97,13 +102,14 @@ end
                         // no element least values are 11000... null characters are all 0's
                         tree = {clkCount_reg, least1, least2, sum};  // Uses clkCount_reg, not clkCount
                         clkCount = clkCount_reg + 1;  // Output current count (will be incremented next cycle)
-                        if (least1[8] && least1 != 9'b11000000) begin // sum node not null node
+                        if (least1[8] && least1 != 9'b110000000) begin // sum node not null node
                             next_state = L1SRAM;
-                        end else if (least2[8] && least2 != 9'b11000000) begin
+                        end else if (least2[8] && least2 != 9'b110000000) begin
                             next_state = L2SRAM;
                         end else begin
                             next_state = FIN;
                         end
+                        HT_finished = 1'b0;
                     end
                     L1SRAM: begin
                         WorR = 1'b1;
@@ -154,9 +160,7 @@ end
         end else begin
             // When HT_en is low, reset to NEWNODE for next operation
             next_state = NEWNODE;
-            tree = 71'b0;
-            null1 = 71'b0;
-            null2 = 71'b0;
+            // Don't clear tree, null1, null2 - preserve the results
             nullSumIndex_reg = 7'b0;
             HT_fin = 1'b0;
             WorR = 1'b0;
