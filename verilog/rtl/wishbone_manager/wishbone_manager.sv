@@ -102,22 +102,34 @@ always_comb begin
     case(curr_state)
         IDLE: begin
             if(WRITE_I && !READ_I) begin
+                next_ADR_O  = ADR_I;
+                next_DAT_O  = CPU_DAT_I;
+                next_SEL_O  = SEL_I;
+                next_WE_O   = 1'b1;
+                next_STB_O  = 1'b1;
+                next_CYC_O  = 1'b1;
                 next_BUSY_O = 1'b1;
                 next_state  = WRITE;
             end
             if(!WRITE_I && READ_I) begin
+                next_ADR_O  = ADR_I;
+                next_DAT_O  = '0;
+                next_SEL_O  = SEL_I;
+                next_WE_O   = '0;
+                next_STB_O  = 1'b1;
+                next_CYC_O  = 1'b1;
                 next_BUSY_O = 1'b1;
                 next_state  = READ;
             end
         end     
         WRITE: begin
-            next_ADR_O  = ADR_I;
-            next_DAT_O  = CPU_DAT_I;
-            next_SEL_O  = SEL_I;
-            next_WE_O   = 1'b1;
-            next_STB_O  = 1'b1;
-            next_CYC_O  = 1'b1;
-            next_BUSY_O = 1'b1;
+            // next_ADR_O  = ADR_I;
+            // next_DAT_O  = CPU_DAT_I;
+            // next_SEL_O  = SEL_I;
+            // next_WE_O   = 1'b1;
+            // next_STB_O  = 1'b1;
+            // next_CYC_O  = 1'b1;
+            // next_BUSY_O = 1'b1;
 
             if(ACK_I) begin
                 next_state = IDLE;
@@ -132,13 +144,13 @@ always_comb begin
             end
         end
         READ: begin
-            next_ADR_O  = ADR_I;
-            next_DAT_O  = '0;
-            next_SEL_O  = SEL_I;
-            next_WE_O   = '0;
-            next_STB_O  = 1'b1;
-            next_CYC_O  = 1'b1;
-            next_BUSY_O = 1'b1;
+            // next_ADR_O  = ADR_I;
+            // next_DAT_O  = '0;
+            // next_SEL_O  = SEL_I;
+            // next_WE_O   = '0;
+            // next_STB_O  = 1'b1;
+            // next_CYC_O  = 1'b1;
+            // next_BUSY_O = 1'b1;
 
             if(ACK_I) begin
                 next_state = IDLE;
