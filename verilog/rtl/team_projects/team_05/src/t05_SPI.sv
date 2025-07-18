@@ -41,12 +41,16 @@ logic [39:0] response_holder, response_holder_n; // Used to hold the response by
 logic [6:0] warmup_counter, warmup_counter_n; // Used to stabilize the SD before data transfer begin
 logic [5:0] index_counter, index_counter_n; // Used to count the number of bits received
 logic [5:0] timer_50, timer_50_n; 
-logic [5:0] read_in_timer, read_in_timer_n;
+logic [6:0] read_in_timer, read_in_timer_n;
 logic read_in_40, read_in_40_n;
 logic read_cmd_en, read_cmd_en_n, write_cmd_en, write_cmd_en_n; // Used to enable the read command
 logic cmd_en, cmd_en_n; // Used to enable the command
 logic command2, command2_n; // Used to enable the second command
 logic command3, command3_n; // Used to enable the third command
+logic command4, command4_n; // Used to enable the fourth command
+logic command5, command5_n; // Used to enable the fifth command
+logic enable_58, enable_58_n; // Used to enable the fifth bit of the
+logic redo, redo_n; // Used to redo the command if the response is not valid
 
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
@@ -72,6 +76,10 @@ always_ff @(posedge clk, posedge rst) begin
         read_cmd_en <= 0; 
         command2 <= 0;
         command3 <= 0;
+        command4 <= 0;
+        command5 <= 0; // Enable the fifth command
+        enable_58 <= 0; // Enable the fifth bit of the command
+        redo <= 1;
     end else if (serial_clk) begin
         cmd_line <= cmd_line_n;
         state <= state_n;
@@ -95,6 +103,10 @@ always_ff @(posedge clk, posedge rst) begin
         read_cmd_en <= read_cmd_en_n; // Enable the read command  
         command2 <= command2_n; 
         command3 <= command3_n;
+        command4 <= command4_n; // Enable the fourth command
+        command5 <= command5_n; // Enable the fifth command
+        enable_58 <= enable_58_n; // Enable the fifth bit of the command
+        redo = redo_n;
     end
 end
 
@@ -125,6 +137,10 @@ always_comb begin
     finish = 0;
     command2_n = command2;
     command3_n = command3;
+    command4_n = command4;
+    command5_n = command5;
+    enable_58_n = enable_58;
+    redo_n = redo;
 
     case (state)
         INIT: begin
@@ -142,7 +158,10 @@ always_comb begin
                 end
             end else begin
                 if(read_in_40) begin
-                    if(read_in_timer < 60) begin
+                    if(read_in_timer < 39) begin
+                        response_holder_n = {response_holder[38:0], miso}; // Shift in data on MISO
+                    end
+                    if(read_in_timer < 120) begin
                         read_in_timer_n = read_in_timer + 1;
                     end else begin
                         read_in_timer_n = 0;
@@ -179,16 +198,29 @@ always_comb begin
                         command2_n = 0; // Reset the command2 flag
                     end
                     // Response for ACMD41
-                    else if (command3) begin
-                        state_n = READ;
+                    else if (command4) begin
+                        //state_n = READ;
                         response_holder_n = '0; // Reset the response holder after reading the response
-                        read_cmd_en_n = 1; // Enable the read command
-                        command3_n = 0;
-                    end
-                    else if (response_holder[39:32] == 8'b00000001) begin
+                        //read_cmd_en_n = 1; // Enable the read command
+                        command4_n = 0;
                         enable_41_n = 0;
-                        enable_55_n = 1;
+                        if(redo) begin
+                            redo_n = 0;
+                            command2_n = 1;
+                            response_enable_n = 1;
+                        end else
+                            enable_58_n = 1; // Enable the fifth bit of the command
+                    end
+                    else if (command3) begin
+                        enable_41_n = 1;
+                        enable_55_n = 0;
                         response_holder_n = '0; // Reset the response holder after reading the response 
+                        command3_n = 0; // Reset the command3 flag
+                    end
+                    else if (command5) begin
+                        //enable_58_n = 1;
+                        response_holder_n = '0; // Reset the response holder after reading the response 
+                        command5_n = 0; // Reset the command3 flag
                     end
                 end 
 
@@ -241,11 +273,11 @@ always_comb begin
                             
                         end
                     end else if (timer_50 > 49) begin
-                        enable_41_n = 1; // Enable the ACMD41 command after 50 clock cycles
                         enable_55_n = 0;
                         timer_50_n = 0;  
                         cmd_en_n = 0;
                         read_in_40_n = 1;
+                        command3_n = 1;
                     end
                     else if(miso == 0) begin
                         response_enable_n = 1;
@@ -264,8 +296,27 @@ always_comb begin
                         enable_41_n = 0; 
                         timer_50_n = 0;
                         cmd_en_n = 0;
-                        command3_n = 1;
                         read_in_40_n = 1;
+                        command4_n = 1; // Enable the fourth command
+                    end
+                    else if(miso == 0) begin
+                        response_enable_n = 1;
+                    end
+                end
+                else if (enable_58) begin 
+                    cmd_line_n = CMD58; 
+
+                    if (timer_50 < 50) begin
+                        timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
+                        if(timer_50 < 48) begin
+                            cmd_en_n = 1;
+                        end 
+                    end else if (timer_50 > 49) begin
+                        enable_58_n = 0; 
+                        timer_50_n = 0;
+                        cmd_en_n = 0;
+                        read_in_40_n = 1;
+                        command5_n = 1; // Enable the fourth command
                     end
                     else if(miso == 0) begin
                         response_enable_n = 1;
