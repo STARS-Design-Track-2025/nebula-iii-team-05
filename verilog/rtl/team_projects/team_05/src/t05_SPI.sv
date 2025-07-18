@@ -45,6 +45,8 @@ logic [5:0] read_in_timer, read_in_timer_n;
 logic read_in_40, read_in_40_n;
 logic read_cmd_en, read_cmd_en_n, write_cmd_en, write_cmd_en_n; // Used to enable the read command
 logic cmd_en, cmd_en_n; // Used to enable the command
+logic command2, command2_n; // Used to enable the second command
+logic command3, command3_n; // Used to enable the third command
 
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
@@ -68,6 +70,8 @@ always_ff @(posedge clk, posedge rst) begin
         warmup_counter <= 0; // Counter for the warmup
         write_cmd_en <= 0; // Enable the write command
         read_cmd_en <= 0; 
+        command2 <= 0;
+        command3 <= 0;
     end else if (serial_clk) begin
         cmd_line <= cmd_line_n;
         state <= state_n;
@@ -88,7 +92,9 @@ always_ff @(posedge clk, posedge rst) begin
         cmd_en <= cmd_en_n; // Enable the command
         warmup_counter <= warmup_counter_n; // Counter for the warmup
         write_cmd_en <= write_cmd_en_n; // Enable the write command
-        read_cmd_en <= read_cmd_en_n; // Enable the read command   
+        read_cmd_en <= read_cmd_en_n; // Enable the read command  
+        command2 <= command2_n; 
+        command3 <= command3_n;
     end
 end
 
@@ -117,26 +123,26 @@ always_comb begin
     write_cmd_en_n =  write_cmd_en;
     slave_select = 0;
     finish = 0;
+    command2_n = command2;
+    command3_n = command3;
 
     case (state)
         INIT: begin
-                if(warmup_enable) begin 
-                    if (warmup_counter < 75) begin
-                        warmup_counter_n = warmup_counter + 1; // Warmup counter to stabilize the SD
-                        mosi = 1;
-                        slave_select = 1;
-                    end 
-                    else begin
-                        enable_0_n = 1; // Enable the first bit of the command
-                        warmup_enable_n = 0;
-                        warmup_counter_n = 0; // Reset the warmup counter
-                        slave_select = 1;
-                       // mosi = 1; // Set MOSI high
-                    end
-                end else begin
+            if(warmup_enable) begin 
+                if (warmup_counter < 75) begin
+                    warmup_counter_n = warmup_counter + 1; // Warmup counter to stabilize the SD
+                    mosi = 1;
+                    slave_select = 1;
+                end 
+                else begin
+                    enable_0_n = 1; // Enable the first bit of the command
+                    warmup_enable_n = 0;
+                    warmup_counter_n = 0; // Reset the warmup counter
+                    slave_select = 1;
+                end
+            end else begin
                 if(read_in_40) begin
-                    response_holder_n = {response_holder[38:0], miso}; // Shift in data on MISO
-                    if(read_in_timer < 39) begin
+                    if(read_in_timer < 60) begin
                         read_in_timer_n = read_in_timer + 1;
                     end else begin
                         read_in_timer_n = 0;
@@ -145,32 +151,7 @@ always_comb begin
                     end
                 end
 
-                // Response for CMD0 
-                if (response_enable) begin
-                    response_enable_n = 0; 
-                    if (response_holder[38:32] == 7'b0000001 && idle_enable) begin
-                        enable_8_n = 1;
-                        idle_enable_n = 0;
-                        response_holder_n = '0; // Reset the response holder after reading the response
-                    end 
-                    // Response for CMD8
-                    else if (response_holder[38:0] == 39'b00000100000000000000000000000110101010) begin
-                        enable_55_n = 1;
-                        response_holder_n = '0; // Reset the response holder after reading the response
-                    end
-                    // Response for ACMD41
-                    else if (response_holder[39:32] == 8'b00000000) begin
-                        state_n = READ;
-                        response_holder_n = '0; // Reset the response holder after reading the response
-                        read_cmd_en_n = 1; // Enable the read command
-                    end
-                    else if (response_holder[39:32] == 8'b00000001) begin
-                        enable_41_n = 0;
-                        enable_55_n = 1;
-                        response_holder_n = '0; // Reset the response holder after reading the response 
-                    end
-                end 
-
+            // Response for CMD0 
                 if (cmd_en) begin
                     slave_select = 0;
                     if (index_counter == 47) begin
@@ -183,7 +164,35 @@ always_comb begin
                     mosi = cmd_line[47 - index_counter]; // Shift out the command bit
                 end 
 
-                if(enable_0) begin
+                if (response_enable) begin
+                    response_enable_n = 0; 
+                    if (idle_enable) begin
+                        enable_8_n = 1;
+                        idle_enable_n = 0;
+                        response_holder_n = '0; // Reset the response holder after reading the response
+                    end 
+                    // Response for CMD8
+                    else if (command2) begin
+                        enable_55_n = 1;
+                        response_holder_n = '0; // Reset the response holder after reading the response
+                        enable_8_n = 0;
+                        command2_n = 0; // Reset the command2 flag
+                    end
+                    // Response for ACMD41
+                    else if (command3) begin
+                        state_n = READ;
+                        response_holder_n = '0; // Reset the response holder after reading the response
+                        read_cmd_en_n = 1; // Enable the read command
+                        command3_n = 0;
+                    end
+                    else if (response_holder[39:32] == 8'b00000001) begin
+                        enable_41_n = 0;
+                        enable_55_n = 1;
+                        response_holder_n = '0; // Reset the response holder after reading the response 
+                    end
+                end 
+
+                else if(enable_0) begin
                     cmd_line_n = CMD0; 
                     if (timer_50 < 50) begin
                         timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
@@ -208,13 +217,17 @@ always_comb begin
                         timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
                         if(timer_50 < 48) begin
                             cmd_en_n = 1;
+                             
                         end
-                    end else begin
-                        response_enable_n = 1; // Enable the response for CMD8
+                    end else if (timer_50 > 49) begin
                         timer_50_n = 0; 
-                        read_in_40_n = 1; 
                         enable_8_n = 0;
                         cmd_en_n = 0;
+                        command2_n = 1;
+                        read_in_40_n = 1;
+                    end
+                    else if(miso == 0) begin
+                        response_enable_n = 1;
                     end
                 end 
                 
@@ -225,12 +238,17 @@ always_comb begin
                         timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
                         if(timer_50 < 48) begin
                             cmd_en_n = 1;
+                            
                         end
-                    end else begin
+                    end else if (timer_50 > 49) begin
                         enable_41_n = 1; // Enable the ACMD41 command after 50 clock cycles
                         enable_55_n = 0;
                         timer_50_n = 0;  
                         cmd_en_n = 0;
+                        read_in_40_n = 1;
+                    end
+                    else if(miso == 0) begin
+                        response_enable_n = 1;
                     end
                 end 
                 
@@ -242,11 +260,15 @@ always_comb begin
                         if(timer_50 < 48) begin
                             cmd_en_n = 1;
                         end 
-                    end else begin
-                        read_in_40_n = 1;
+                    end else if (timer_50 > 49) begin
                         enable_41_n = 0; 
                         timer_50_n = 0;
                         cmd_en_n = 0;
+                        command3_n = 1;
+                        read_in_40_n = 1;
+                    end
+                    else if(miso == 0) begin
+                        response_enable_n = 1;
                     end
                 end
             end 
