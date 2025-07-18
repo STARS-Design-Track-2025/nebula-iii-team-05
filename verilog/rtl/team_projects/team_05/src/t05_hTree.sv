@@ -4,7 +4,8 @@ module t05_hTree (
   input logic [8:0] least1, least2,
   input logic [45:0] sum,
   input logic [63:0] nulls,//sum node to null sum from SRAM
-  input logic HT_en,SRAM_finished,
+  input logic [3:0] HT_en, // Enable signal for HTREE operation
+  input logic SRAM_finished,
   output logic [70:0] tree_reg, null1_reg, null2_reg,// nodes to be written to SRAM
   output logic [6:0] clkCount,nullSumIndex,
   output logic HT_Finished,HT_fin_reg,
@@ -85,7 +86,7 @@ end
         HT_finished = 1'b0;
         WorR = 1'b0; // Default write operation
 
-        if (HT_en) begin
+        if (HT_en == 4'b0011) begin
             if (sum == 46'b0) begin
                 HT_finished = 1'b1;
             end else begin

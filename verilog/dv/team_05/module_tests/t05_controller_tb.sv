@@ -2,7 +2,7 @@
 
 module t05_controller_tb;
     // Testbench signals
-    logic clk, rst_n, cont_en;
+    logic clk, rst_n, cont_en, restart_en;
     logic [3:0] finState, op_fin;
     logic [3:0] state_reg;
     logic finished_signal;
@@ -20,6 +20,7 @@ module t05_controller_tb;
         .clk(clk),
         .rst_n(rst_n),
         .cont_en(cont_en),
+        .restart_en(restart_en),
         .finState(finState),
         .op_fin(op_fin),
         .state_reg(state_reg),
@@ -72,6 +73,7 @@ module t05_controller_tb;
     task automatic auto_advance(input string test_name,input int i, int err); // err 1 = module error, 2 = SRAM error, 0 = normal, 3 = both error
         logic [3:0] expected_next_state;
         logic [3:0] current_state;
+        restart_en = 1'b0;
         begin
             current_state = state_reg; // Capture current state at start
             $display("Starting %s from state %0d", test_name, current_state);
@@ -85,6 +87,7 @@ module t05_controller_tb;
             case(current_state)
                 IDLE: begin
                     cont_en = 1'b1;
+                    restart_en = 1'b0;
                     expected_next_state = HISTO;
                     $display("Setting cont_en=1 to move IDLE→HISTO");
                 end
@@ -96,6 +99,7 @@ module t05_controller_tb;
                             finState = HFIN;
                             #15; // simulate delay
                             op_fin = HIST_S;
+                            #20; // Wait for state machine to process
                             expected_next_state = FLV;
                             $display("Setting HFIN + HIST_S to move HISTO→FLV");
                             // Wait for one clock cycle for finState to be registered
@@ -106,6 +110,7 @@ module t05_controller_tb;
                             finState = ERROR_FIN;
                             #15;
                             op_fin = HIST_S;
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating module error, moving to ERROR state");
                             // Wait for one clock cycle for finState to be registered
@@ -116,6 +121,7 @@ module t05_controller_tb;
                             finState = HFIN;
                             #15;
                             op_fin = ERROR_S; 
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating SRAM error, moving to ERROR state");
                             // Wait for one clock cycle for finState to be registered
@@ -125,7 +131,8 @@ module t05_controller_tb;
                             // Simulate both errors
                             finState = ERROR_FIN;
                             #15;
-                            op_fin = ERROR_S;
+                            op_fin = ERROR_S; 
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating both module and SRAM errors, moving to ERROR state");
                             // Wait for one clock cycle for finState to be registered
@@ -139,7 +146,8 @@ module t05_controller_tb;
                         0: begin
                             finState = FLV_FIN;
                             #100;
-                            op_fin = FLV_S;
+                            op_fin = FLV_S; 
+                            #20;
                             expected_next_state = HTREE;
                             $display("Setting FLV_FIN + FLV_S to move FLV→HTREE");
                             // Wait for one clock cycle for finState to be registered
@@ -149,7 +157,8 @@ module t05_controller_tb;
                             // Simulate module error
                             finState = ERROR_FIN;
                             #100;
-                            op_fin = FLV_S;
+                            op_fin = FLV_S; 
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating module error, moving to ERROR state");
                             #10;
@@ -158,7 +167,8 @@ module t05_controller_tb;
                             // Simulate SRAM error
                             finState = FLV_FIN; // Assume HTREE_FINISHED is a valid state for SRAM error
                             #100;
-                            op_fin = HTREE_S; // Continue with HTREE operation
+                            op_fin = ERROR_S; // Continue with HTREE operation
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating SRAM error, moving to ERROR state");
                             #10;
@@ -167,7 +177,8 @@ module t05_controller_tb;
                             // Simulate both errors
                             finState = ERROR_FIN;
                             #100;
-                            op_fin = ERROR_S;
+                            op_fin = ERROR_S; 
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating both module and SRAM errors, moving to ERROR state");
                             #10;
@@ -182,7 +193,8 @@ module t05_controller_tb;
                             0: begin
                                 finState = HTREE_FIN;
                                 #100;
-                                op_fin = HTREE_S;
+                                op_fin = HTREE_S; 
+                                #20;
                                 expected_next_state = FLV;
                                 $display("Setting HTREE_FIN + HTREE_S to move HTREE→FLV (loop back)");
                                 #10;
@@ -191,7 +203,8 @@ module t05_controller_tb;
                                 // Simulate module error
                                 finState = ERROR_FIN;
                                 #100;
-                                op_fin = HTREE_S;
+                                op_fin = HTREE_S; 
+                                #20;
                                 expected_next_state = ERROR;
                                 $display("Simulating module error, moving to ERROR state");
                                 #10;
@@ -200,7 +213,8 @@ module t05_controller_tb;
                                 // Simulate SRAM error
                                 finState = HTREE_FIN;
                                 #100;
-                                op_fin = ERROR_S;
+                                op_fin = ERROR_S; 
+                                #20;
                                 expected_next_state = ERROR;
                                 $display("Simulating SRAM error, moving to ERROR state");
                                 #10;
@@ -209,7 +223,8 @@ module t05_controller_tb;
                                 // Simulate both errors
                                 finState = ERROR_FIN;
                                 #100;
-                                op_fin = ERROR_S;
+                                op_fin = ERROR_S; 
+                                #20;
                                 expected_next_state = ERROR;
                                 $display("Simulating both module and SRAM errors, moving to ERROR state");
                                 #10;
@@ -220,7 +235,8 @@ module t05_controller_tb;
                             0: begin
                                 finState = HTREE_FINISHED;
                                 #100;
-                                op_fin = 4'b0;
+                                op_fin = 4'b0; 
+                                #20;
                                 expected_next_state = CBS;
                                 $display("Setting HTREE_FINISHED to move HTREE→CBS");
                                 #10;
@@ -229,7 +245,8 @@ module t05_controller_tb;
                                 // Simulate module error
                                 finState = ERROR_FIN;
                                 #100;
-                                op_fin = 4'b0;
+                                op_fin = 4'b0; 
+                                #20;
                                 expected_next_state = ERROR;
                                 $display("Simulating module error, moving to ERROR state");
                                 #10;
@@ -243,7 +260,8 @@ module t05_controller_tb;
                         0: begin
                             finState = CBS_FIN;
                             #100;
-                            op_fin = CBS_S;
+                            op_fin = CBS_S; 
+                            #20;
                             expected_next_state = TRN;
                             $display("Setting CBS_FIN + CBS_S to move CBS→TRN");
                             #10;
@@ -252,7 +270,8 @@ module t05_controller_tb;
                             // Simulate module error
                             finState = ERROR_FIN;
                             #100;
-                            op_fin = CBS_S;
+                            op_fin = CBS_S; 
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating module error, moving to ERROR state");
                             #10;
@@ -261,7 +280,8 @@ module t05_controller_tb;
                             // Simulate SRAM error
                             finState = CBS_FIN; 
                             #100;
-                            op_fin = ERROR_S; 
+                            op_fin = ERROR_S;  
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating SRAM error, moving to ERROR state");
                             #10;
@@ -270,7 +290,8 @@ module t05_controller_tb;
                             // Simulate both errors
                             finState = ERROR_FIN;
                             #100;
-                            op_fin = ERROR_S;
+                            op_fin = ERROR_S; 
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating both module and SRAM errors, moving to ERROR state");
                             #10;
@@ -283,7 +304,8 @@ module t05_controller_tb;
                         0: begin
                             finState = TRN_FIN;
                             #100;
-                            op_fin = TRN_S;
+                            op_fin = TRN_S; 
+                            #20;
                             expected_next_state = SPI;
                             $display("Setting TRN_FIN + TRN_S to move TRN→SPI");
                             #10;
@@ -292,7 +314,8 @@ module t05_controller_tb;
                             // Simulate module error
                             finState = ERROR_FIN;
                             #100;
-                            op_fin = TRN_S;
+                            op_fin = TRN_S; 
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating module error, moving to ERROR state");
                             #10;
@@ -302,6 +325,7 @@ module t05_controller_tb;
                             finState = TRN_FIN; 
                             #100;
                             op_fin = ERROR_S; 
+                            #20; 
                             expected_next_state = ERROR;
                             $display("Simulating SRAM error, moving to ERROR state");
                             #10;
@@ -310,7 +334,8 @@ module t05_controller_tb;
                             // Simulate both errors
                             finState = ERROR_FIN;
                             #100;
-                            op_fin = ERROR_S;
+                            op_fin = ERROR_S; 
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating both module and SRAM errors, moving to ERROR state");
                             #10;
@@ -323,7 +348,8 @@ module t05_controller_tb;
                         0: begin
                             finState = SPI_FIN;
                             #100;
-                            op_fin = SPI_S;
+                            op_fin = SPI_S; 
+                            #20;
                             expected_next_state = DONE;
                             $display("Setting SPI_FIN + SPI_S to move SPI→DONE");
                             #10;
@@ -332,7 +358,8 @@ module t05_controller_tb;
                             // Simulate module error
                             finState = ERROR_FIN;
                             #100;
-                            op_fin = SPI_S;
+                            op_fin = SPI_S; 
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating module error, moving to ERROR state");
                             #10;
@@ -341,7 +368,8 @@ module t05_controller_tb;
                             // Simulate SRAM error
                             finState = SPI_FIN; 
                             #100;
-                            op_fin = ERROR_S; 
+                            op_fin = ERROR_S;  
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating SRAM error, moving to ERROR state");
                             #10;
@@ -350,7 +378,8 @@ module t05_controller_tb;
                             // Simulate both errors
                             finState = ERROR_FIN;
                             #100;
-                            op_fin = ERROR_S;
+                            op_fin = ERROR_S; 
+                            #20;
                             expected_next_state = ERROR;
                             $display("Simulating both module and SRAM errors, moving to ERROR state");
                             #10;
@@ -361,7 +390,10 @@ module t05_controller_tb;
                     cont_en = 1'b0; // Keep cont_en low for all non-IDLE states
                     // DONE automatically goes to IDLE - clear signals
                     finState = 4'h0;
-                    op_fin = 4'h0;
+                    op_fin = 4'h0; 
+                    #20;
+                    restart_en = 1'b1;
+                    #20;
                     expected_next_state = IDLE;
                     $display("DONE should automatically return to IDLE");
                     // Wait for one clock cycle for finState to be registered
@@ -370,6 +402,7 @@ module t05_controller_tb;
                 ERROR: begin
                     cont_en = 1'b0; // Keep cont_en low for all non-IDLE states
                     // Error state, typically stays in ERROR
+                    #20;
                     expected_next_state = ERROR;
                     $display("Error state reached: %s", test_name);
                     #10;
@@ -492,37 +525,37 @@ module t05_controller_tb;
         reset();
     // OPERATION AFTER ERROR
         $display("TEST 4: OPERATION AFTER ERROR");
-        auto_advance("Test 1A: IDLE to HISTO", 0,0);
+        auto_advance("Test 4A: IDLE to HISTO", 0,0);
         #5;
-        auto_advance("Test 1B: HISTO to FLV", 0,0);
+        auto_advance("Test 4B: HISTO to FLV", 0,0);
         #5;
-        auto_advance("Test 1C: FLV to HTREE", 0,0);
+        auto_advance("Test 4C: FLV to HTREE", 0,0);
         #5;
-        auto_advance("Test 1D: HTREE to FLV", 1,0);
+        auto_advance("Test 4D: HTREE to FLV", 1,0);
         #5;
-        auto_advance("Test 1E: FLV to HTREE", 0,0);
+        auto_advance("Test 4E: FLV to HTREE", 0,0);
         #5;
-        auto_advance("Test 1F: HTREE to CBS/ eRROR", 0,3);
+        auto_advance("Test 4F: HTREE to CBS/ ERROR", 0,3);
         #5;
-        auto_advance("Test 1A: IDLE to HISTO", 0,0);
+        auto_advance("Test 4A: IDLE to HISTO", 0,0);
         #5;
-        auto_advance("Test 1B: HISTO to FLV", 0,0);
+        auto_advance("Test 4B: HISTO to FLV", 0,0);
         #5;
-        auto_advance("Test 1C: FLV to HTREE", 0,0);
+        auto_advance("Test 4C: FLV to HTREE", 0,0);
         #5;
-        auto_advance("Test 1D: HTREE to FLV", 1,0);
+        auto_advance("Test 4D: HTREE to FLV", 1,0);
         #5;
-        auto_advance("Test 1E: FLV to HTREE", 0,0);
+        auto_advance("Test 4E: FLV to HTREE", 0,0);
         #5;
-        auto_advance("Test 1F: HTREE to CBS", 0,0);
+        auto_advance("Test 4F: HTREE to CBS", 0,0);
         #5;
-        auto_advance("Test 1G: CBS to TRN", 0,0);
+        auto_advance("Test 4G: CBS to TRN", 0,0);
         #5;
-        auto_advance("Test 1H: TRN to SPI", 0,0);
+        auto_advance("Test 4H: TRN to SPI", 0,0);
         #5;
-        auto_advance("Test 1I: SPI to DONE", 0,0);
+        auto_advance("Test 4I: SPI to DONE", 0,0);
         #5;
-        auto_advance("Test 1J: DONE to IDLE", 0,0);
+        auto_advance("Test 4J: DONE to IDLE", 0,0);
         #5;
 
 

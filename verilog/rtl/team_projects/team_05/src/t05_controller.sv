@@ -1,6 +1,6 @@
 `default_nettype none
 module t05_controller (
- input logic clk, rst_n, cont_en,
+ input logic clk, rst_n, cont_en,restart_en,
  input logic [3:0] finState,op_fin, // assumed to be registered
  output logic [3:0] state_reg,
  output logic finished_signal
@@ -70,7 +70,7 @@ module t05_controller (
     end
    
     always_comb begin
-            finState_next = fin_reg;
+            finState_next = finState;
             next_state = state;
             finished = 1'b0;
             case (state)
@@ -145,14 +145,20 @@ module t05_controller (
                         finState_next = IDLE_FIN;
                     end else if (fin_reg == SPI_FIN && op_fin == SPI_S) begin
                         next_state = DONE;
-                        finState_next = IDLE_FIN;
+                        finState_next = IDLE_FIN; // might be a problem idk
                     end else begin
                         next_state = SPI;
                     end
                 end
                 DONE: begin
                     finished = 1'b1;
-                    next_state = IDLE; // Reset to IDLE after completion
+                    if (restart_en) begin
+                        next_state = IDLE; // Reset to IDLE after completion
+                    end else begin
+                        next_state = DONE; // Stay in DONE
+                        // Add a counter or flag to transition to IDLE after 1 cycle
+                    end
+                    //next_state = IDLE; // Reset to IDLE after completion
                 end
                 default: begin
                     next_state = ERROR; // Handle unexpected states
