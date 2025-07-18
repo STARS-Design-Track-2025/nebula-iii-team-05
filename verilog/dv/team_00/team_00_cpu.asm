@@ -10,3 +10,4 @@ _start:
 _first_branch:
     sw x10, 0(x12)
     lw x11, 0(x12)
+    mul x7, x5, x6
