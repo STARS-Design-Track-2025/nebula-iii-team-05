@@ -51,6 +51,7 @@ logic command4, command4_n; // Used to enable the fourth command
 logic command5, command5_n; // Used to enable the fifth command
 logic enable_58, enable_58_n; // Used to enable the fifth bit of the
 logic redo, redo_n; // Used to redo the command if the response is not valid
+logic read_stop_en, read_stop_en_n; // Used to enable the read stop
 
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
@@ -80,6 +81,7 @@ always_ff @(posedge clk, posedge rst) begin
         command5 <= 0; // Enable the fifth command
         enable_58 <= 0; // Enable the fifth bit of the command
         redo <= 1;
+        read_stop_en <= 1; // Enable the read stop
     end else if (serial_clk) begin
         cmd_line <= cmd_line_n;
         state <= state_n;
@@ -106,7 +108,8 @@ always_ff @(posedge clk, posedge rst) begin
         command4 <= command4_n; // Enable the fourth command
         command5 <= command5_n; // Enable the fifth command
         enable_58 <= enable_58_n; // Enable the fifth bit of the command
-        redo = redo_n;
+        redo <= redo_n;
+        read_stop_en <= read_stop_en_n; // Enable the read stop
     end
 end
 
@@ -141,6 +144,7 @@ always_comb begin
     command5_n = command5;
     enable_58_n = enable_58;
     redo_n = redo;
+    read_stop_en_n = read_stop_en;
 
     case (state)
         INIT: begin
@@ -219,6 +223,8 @@ always_comb begin
                     end
                     else if (command5) begin
                         //enable_58_n = 1;
+                        state_n = READ;
+                        read_cmd_en_n = 1;
                         response_holder_n = '0; // Reset the response holder after reading the response 
                         command5_n = 0; // Reset the command3 flag
                     end
@@ -348,20 +354,25 @@ always_comb begin
             else if(write_en == 1 && read_stop == 1) begin
                 state_n = WRITE;  
                 write_cmd_en_n = 1; 
+                //mosi = 0;
             end  
-            else if (read_stop)  begin
-                cmd_line_n = CMD12;    
-                cmd_en_n = 1;
-                if(cmd_en) begin
-                    if (index_counter == 47) begin
-                        index_counter_n = 0; // Reset the index counter after sending the command
-                        cmd_en_n = 0;
-                        read_cmd_en_n = 0;
+            else if(read_stop_en) begin
+                if (read_stop)  begin
+                    cmd_line_n = CMD12;    
+                    cmd_en_n = 1;
+                    if(cmd_en) begin
+                        slave_select = 0;
+                        if (index_counter == 47) begin
+                            index_counter_n = 0; // Reset the index counter after sending the command
+                            cmd_en_n = 0;
+                            read_cmd_en_n = 0;
+                            read_stop_en_n = 0;
+                        end
+                        else if (index_counter < 47) begin
+                            index_counter_n = index_counter + 1; // Increment the index counter for each bit
+                        end
+                        mosi = cmd_line[47 - index_counter]; // Shift out the command bit
                     end
-                    else if (index_counter < 47) begin
-                        index_counter_n = index_counter + 1; // Increment the index counter for each bit
-                    end
-                    mosi = cmd_line[47 - index_counter]; // Shift out the command bit
                 end
             end
             else if (read_stop == 0 && read_en == 0) begin

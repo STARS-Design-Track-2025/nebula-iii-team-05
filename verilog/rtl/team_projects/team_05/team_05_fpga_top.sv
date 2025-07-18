@@ -32,7 +32,7 @@ module top (
     .sclk(sclk) // Not used in this context, but can be connected if needed
   );
 
-  t05_SPI test (.mosi(right[6]), .miso(pb[18]), .rst(pb[19]), .serial_clk(serial_clk), .clk(hwclk), .slave_select(green), .read_output(), .writebit(pb[5]), .read_en(pb[4]), .write_en(pb[6]), .read_stop(pb[1]), .read_address(32'd300), .write_address(32'd16), .finish(ss0[0]));
+  t05_SPI test (.mosi(right[6]), .miso(pb[18]), .rst(pb[19]), .serial_clk(serial_clk), .clk(hwclk), .slave_select(green), .read_output(), .writebit(pb[5]), .read_en(pb[4]), .write_en(pb[6]), .read_stop(pb[1]), .read_address(32'd0), .write_address(32'd0), .finish(ss0[0]));
 
   assign ss1[6] = sclk; // Connect the serial clock to one of the slave select lines for debugging
   team_05 team_05_inst (
