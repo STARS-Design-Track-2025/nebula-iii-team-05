@@ -149,7 +149,6 @@ always_comb begin
                     end
                     next_path = {curr_path[126:0], 1'b1}; // left shift and add 1 (left) to output character path
                     char_path = next_path;
-                    wait_cycle = 1;
                 end
 
                 else if (least2[8] == 1'b1) begin // if RSE is a sum

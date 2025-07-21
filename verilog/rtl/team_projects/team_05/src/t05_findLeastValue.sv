@@ -5,7 +5,8 @@ module t05_findLeastValue (
     output logic [63:0] sum,
     output logic [7:0] charWipe1, charWipe2,
     output logic [8:0] least1, least2, count,
-    output logic fin
+    output logic fin,
+    output logic nextCharEn
 );
 logic [8:0] least1_n, least2_n, count_n, sumCount;
 logic [63:0] val1, val2, val1_n, val2_n, sum_n;
@@ -50,6 +51,7 @@ always_comb begin
     least2_n = least2;
     sumCount = count - 256;
     sum_n = sum;
+    nextCharEn = 0;
 
     if(compVal != 0 && count < 384) begin
         if(val1 > compVal && count < 256) begin
@@ -59,10 +61,12 @@ always_comb begin
             least1_n = {1'b0, count [7:0]};
             charWipe1_n = count[7:0];
             val1_n = compVal;
+            nextCharEn = 1;
         end else if (val2 > compVal && count < 256) begin
             least2_n = {1'b0, count[7:0]};
             charWipe2_n = count[7:0];
             val2_n = compVal;
+            nextCharEn = 1;
         end else if (val1 > compVal && count > 255) begin
             least2_n = least1;
             charWipe2_n = charWipe1;
@@ -70,11 +74,20 @@ always_comb begin
             least1_n = {1'b1, sumCount[7:0]};
             charWipe1_n = '0;
             val1_n = compVal;
+            nextCharEn = 1;
         end else if (val2 > compVal && count > 255) begin
             least2_n = {1'b1, sumCount[7:0]};
             charWipe2_n = '0;
             val2_n = compVal;
+            nextCharEn = 1;
         end
+        // if(val1 == 64'hFFFFFFFFFFFFFFFF && val2 == 64'hFFFFFFFFFFFFFFFF) begin
+        //     charWipe1_n = '0;
+        //     charWipe2_n = '0;
+        //     least1_n = '0;
+        //     least2_n = '0;
+        //     sum_n = '0;
+        //end
         if(val1 != 64'hFFFFFFFFFFFFFFFF && val2 != 64'hFFFFFFFFFFFFFFFF) begin
             sum_n = val1 + val2;
         end
