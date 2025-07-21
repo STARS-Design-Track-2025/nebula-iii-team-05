@@ -10,7 +10,7 @@ module t05_hTree (
   output logic [6:0] clkCount,nullSumIndex,
   output logic HT_Finished,HT_fin_reg,
   //temp
-  output logic [3:0] state_reg,
+  output logic [3:0] state_reg,//for testing
   output logic ERROR, WorR
 );
     logic [6:0] clkCount_reg, nullSumIndex_reg;

@@ -6,7 +6,8 @@ module t05_controller_tb;
     logic [3:0] finState, op_fin;
     logic [3:0] state_reg;
     logic finished_signal;
-    
+    int test_progress = 0;
+
     // Clock generation
     always begin
         clk = 1'b0;
@@ -431,9 +432,13 @@ module t05_controller_tb;
         end
     endtask
     initial begin
+        // Variable declarations for testing
+        logic [3:0] current_state_snapshot;
+        
         $dumpfile("t05_controller.vcd"); 
         $dumpvars(0, t05_controller_tb);
 
+        
         // Initialize ALL signals at start
         finState = 4'h0;
         op_fin = 4'h0;
@@ -454,6 +459,7 @@ module t05_controller_tb;
         end
 
     // BASIC STATE MACHINE FLOW
+        test_progress ++;
         $display("\n\nTEST 1: BASIC MACHINE FLOW\n");
 
         auto_advance("Test 1A: IDLE to HISTO", 0,0);
@@ -478,6 +484,7 @@ module t05_controller_tb;
         #5;
 
     // HTREE LOOPING
+        test_progress ++;
         $display("TEST 2: HTREE LOOPING");
 
         auto_advance("Test 2A: IDLE to HISTO", 0,0);
@@ -505,6 +512,7 @@ module t05_controller_tb;
 
 
     // ERROR HANDLING
+        test_progress ++;
         $display("TEST 3: ERROR HANDLING");
 
         for (int targetState = 0; targetState < 6; targetState++) begin
@@ -524,6 +532,7 @@ module t05_controller_tb;
         end
         reset();
     // OPERATION AFTER ERROR
+        test_progress ++;
         $display("TEST 4: OPERATION AFTER ERROR");
         auto_advance("Test 4A: IDLE to HISTO", 0,0);
         #5;
@@ -560,6 +569,7 @@ module t05_controller_tb;
 
 
     // ENABLE CONTROL
+        test_progress ++;
         $display("TEST 5: ENABLE CONTROL");
 
         cont_en = 1'b1; // Enable control signal
@@ -585,6 +595,7 @@ module t05_controller_tb;
 
 
     // INVALID COMPLETION SIGNALS
+        test_progress ++;
         $display("TEST 6: INVALID COMPLETION SIGNALS");
 
         reset();
@@ -622,6 +633,7 @@ module t05_controller_tb;
         #5;
 
     // RESET BEHAVIOR 
+        test_progress ++;
         $display("TEST 7: RESET BEHAVIOR");
         // Re-run the basic flow to ensure reset works correctly
         for (int desiredState = 0; desiredState < 6; desiredState++) begin
@@ -641,6 +653,7 @@ module t05_controller_tb;
     // SIMULTANEOUS ERROR AND COMPLETION SIGNALS - IGNORE JUST AN INSTABILITY
 
     // MULTIPLE COMPLETION CYCLES
+        test_progress ++;
         $display("TEST 8: MULTIPLE COMPLETION CYCLES");
         reset();
         for(int cycle = 0; cycle < 20; cycle++) begin
@@ -669,8 +682,126 @@ module t05_controller_tb;
     // NORMAL OPERATION WITH VARIOUS ERRORS AT VARIOUS STATES - IGNORE
 
     // UNIDENTIFIED INPUT STATES
+        test_progress ++;
+        $display("TEST 9: UNIDENTIFIED INPUT STATES");
+        
+        // Test invalid finState values
+        reset();
+        auto_advance("Test 9A: IDLE to HISTO", 0, 0);
+        #5;
+        
+        // Try invalid finState (should stay in current state)
+        $display("Testing invalid finState values...");
+        cont_en = 1'b0;
+        finState = 4'hF; // Invalid finState (15)
+        op_fin = HIST_S;
+        #40;
+        if (state_reg == HISTO) begin
+            $display("✓ PASS: Invalid finState - stayed in HISTO");
+            passed_tests++;
+        end else begin
+            $display("✗ FAIL: Invalid finState - moved to state %0d", state_reg);
+        end
+        total_tests++;
+        
+        // Try invalid op_fin values  
+        $display("Testing invalid op_fin values...");
+        finState = HFIN;
+        op_fin = 4'hF; // Invalid op_fin (15)
+        #40;
+        if (state_reg == HISTO) begin
+            $display("✓ PASS: Invalid op_fin - stayed in HISTO");
+            passed_tests++;
+        end else begin
+            $display("✗ FAIL: Invalid op_fin - moved to state %0d", state_reg);
+        end
+        total_tests++;
+        
+        // Test mismatched completion signals
+        $display("Testing mismatched completion signals...");
+        finState = FLV_FIN; // Wrong finState for HISTO
+        op_fin = HIST_S;    // Correct op_fin
+        #40;
+        if (state_reg == HISTO) begin
+            $display("✓ PASS: Mismatched signals - stayed in HISTO");
+            passed_tests++;
+        end else begin
+            $display("✗ FAIL: Mismatched signals - moved to state %0d", state_reg);
+        end
+        total_tests++;
+        
+        // Test all X (unknown) inputs
+        $display("Testing unknown/X input values...");
+        finState = 4'bxxxx;
+        op_fin = 4'bxxxx;
+        #40;
+        if (state_reg == HISTO) begin
+            $display("✓ PASS: Unknown inputs - stayed in HISTO");
+            passed_tests++;
+        end else begin
+            $display("✗ FAIL: Unknown inputs - moved to state %0d", state_reg);
+        end
+        total_tests++;
+        
+        // Test high-Z inputs
+        $display("Testing high-Z input values...");
+        finState = 4'bzzzz;
+        op_fin = 4'bzzzz;
+        #40;
+        if (state_reg == HISTO) begin
+            $display("✓ PASS: High-Z inputs - stayed in HISTO");
+            passed_tests++;
+        end else begin
+            $display("✗ FAIL: High-Z inputs - moved to state %0d", state_reg);
+        end
+        total_tests++;
+        
+        // Test during state transitions with invalid inputs
+        $display("Testing invalid inputs during various states...");
+        for (int test_state = 1; test_state <= 6; test_state++) begin
+            reset();
+            
+            // Advance to the test state
+            for (int step = 0; step < test_state; step++) begin
+                auto_advance($sformatf("Advance to state %0d", step + 1), 0, 0);
+                #5;
+            end
+            
+            current_state_snapshot = state_reg;
+            
+            // Apply invalid inputs
+            finState = 4'hA; // Invalid value
+            op_fin = 4'hB;   // Invalid value
+            #40;
+            
+            if (state_reg == current_state_snapshot) begin
+                $display("✓ PASS: State %0d - invalid inputs rejected", current_state_snapshot);
+                passed_tests++;
+            end else begin
+                $display("✗ FAIL: State %0d - moved to %0d with invalid inputs", current_state_snapshot, state_reg);
+            end
+            total_tests++;
+        end
+        
+        // Test boundary values
+        $display("Testing boundary input values...");
+        reset();
+        auto_advance("Setup for boundary test", 0, 0);
+        #5;
+        
+        // Test maximum valid values
+        finState = 4'd8; // Just above valid range
+        op_fin = 4'd7;   // Just above valid range  
+        #40;
+        if (state_reg == HISTO) begin
+            $display("✓ PASS: Boundary values - stayed in HISTO");
+            passed_tests++;
+        end else begin
+            $display("✗ FAIL: Boundary values - moved to state %0d", state_reg);
+        end
+        total_tests++;
 
-        // Test Summary
+    // TEST SUMMARY
         $display("\n" + "="*50);
         $display("=== TEST SUMMARY ===");
         $display("Total Tests: %0d", total_tests);
