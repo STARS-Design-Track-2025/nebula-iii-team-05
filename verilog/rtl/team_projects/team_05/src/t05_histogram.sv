@@ -1,6 +1,6 @@
 module t05_histogram(
     input logic clk, rst,
-    input logic [7:0] data_i, // SPI address input
+    input logic [7:0] addr_i, sram_addr_in,// SPI and sram address input
     input logic [31:0] sram_in, //character index from the sram
     output logic eof,  //end of file enable going to the controller
     output logic complete,  //end of byte going to the controller (might not need)
@@ -23,20 +23,21 @@ always_ff @( posedge clk, posedge rst) begin : blockName
         shift <= shift;
         total <= total;
         complete <= 0;
-        //clear <= 1;
     end else begin
         sram_out <= sram_in + 1;  //the old index will have 1 added to it and by used as sram_out
-        hist_addr <= data_i;  // the data_i will be used as the addr
-        shift <= data_i; // the shift will be replaced with the data_in and the eof will trigger if it matches the endfile byte
+        hist_addr <= addr_i;  // the data_i will be used as the addr
+        shift <= addr_i; // the shift will be replaced with the data_in and the eof will trigger if it matches the endfile byte
         total <= total +1;  // the total characters will be added onto each other
-        complete <= 1;  // enable that says that a byte has been through the histogram
-        //clear <= 0;
     end
 
     if (end_file == shift) begin
         eof <= 1;
     end else begin
         eof <= 0;
+    end
+
+    if (eof && !rst) begin
+        complete <= 1;
     end
 end
 
