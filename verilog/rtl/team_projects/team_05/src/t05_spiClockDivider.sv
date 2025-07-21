@@ -1,6 +1,6 @@
 module t05_spiClockDivider (
     input  logic current_clock_signal,
-    input  logic reset,
+    input  logic reset, freq_flag,
     output logic divided_clock_signal,
     output logic sclk
 );
@@ -20,17 +20,39 @@ module t05_spiClockDivider (
     always_comb begin
         counter_n = counter;
         divided_clock_signal_n = divided_clock_signal;
-        if(counter > 100) begin
-            sclk = 0;
-        end else begin
-            sclk = 1;
+        sclk = 0;
+
+        if(freq_flag) begin
+            counter_n = counter;
+            divided_clock_signal_n = divided_clock_signal;
+            if(counter > 1) begin
+                sclk = 0;
+            end else begin
+                sclk = 1;
+            end
+            if(counter < 2) begin
+                counter_n = counter + 1;
+                divided_clock_signal_n = 0; // Keep the divided clock low until the counter reaches 512
+            end else begin
+                counter_n = 0; // Reset the counter after reaching 512
+                divided_clock_signal_n = ~divided_clock_signal; // Toggle the divided clock signal
+            end
         end
-        if(counter < 200) begin
-            counter_n = counter + 1;
-            divided_clock_signal_n = 0; // Keep the divided clock low until the counter reaches 512
-        end else begin
-            counter_n = 0; // Reset the counter after reaching 512
-            divided_clock_signal_n = ~divided_clock_signal; // Toggle the divided clock signal
+        else begin
+            counter_n = counter;
+            divided_clock_signal_n = divided_clock_signal;
+            if(counter > 100) begin
+                sclk = 0;
+            end else begin
+                sclk = 1;
+            end
+            if(counter < 200) begin
+                counter_n = counter + 1;
+                divided_clock_signal_n = 0; // Keep the divided clock low until the counter reaches 512
+            end else begin
+                counter_n = 0; // Reset the counter after reaching 512
+                divided_clock_signal_n = ~divided_clock_signal; // Toggle the divided clock signal
+            end
         end
     end
 endmodule

@@ -22,16 +22,16 @@ typedef enum logic [5:0] {
 }state_t;
 
 module t05_SPI (
-    output logic mosi, // Write
     input logic miso, // Read
     input logic rst, // Reset
     input logic serial_clk, clk,
-    output logic slave_select,
-    output logic [7:0] read_output,
     input logic writebit,
     input logic read_en, write_en, read_stop,
     input logic [31:0] read_address, write_address,
-    output logic finish 
+    output logic slave_select,
+    output logic [7:0] read_output,
+    output logic finish, freq_flag,
+    output logic mosi // Write
 );
 
 localparam
@@ -58,7 +58,7 @@ logic [5:0] index_counter, index_counter_n; // Used to count the number of bits 
 logic [5:0] timer_50, timer_50_n; 
 logic [6:0] read_in_timer, read_in_timer_n;
 logic read_in_40, read_in_40_n;
-logic read_cmd_en, read_cmd_en_n, write_cmd_en, write_cmd_en_n, warmup_enable, warmup_enable_n; // Used to enable the read command
+logic read_cmd_en, read_cmd_en_n, write_cmd_en, write_cmd_en_n, warmup_enable, warmup_enable_n, freq_flag_n; // Used to enable the read command
 logic cmd_en, cmd_en_n; // Used to enable the command
 logic redo, redo_n; // Used to redo the command if the response is not valid
 logic read_stop_en, read_stop_en_n; // Used to enable the read stop
@@ -82,6 +82,7 @@ always_ff @(posedge clk, posedge rst) begin
         read_cmd_en <= 0; 
         redo <= 1;
         read_stop_en <= 1; // Enable the read stop
+        freq_flag <= 0;
     end else if (serial_clk) begin
         cmd_line <= cmd_line_n;
         state <= state_n;
@@ -100,6 +101,7 @@ always_ff @(posedge clk, posedge rst) begin
         read_cmd_en <= read_cmd_en_n; // Enable the read command  
         redo <= redo_n;
         read_stop_en <= read_stop_en_n; // Enable the read stop
+        freq_flag <= freq_flag_n;
     end
 end
 
@@ -125,9 +127,11 @@ always_comb begin
     finish = 0;
     redo_n = redo;
     read_stop_en_n = read_stop_en;
+    freq_flag_n = freq_flag;
 
     case (state)
         INIT: begin
+            freq_flag_n = 0;
             if(warmup_enable) begin 
                 if (warmup_counter < 75) begin
                     warmup_counter_n = warmup_counter + 1; // Warmup counter to stabilize the SD
@@ -275,6 +279,7 @@ always_comb begin
             end 
         end
         READ_SPI: begin  // Logic for reading data from MISO
+        freq_flag_n = 1;
             if(read_en) begin
                 read_output = read_byte; 
                 read_in_timer_n = 0;
