@@ -38,7 +38,7 @@ module t05_sram_interface(
         A_IDLE = 3'b000,
         HIST = 3'b001,
         FLV = 3'b010,
-        // HTREE = 3'b011,
+        HTREE = 3'b011,
         CODEBOOK = 3'b101,
         TRANSLATION = 3'b110
     } name;
@@ -145,6 +145,7 @@ module t05_sram_interface(
 always_comb begin
     case ()
         IDLE: begin
+            if (busy_o) begin
             if () begin
                 next_state = READ;
             end else if () begin 
