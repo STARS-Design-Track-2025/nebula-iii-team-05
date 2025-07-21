@@ -55,4 +55,106 @@ module top (
     .done(blue)
   );
 
+  
+  // WISHBONE MANAGER TEST!!
+
+
+  // logic wbs_ack_i, wbs_we_o, wbs_stb_o, wbs_cyc_o;
+  // logic [3:0] wbs_sel_o;
+  // logic [31:0] wbs_dat_i, wbs_adr_o, wbs_dat_o;
+  // logic [31:0] data_out;
+  
+  // // Wishbone Manager
+  //   wishbone_manager manager(
+  //       .CLK(hwclk),
+  //       .nRST(~pb[19]),
+
+  //       .DAT_I(wbs_dat_i),
+  //       .ACK_I(wbs_ack_i),
+
+  //       .WRITE_I(pb[1]),
+  //       .READ_I(pb[0]),
+  //       .ADR_I({28'h0, pb[7:4]}),
+  //       .CPU_DAT_I(32'h12345678),
+  //       .SEL_I('1),
+
+  //       //outputs
+  //       .ADR_O(wbs_adr_o),
+  //       .DAT_O(wbs_dat_o),
+  //       .SEL_O(wbs_sel_o),
+  //       .WE_O(wbs_we_o),
+  //       .STB_O(wbs_stb_o),
+  //       .CYC_O(wbs_cyc_o),
+
+  //       .CPU_DAT_O(data_out),
+  //       .BUSY_O(red)
+  //   );
+
+  //   // SRAM
+  //   sram_WB_Wrapper sram (
+
+  //       .wb_clk_i(hwclk),
+  //       .wb_rst_i(pb[19]),
+
+  //       // MGMT SoC Wishbone Slave
+
+  //       .wbs_stb_i(wbs_stb_o),
+  //       .wbs_cyc_i(wbs_cyc_o),
+  //       .wbs_we_i(wbs_we_o),
+  //       .wbs_sel_i(wbs_sel_o),
+  //       .wbs_dat_i(wbs_dat_o),
+  //       .wbs_adr_i(wbs_adr_o),
+  //       .wbs_ack_o(wbs_ack_i),
+  //       .wbs_dat_o(wbs_dat_i)
+  //   );
+
+  //   // SSDECs
+  //   t00_ssdec ssdec0 (
+  //     .in(data_out[3:0]),
+  //     .enable(1),
+  //     .out(ss0)
+  //   );
+
+  //   t00_ssdec ssdec1 (
+  //     .in(data_out[7:4]),
+  //     .enable(1),
+  //     .out(ss1)
+  //   );
+
+  //   t00_ssdec ssdec2 (
+  //     .in(data_out[11:8]),
+  //     .enable(1),
+  //     .out(ss2)
+  //   );
+
+  //   t00_ssdec ssdec3 (
+  //     .in(data_out[15:12]),
+  //     .enable(1),
+  //     .out(ss3)
+  //   );
+
+  //   t00_ssdec ssdec4 (
+  //     .in(data_out[19:16]),
+  //     .enable(1),
+  //     .out(ss4)
+  //   );
+
+  //   t00_ssdec ssdec5 (
+  //     .in(data_out[23:20]),
+  //     .enable(1),
+  //     .out(ss5)
+  //   );
+
+  //   t00_ssdec ssdec6 (
+  //     .in(data_out[27:24]),
+  //     .enable(1),
+  //     .out(ss6)
+  //   );
+
+  //   t00_ssdec ssdec7 (
+  //     .in(data_out[31:28]),
+  //     .enable(1),
+  //     .out(ss7)
+  //   );
+
 endmodule

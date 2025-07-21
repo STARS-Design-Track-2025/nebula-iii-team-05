@@ -21,8 +21,25 @@ module top (
   // Don't forget to assign these to the ports above as needed
   logic [33:0] gpio_in, gpio_out;
   
+  logic serial_clk;
+  logic sclk;
+  logic flag;
+  logic [7:0] read_out;
   
   // Team 05 Design Instance
+  t05_spiClockDivider spiClockDivider (
+    .current_clock_signal(hwclk),
+    .reset(reset),
+    .divided_clock_signal(serial_clk),
+    .sclk(sclk), // Not used in this context, but can be connected if needed
+    .freq_flag(flag)
+  );
+
+  t05_SPI test (.mosi(right[6]), .miso(pb[18]), .rst(pb[19]), .serial_clk(serial_clk), 
+    .clk(hwclk), .slave_select(green), .read_output(read_out), .writebit(pb[5]), .read_en(pb[4]), 
+    .write_en(pb[6]), .read_stop(pb[1]), .read_address(32'd0), .write_address(32'd0), .finish(ss0[0]), .freq_flag(flag));
+
+  assign ss1[6] = sclk; // Connect the serial clock to one of the slave select lines for debugging
   team_05 team_05_inst (
     .clk(hwclk),
     .nrst(~reset),
@@ -49,7 +66,6 @@ module top (
     // .DAT_I(DAT_I),
 
     // Add other I/O connections to WB bus here
-
   );
 
 endmodule
