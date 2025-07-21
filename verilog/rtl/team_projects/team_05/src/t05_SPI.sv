@@ -48,18 +48,17 @@ logic [47:0] cmd24;
 assign cmd24 = {8'b01011000, write_address, 8'b00000001}; // Write single 
 
 // Logic declarations
-logic [47:0] cmd_line, cmd_line_n; 
 state_t state, state_n;
 state_t enables, enables_n;
 state_t command, command_n;
-logic warmup_enable, warmup_enable_n; // Used to enable the first bit of the command
+logic [47:0] cmd_line, cmd_line_n; 
 logic [7:0] read_byte, read_byte_n; 
 logic [6:0] warmup_counter, warmup_counter_n; // Used to stabilize the SD before data transfer begin
 logic [5:0] index_counter, index_counter_n; // Used to count the number of bits received
 logic [5:0] timer_50, timer_50_n; 
 logic [6:0] read_in_timer, read_in_timer_n;
 logic read_in_40, read_in_40_n;
-logic read_cmd_en, read_cmd_en_n, write_cmd_en, write_cmd_en_n; // Used to enable the read command
+logic read_cmd_en, read_cmd_en_n, write_cmd_en, write_cmd_en_n, warmup_enable, warmup_enable_n; // Used to enable the read command
 logic cmd_en, cmd_en_n; // Used to enable the command
 logic redo, redo_n; // Used to redo the command if the response is not valid
 logic read_stop_en, read_stop_en_n; // Used to enable the read stop
@@ -298,10 +297,17 @@ always_comb begin
             else if(write_en == 1 && read_stop == 1) begin
                 state_n = WRITE_SPI;  
                 write_cmd_en_n = 1; 
-                //mosi = 0;
             end  
+            else if (read_en == 0 && read_stop == 0) begin
+                if (read_in_timer < 8) begin
+                    read_in_timer_n = read_in_timer + 1; // Increment the read-in timer for each bit
+                    read_byte_n = {read_byte[6:0], miso}; // Shift in data on MISO
+                end else begin
+                    read_in_timer_n = 0; 
+                end
+            end
             else if(read_stop_en) begin
-                if (read_stop)  begin
+                if (read_stop) begin
                     cmd_line_n = CMD12;    
                     cmd_en_n = 1;
                     if(cmd_en) begin
@@ -317,14 +323,6 @@ always_comb begin
                         end
                         mosi = cmd_line[47 - index_counter]; // Shift out the command bit
                     end
-                end
-            end
-            else if (read_stop == 0 && read_en == 0) begin
-                if (read_in_timer < 8) begin
-                    read_in_timer_n = read_in_timer + 1; // Increment the read-in timer for each bit
-                    read_byte_n = {read_byte[6:0], miso}; // Shift in data on MISO
-                end else begin
-                    read_in_timer_n = 0; 
                 end
             end
         end
