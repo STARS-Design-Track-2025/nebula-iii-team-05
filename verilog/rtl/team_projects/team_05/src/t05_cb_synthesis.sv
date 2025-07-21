@@ -1,31 +1,31 @@
-// typedef enum logic [2:0] {
-//     LEFT=0,
-//     RIGHT,
-//     TRACK,
-//     BACKTRACK,
-//     FINISH,
-//     INIT,
-//     SEND
-// } state_cb;
+typedef enum logic [2:0] {
+    LEFT=0,
+    RIGHT,
+    TRACK,
+    BACKTRACK,
+    FINISH,
+    INIT,
+    SEND
+} state_cb;
 
 module t05_cb_synthesis (
     input logic clk,
     input logic rst,
-    input logic [6:0] max_index,
-    input logic [70:0] h_element,
-    input logic write_finish,
-    //input logic [2:0] curr_process,
-    output logic char_found,
-    output logic [127:0] char_path,
-    output logic [7:0] char_index,
-    output state_cb curr_state,
-    output logic [6:0] curr_index,
-    output logic [127:0] curr_path,
-    output logic [8:0] least1,
-    output logic [8:0] least2,
-    output logic finished,
-    output logic [6:0] track_length,
-    output logic [6:0] pos
+    input logic [6:0] max_index, // max index e.g. the top of the tree, given from HTREE MODULE
+    input logic [70:0] h_element, // h_element given to traverse to from SRAM (given curr_index)
+    input logic write_finish, // sent from the header synthesis when all bits of header potion have been written in SPI (then continue to traverse the tree)
+    input logic [3:0] curr_process, // controller state, comment out when testing this module individually
+    output logic char_found, // sent as an enable to the SRAM if a character was found to write path (also to the header synthesis module)
+    output logic [127:0] char_path, // sends the character path to SRAM as data
+    output logic [7:0] char_index, // sends the character index to SRAM as an index to write at correct address
+    output state_cb curr_state, // current internal state of this module in binary tree traversal
+    output logic [6:0] curr_index, // current index of the htree element currently being searched (sent to HTREE MODULE)
+    output logic [127:0] curr_path, // current path in the tree (begin updated as the tree is traversed)
+    output logic [8:0] least1, // least1 of the current htree element
+    output logic [8:0] least2, // least2 of the current htree element
+    output logic [3:0] finished, // finish signal sent to the CONTROLLER
+    output logic [6:0] track_length, // keeps track of current path length to know when to stop tracking the path in the TRACK state
+    output logic [6:0] pos // keeps track of current position in the path when in TRACK state
 );
 
 
@@ -34,14 +34,14 @@ logic [127:0] next_path; // store current path
 logic [6:0] next_index; // htree element index
 state_cb next_state; // current codebook state
 logic [6:0] next_track_length; // current path length (for tracking state)
-logic wait_cycle = 1;
+logic wait_cycle;
 
 
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
         curr_state <= INIT; // initial state
         curr_path <= 128'b1; // control bit
-        curr_index <= max_index; // top of tree
+        //curr_index <= max_index; // top of tree
         track_length <= 7'b0; // set current path length to 0
     end
     else begin
@@ -52,20 +52,22 @@ always_ff @(posedge clk, posedge rst) begin
 end
 
 always_comb begin
-    //if (curr_process == CODEBOOK) begin
+    if (curr_process == 4'b0100) begin // comment out when test benching individually
         least2 = h_element[54:46];
         least1 = h_element[63:55];
         char_found = 1'b0;
         char_path = 128'b0;
         char_index = 8'b0;
-        finished = 1'b0;
+        finished = 4'b0;
         next_state = curr_state;
         next_path = curr_path;
-        next_index = curr_index;
+        //next_index = curr_index;
         next_track_length = track_length;
+        wait_cycle = 1;
 
         case (curr_state)
             INIT: begin 
+                next_index = max_index;
                 if (!wait_cycle) begin
                     next_state = LEFT;
                 end
@@ -123,7 +125,7 @@ always_comb begin
             end
             BACKTRACK: begin
                 // if the top of the tree has been reached and left and right have already been traversed, next state is FINISH
-                next_state = state_cb'(state_cb'(track_length < 7'b1 && curr_path[0] == 1'b1) ? FINISH : (state_cb'(curr_path[0] == 1'b1) ? BACKTRACK : TRACK)); 
+                next_state = state_cb'(track_length < 7'b1 && curr_path[0] == 1'b1 ? FINISH : (curr_path[0] == 1'b1) ? BACKTRACK : TRACK); 
                 if (curr_path[0] == 1'b1 && track_length > 0) begin // if last move was right and the number moves is greater than 0 (not at top of tree)
                     next_path = {1'b0, curr_path[127:1]}; // right shift path to remove last move to "backtrack"
                     next_track_length = track_length - 1; // remove one from track length
@@ -157,7 +159,7 @@ always_comb begin
                 end
             end
             FINISH: begin
-                finished = 1'b1;
+                finished = 4'b0101;
             end
             default: begin
                 next_state = curr_state;
@@ -165,5 +167,6 @@ always_comb begin
         endcase
         curr_index = next_index;
 
+end
 end
 endmodule;

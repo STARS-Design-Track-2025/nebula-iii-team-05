@@ -5,17 +5,10 @@ module t05_translation (
     input logic [127:0] path,
     output logic writeBin, nextCharEn, outEn
 );
-<<<<<<< HEAD
     logic [7:0] index, index_n;
     logic [3:0] count, count_n;
     logic countEn, countEn_n, nextCharEn, nextCharEn_n, totalEn, totalEn_n, writeBin_n;
     logic [1:0]state, state_n;
-=======
-
-    logic [6:0] index, index_n;
-    logic resEn, resEn_n;
-    logic outEn_n, nextCharEn_n, totalEn, totalEn_n;
->>>>>>> ec8032b2b50e67c12f88e10f8730ed9314ee0ac6
 
     always_ff @(posedge clk, posedge rst) begin
         if(rst) begin

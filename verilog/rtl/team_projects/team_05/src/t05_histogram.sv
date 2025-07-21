@@ -1,6 +1,6 @@
 module t05_histogram(
     input logic clk, rst,
-    input logic [7:0] addr_i, sram_addr_in,// SPI and sram address input
+    input logic [7:0] addr_i, //sram_addr_in,// SPI and sram address input
     input logic [31:0] sram_in, //character index from the sram
     output logic eof,  //end of file enable going to the controller
     output logic complete,  //end of byte going to the controller (might not need)
@@ -16,7 +16,7 @@ logic [7:0] end_file = 8'b00011010;
 
 
 
-always_ff @( posedge clk, posedge rst) begin : blockName
+always_ff @( posedge clk, posedge rst) begin
     if (rst || eof) begin
         sram_out <= 0;
         hist_addr <= 0;
