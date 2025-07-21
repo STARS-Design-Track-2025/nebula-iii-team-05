@@ -5,7 +5,6 @@ module t05_translation (
     input logic [127:0] path,
     output logic writeBin
 );
-
     logic [7:0] index, index_n;
     logic [3:0] count, count_n;
     logic countEn, countEn_n, nextCharEn, nextCharEn_n, totalEn, totalEn_n, writeBin_n;
