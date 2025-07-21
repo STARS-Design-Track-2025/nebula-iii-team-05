@@ -6,36 +6,98 @@ module t05_header_synthesis (
     input logic [8:0] least1,
     input logic [8:0] least2,
     input logic [127:0] char_path,
-    output logic [9:0] header
+    output logic [8:0] header,
+    output logic enable,
+    output logic bit1,
+    output logic write_finish
 );
 logic char_added;
-logic [9:0] next_header;
+logic [8:0] next_header;
+logic [3:0] zeroes;
+logic [3:0] next_zeroes;
+logic next_enable;
+logic [3:0] count;
+logic [3:0] next_count;
+logic next_bit1;
+logic next_char_added;
+logic next_write_finish;
+logic start;
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
-        header <= 10'b0;
+        header <= 9'b0;
+        zeroes <= 0;
+        enable <= 0;
+        count <= 0;
+        bit1 <= 0;
+        char_added <= 0;
+        write_finish <= 0;
     end
     else begin
         header <= next_header;
+        zeroes <= next_zeroes;
+        enable <= next_enable;
+        count <= next_count;
+        bit1 <= next_bit1;
+        char_added <= next_char_added;
+        write_finish <= next_write_finish;
     end
 end
 
 always_comb begin
     next_header = header;
-    if (char_found == 1'b1) begin
-        next_header = {2'b11, char_index}; // add control bit, beginning 1, and character index for header
-        char_added = 1;
+    next_zeroes = zeroes;
+    next_enable = enable;
+    next_count = count;
+    next_bit1 = bit1;
+    next_char_added = char_added;
+    next_write_finish = 0;
+
+    if ((char_found == 1'b1)) begin
+        next_header = {1'b1, char_index}; // add control bit, beginning 1, and character index for header
+        next_char_added = 1;
+        next_zeroes = 0;
+        start = 0;
     end
     else if (char_added == 1'b1) begin
         if (least1[8] == 1'b0 && least2[8] == 1'b0 && header[7:0] == least2[7:0]) begin // if both least1 and least2 are characters and state is backtrack (both chars have been found)
-            next_header = {7'b0, 3'b100}; // add two ending 0's plus control bit (for two characters)
+            next_zeroes = 4'b0010;
         end
         else if ((least1[8] == 1'b1 && least2[8] == 1'b0) || (least2[8] == 1'b1 && least1[8] == 1'b0)) begin  // if only either least 1 or least 2 is a sum and the other is a character
-            next_header = {8'b0, 2'b10}; // add one ending 0 for one character
+            //next_header = {header[9:0], 1'b0}; // add one ending 0 for one character
+            next_zeroes = 4'b1;
         end
-        char_added = 1'b0;
+        else begin
+            next_zeroes = 4'b0;
+        end
+        next_char_added = 1'b0;
+        start = 1;
     end
     else begin
-        char_added = 1'b0;
+        start = 0;
+        next_char_added = 1'b0;
     end
+    if (start) begin
+        next_enable = 1;
+        start = 0;
+    end
+
+    if (enable && (count < 9)) begin
+        next_bit1 = header[8];
+        next_header = {header[7:0], 1'b0};
+        next_count = count + 1;
+    end
+    else if (enable && count >= 9) begin
+        if (count < (zeroes + 9)) begin
+            next_count = count + 1;
+            next_bit1 = 1'b0;
+        end
+        else begin
+            next_bit1 = 1'b0;
+            next_enable = 0;
+            next_count = 0;
+            next_write_finish = 1;
+        end
+    end
+
 end
 endmodule
