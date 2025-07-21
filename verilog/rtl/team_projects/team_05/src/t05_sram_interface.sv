@@ -51,7 +51,7 @@ module t05_sram_interface(
         ready_flv = 0;
         ready_trn = 0;
         ready_cb = 0;
-        // ready_ht =0;
+        ready_ht =0;
         select = 4'b1111;
         if (state == A_IDLE) begin
             wr_en = 0;
@@ -142,21 +142,33 @@ module t05_sram_interface(
         DONE_WR
      } name;
 
+     always_ff @( posedge clk ,posedge rst ) begin : blockName
+        if (rst) begin
+            state <= INIT;
+        end else begin
+            state <= next_state;
+    end
+     end
+
 always_comb begin
     case ()
         IDLE: begin
             if (busy_o) begin
-            if () begin
+            if (do_r) begin
                 next_state = READ;
-            end else if () begin 
+            end else if (do_wr) begin 
                 next_state = WRITE;
             end
         end
+        end
         READ: begin
-            next_state = WAITREAD
+            next_state = WAITREAD;
+            busy_o = 1;
+            r_en = 1
         end 
         WRITE: begin
             next_state = WAITWRITE
+            busy_o = 1;
         end
         WAITREAD: begin
             next_state = DONE_R
@@ -166,9 +178,12 @@ always_comb begin
         end
         DONE_R: begin
             next_state = IDLE
+            busy_o = 0;
+            ctrl_out = 1;
         end
         DONE_WR: begin
             next_state = IDLE
+            ctrl_out = 1;
         end
         default: begin 
             next_state = IDLE;
