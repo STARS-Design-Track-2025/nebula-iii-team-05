@@ -8,7 +8,7 @@
 //     SEND
 // } state_cb;
 
-module cb_synthesis (
+module t05_cb_synthesis (
     input logic clk,
     input logic rst,
     input logic [6:0] max_index,
