@@ -181,112 +181,94 @@ always_comb begin
                                 command_n = CIDLE;
                             end
                             C4: begin
-                                command_n = CIDLE;
                                 if (redo) begin
                                     redo_n = 0;
                                     command_n = C2;
                                     enables_n = RESPONSE;
                                 end else begin
                                     enables_n = EN_58; // Enable the fifth bit of the command
+                                    command_n = CIDLE;
                                 end
                             end
                             C5: begin
                                 state_n = READ_SPI;
                                 read_cmd_en_n = 1;
-                                command_n = C5;
+                                command_n = CIDLE;
                             end
                             default: command_n = CIDLE;
                         endcase
                     end
                     EN_0: begin
                         cmd_line_n = CMD0; 
-                        if (timer_50 < 50) begin
+                        if (timer_50 > 49) begin
+                            read_in_40_n = 1; 
+                            command_n = C1;
+                            cmd_en_n = 0;
+                            timer_50_n = 0;
+                        end
+                        else if (timer_50 < 50 && command_n == CIDLE) begin
                             timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
                             if(timer_50 < 48) begin
                                 cmd_en_n = 1;
                             end
-                        end else if (timer_50 > 49) begin
-                            timer_50_n = 0; 
-                            read_in_40_n = 1; 
-                            enables_n = IDLE_SPI;
-                            command_n = C1;
-                            cmd_en_n = 0;
-                        end
-                        else if(miso == 0) begin
-                            enables_n = RESPONSE;
-                        end
+                        end 
                     end
                     EN_8: begin
                         cmd_line_n = CMD8; 
-                        if (timer_50 < 50) begin
+                        if (timer_50 > 49) begin
+                            cmd_en_n = 0;
+                            command_n = C2;
+                            read_in_40_n = 1;
+                            timer_50_n = 0;
+                        end
+                        else if (timer_50 < 50 && command_n == CIDLE) begin
                             timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
                             if(timer_50 < 48) begin
                                 cmd_en_n = 1;
                             end
-                        end else if (timer_50 > 49) begin
-                            timer_50_n = 0; 
-                            //enables_n = IDLE_SPI;
-                            cmd_en_n = 0;
-                            command_n = C2;
-                            read_in_40_n = 1;
-                        end
-                        else if(miso == 0) begin
-                            enables_n = RESPONSE;
-                        end
+                        end 
                     end
                     EN_55: begin
                         cmd_line_n = CMD55; 
-                        if (timer_50 < 50) begin
-                            timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
-                            if(timer_50 < 48) begin
-                                cmd_en_n = 1; 
-                            end
-                        end else if (timer_50 > 49) begin
-                            enables_n = IDLE_SPI;
-                            timer_50_n = 0;  
+                         if (timer_50 > 49) begin
                             cmd_en_n = 0;
                             read_in_40_n = 1;
                             command_n = C3;
-                        end
-                        else if(miso == 0) begin
-                            enables_n = RESPONSE;
+                            timer_50_n = 0;
+                        end else if (timer_50 < 50 && command_n == CIDLE) begin
+                            timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
+                            if(timer_50 < 48) begin
+                                cmd_en_n = 1;
+                            end
                         end
                     end
                     EN_41: begin
                         cmd_line_n = ACMD41; 
-                        if (timer_50 < 50) begin
-                            timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
-                            if(timer_50 < 48) begin
-                                cmd_en_n = 1;
-                            end 
-                        end else if (timer_50 > 49) begin
-                            enables_n = IDLE_SPI;
-                            timer_50_n = 0;
+                        if (timer_50 > 49) begin
                             cmd_en_n = 0;
                             read_in_40_n = 1;
                             command_n = C4;
-                        end
-                        else if(miso == 0) begin
-                            enables_n = RESPONSE;
-                        end
-                    end
-                    EN_58: begin
-                        cmd_line_n = CMD58; 
-                        if (timer_50 < 50) begin
+                            timer_50_n = 0;
+                        end else if (timer_50 < 50 && command_n == CIDLE) begin
                             timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
                             if(timer_50 < 48) begin
                                 cmd_en_n = 1;
-                            end 
-                        end else if (timer_50 > 49) begin
-                            enables_n = IDLE_SPI; 
-                            timer_50_n = 0;
+                            end
+                        end 
+                    end
+                    EN_58: begin
+                        cmd_line_n = CMD58; 
+                        if (timer_50 > 49) begin
                             cmd_en_n = 0;
                             read_in_40_n = 1;
                             command_n = C5;
-                        end
-                        else if(miso == 0) begin
-                            enables_n = RESPONSE;
-                        end
+                            timer_50_n = 0;
+                        end else if (timer_50 < 50 && command_n == CIDLE) begin
+                            timer_50_n = timer_50 + 1; // Increment the timer for 50 clock cycles
+                            if(timer_50 < 48) begin
+                                cmd_en_n = 1;
+                            end
+                        end 
                     end
                     default:
                         enables_n = IDLE_SPI;
