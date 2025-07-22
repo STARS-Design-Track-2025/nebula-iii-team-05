@@ -12,7 +12,7 @@ module t05_cb_synthesis (
     input logic clk,
     input logic rst,
     input logic [6:0] max_index, // max index e.g. the top of the tree, given from HTREE MODULE
-    input logic [70:0] h_element, // h_element given to traverse to from SRAM (given curr_index)
+    input logic [63:0] h_element, // h_element given to traverse to from SRAM (given curr_index)
     input logic write_finish, // sent from the header synthesis when all bits of header potion have been written in SPI (then continue to traverse the tree)
     input logic [3:0] curr_process, // controller state, comment out when testing this module individually
     output logic char_found, // sent as an enable to the SRAM if a character was found to write path (also to the header synthesis module)
