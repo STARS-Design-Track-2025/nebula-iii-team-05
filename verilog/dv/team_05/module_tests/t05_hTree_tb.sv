@@ -15,7 +15,7 @@ module t05_hTree_tb;
 
   t05_hTree inst (.clk(clk), .rst_n(rst_n), .least1(least1), .least2(least2), .sum(sum),
    .nulls(nulls), .HT_en(HT_en), .SRAM_finished(SRAM_finished), .tree_reg(tree), .null1_reg(null1),
-    .null2_reg(null2), .clkCount(clkCount), .nullSumIndex(nullSumIndex), .op_fin(op_fin),.state_reg(state)/*For testing only*/, .WorR(WorR));
+    .null2_reg(null2), .clkCount(clkCount), .nullSumIndex(nullSumIndex), .op_fin(op_fin)/*,.state_reg(state)For testing only*/, .WorR(WorR));
 
   always begin
         clk = 1'b1;
