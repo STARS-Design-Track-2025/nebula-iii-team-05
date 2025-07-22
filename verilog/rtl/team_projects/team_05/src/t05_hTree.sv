@@ -6,33 +6,33 @@ module t05_hTree (
   // Clock and reset
   input logic clk, rst_n,
   // Input data from FLV module
-  input logic [8:0] least1, least2,//From FLV - two least frequent nodes to combine
-  input logic [45:0] sum,//From FLV - combined frequency sum for new node
+  input logic [8:0] least1, least2,                     // From FLV - two least frequent nodes to combine
+  input logic [45:0] sum,                               // From FLV - combined frequency sum for new node
   // SRAM interface
-  input logic [63:0] nulls,//sum node to null sum from SRAM - null values for sum nodes
-  input logic SRAM_finished, // from SRAM - indicates SRAM read operation complete
+  input logic [63:0] nulls,                             // sum node to null sum from SRAM - null values for sum nodes
+  input logic SRAM_finished,                            // from SRAM - indicates SRAM read operation complete
   // Control signals
-  input logic [3:0] HT_en, // Enable signal for HTREE operation from controller
+  input logic [3:0] HT_en,                              // Enable signal for HTREE operation from controller
   // Output data to other modules
-  output logic [70:0] tree_reg, null1_reg, null2_reg,// nodes to be written to SRAM
-  output logic [6:0] clkCount,nullSumIndex,//to Sram (nullSumIndex for addressing), To Codebook (clkCount for indexing)
-  output logic [3:0] op_fin, // to controller - operation completion status
+  output logic [70:0] tree_reg, null1_reg, null2_reg,   // nodes to be written to SRAM
+  output logic [6:0] clkCount, nullSumIndex,            // to Sram (nullSumIndex for addressing), To Codebook (clkCount for indexing)
+  output logic [3:0] op_fin,                            // to controller - operation completion status
   //TEMPORARY
-//   output logic [3:0] state_reg,//for testing
-  output logic WorR // to SRAM - Write or Read control signal (1=Read, 0=Write)
+    //  output logic [3:0] state_reg,//for testing
+  output logic WorR                                     // to SRAM - Write or Read control signal (1=Read, 0=Write)
 );
     // Internal register declarations
-    logic [6:0] clkCount_reg, nullSumIndex_reg; // Clock counter and SRAM address index
-    logic [8:0] least1_reg, least2_reg; // Registered input node values
-    logic [45:0] sum_reg; // Registered sum value
-    logic [70:0] null1, null2; // Null node structures for sum nodes
-    logic [70:0] tree; // Current tree node being constructed
-    logic SRAM_fin; // Registered SRAM finished signal
-    logic HT_fin; // Huffman tree operation finished flag
-    logic HT_finished; // Huffman tree completely finished (both inputs null)
-    logic err; // Error detection flag
-    logic HT_Finished,HT_fin_reg,ERROR; // Status and control flags
-    logic [3:0] state_reg; // State register for debugging
+    logic [6:0] clkCount_reg, nullSumIndex_reg;         // Clock counter and SRAM address index
+    logic [8:0] least1_reg, least2_reg;                 // Registered input node values
+    logic [45:0] sum_reg;                               // Registered sum value
+    logic [70:0] null1, null2;                          // Null node structures for sum nodes
+    logic [70:0] tree;                                  // Current tree node being constructed
+    logic SRAM_fin;                                     // Registered SRAM finished signal
+    logic HT_fin;                                       // Huffman tree operation finished flag
+    logic HT_finished;                                  // Huffman tree completely finished (both inputs null)
+    logic err;                                          // Error detection flag
+    logic HT_Finished,HT_fin_reg,ERROR;                 // Status and control flags
+    logic [3:0] state_reg;                              // State register for debugging
 
     // logic [6:0] scounter;
     // logic [6:0] clkCount;
@@ -43,15 +43,15 @@ module t05_hTree (
     logic [3:0] next_state; // Next state combinational logic
     
  typedef enum logic [3:0] {
-        FIN=0,      // Finished state - operation complete, waiting for disable
-        NEWNODE=1,  // Create new tree node from input least1, least2
-        L1SRAM=2,   // Read SRAM to get null values for least1 (sum node)
-        NULLSUM1=3, // Process null sum data for least1
-        L2SRAM=4,   // Read SRAM to get null values for least2 (sum node)
-        NULLSUM2=5, // Process null sum data for least2
-        RESET=6     // Reset state for special cases
+        FIN=0,                                          // Finished state - operation complete, waiting for disable
+        NEWNODE=1,                                      // Create new tree node from input least1, least2
+        L1SRAM=2,                                       // Read SRAM to get null values for least1 (sum node)
+        NULLSUM1=3,                                     // Process null sum data for least1
+        L2SRAM=4,                                       // Read SRAM to get null values for least2 (sum node)
+        NULLSUM2=5,                                     // Process null sum data for least2
+        RESET=6                                         // Reset state for special cases
     } state_t;
-    state_t state; // Current state register
+    state_t state;                                      // Current state register
 // Sequential logic block - handles state and register updates
 always_ff @(posedge clk or negedge rst_n) begin
     if (!rst_n) begin
@@ -94,13 +94,13 @@ end
         tree = tree_reg;
         null1 = null1_reg;
         null2 = null2_reg;
-        clkCount = clkCount_reg;  // Output current count value
+        clkCount = clkCount_reg;            // Output current count value
         nullSumIndex_reg = nullSumIndex;
         next_state = state;
         HT_fin = HT_fin_reg;
         HT_finished = 1'b0;
-        WorR = 1'b0; // Default write operation
-        op_fin = 4'b0000; // Default operation finish signal
+        WorR = 1'b0;                        // Default write operation
+        op_fin = 4'b0000;                   // Default operation finish signal
 
         // Main state machine logic based on HT enable signal
         if (HT_en == 4'b0011) begin
@@ -108,8 +108,8 @@ end
             if (((least1[8] && least2 == 9'b110000000) || (least2[8] && least1 == 9'b110000000)) && least1 != least2) begin
                 tree = {clkCount_reg, least1, 9'b110000000, sum};
                 clkCount = clkCount_reg + 1;
-                HT_finished = 1'b0; // If both least are null nodes, finish immediately
-                next_state = RESET; // Go to reset state
+                HT_finished = 1'b0;                     // If both least are null nodes, finish immediately
+                next_state = RESET;                     // Go to reset state
             // Special case: both nodes are null (NULL + NULL case)
             end else if (least1 == 9'b110000000 && least2 == 9'b110000000) begin
                 HT_finished = 1'b1;
@@ -121,8 +121,8 @@ end
                         WorR = 1'b0; 
                         // Create new internal node from two least frequent nodes
                         // Tree format: {clkCount, least1, least2, sum}
-                        tree = {clkCount_reg, least1, least2, sum};  // Uses clkCount_reg, not clkCount
-                        clkCount = clkCount_reg + 1;  // Output current count (will be incremented next cycle)
+                        tree = {clkCount_reg, least1, least2, sum};             // Uses clkCount_reg, not clkCount
+                        clkCount = clkCount_reg + 1;                            // Output current count (will be incremented next cycle)
                         // Check if least1 is a sum node (not null) and needs SRAM access
                         if (least1[8] && least1 != 9'b110000000) begin
                             next_state = L1SRAM;
