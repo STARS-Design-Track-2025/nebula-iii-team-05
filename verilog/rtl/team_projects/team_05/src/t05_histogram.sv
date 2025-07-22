@@ -16,7 +16,7 @@ logic [7:0] end_file = 8'b00011010;
 
 
 
-always_ff @( posedge clk, posedge rst) begin : blockName
+always_ff @( posedge clk, posedge rst) begin
     if (rst || eof) begin
         sram_out <= 0;
         hist_addr <= 0;
