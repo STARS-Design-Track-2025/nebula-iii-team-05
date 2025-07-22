@@ -204,7 +204,6 @@ always_comb begin
                 next_state = curr_state;
             end
         endcase
-        //curr_index = next_index;
 
 end
 endmodule;
