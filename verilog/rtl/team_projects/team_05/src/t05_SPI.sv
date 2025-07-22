@@ -26,7 +26,7 @@ module t05_SPI (
     input logic rst, // Reset
     input logic serial_clk, clk,
     input logic writebit,
-    input logic read_en, write_en, read_stop,
+    input logic read_en, write_en, read_stop, nextCharEn,
     input logic [31:0] read_address, write_address,
     output logic slave_select,
     output logic [7:0] read_output,
@@ -279,13 +279,14 @@ always_comb begin
             end 
         end
         READ_SPI: begin  // Logic for reading data from MISO
-        freq_flag_n = 1;
-            if(read_en) begin
+            freq_flag_n = 1;
+            if(read_en || nextCharEn) begin
                 read_output = read_byte; 
                 read_in_timer_n = 0;
                 if(read_cmd_en) begin
                     cmd_line_n = cmd18;
                     cmd_en_n = 1;
+                    read_stop_en_n = 1;
                     if(cmd_en) begin
                         if (index_counter == 47) begin
                             index_counter_n = 0; // Reset the index counter after sending the command
