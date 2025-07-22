@@ -1,13 +1,18 @@
-module t05_header_synthesis (
+module header_synthesis (
     input logic clk,
     input logic rst,
+    // from cb synthesis
     input logic [7:0] char_index,
     input logic char_found,
     input logic [8:0] least1,
     input logic [8:0] least2,
+    input logic [127:0] char_path,
+    // internal
     output logic [8:0] header,
+    // output to SPI (write enable and bit data)
     output logic enable,
     output logic bit1,
+    // output to cb synthesis (write_finish)
     output logic write_finish
 );
 logic char_added;
@@ -59,14 +64,14 @@ always_comb begin
     end
     else if (char_added == 1'b1) begin
         if (least1[8] == 1'b0 && least2[8] == 1'b0 && header[7:0] == least2[7:0]) begin // if both least1 and least2 are characters and state is backtrack (both chars have been found)
-            next_zeroes = 4'b0010;
+            next_zeroes = 4'b0010; // add 2 zeroes
         end
         else if ((least1[8] == 1'b1 && least2[8] == 1'b0) || (least2[8] == 1'b1 && least1[8] == 1'b0)) begin  // if only either least 1 or least 2 is a sum and the other is a character
             //next_header = {header[9:0], 1'b0}; // add one ending 0 for one character
-            next_zeroes = 4'b1;
+            next_zeroes = 4'b1; // add 1 zero
         end
-        else begin
-            next_zeroes = 4'b0;
+        else begin // if only left char was found and not the right char
+            next_zeroes = 4'b0; // add 0 zeroes
         end
         next_char_added = 1'b0;
         start = 1;
@@ -75,22 +80,22 @@ always_comb begin
         start = 0;
         next_char_added = 1'b0;
     end
-    if (start) begin
+    if (start) begin // enable (start writing bits)
         next_enable = 1;
         start = 0;
     end
 
-    if (enable && (count < 9)) begin
+    if (enable && (count < 9)) begin // send the bits of leading 1 and found char
         next_bit1 = header[8];
         next_header = {header[7:0], 1'b0};
         next_count = count + 1;
     end
-    else if (enable && count >= 9) begin
+    else if (enable && count >= 9) begin // send 0 bits (if any)
         if (count < (zeroes + 9)) begin
             next_count = count + 1;
             next_bit1 = 1'b0;
         end
-        else begin
+        else begin // otherwise set enables low and write_finish to cb synthesis high
             next_bit1 = 1'b0;
             next_enable = 0;
             next_count = 0;
