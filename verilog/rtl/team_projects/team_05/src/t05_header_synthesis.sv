@@ -5,7 +5,6 @@ module t05_header_synthesis (
     input logic char_found,
     input logic [8:0] least1,
     input logic [8:0] least2,
-    input logic [127:0] char_path,
     output logic [8:0] header,
     output logic enable,
     output logic bit1,
