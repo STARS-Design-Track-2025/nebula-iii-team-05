@@ -11,7 +11,6 @@ module t05_translation (
     logic resEn, resEn_n;
     logic writeEn_n, nextCharEn_n, totalEn, totalEn_n;
 
-
     always_ff @(posedge clk, posedge rst) begin
         if(rst) begin
             index <= 7'd31;

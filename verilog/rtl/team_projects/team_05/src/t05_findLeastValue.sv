@@ -50,6 +50,7 @@ always_comb begin
     least2_n = least2;
     sumCount = histo_index - 256;
     sum_n = sum;
+    nextCharEn = 0;
 
     if(compVal != 0 && histo_index < 384) begin
         if(val1 > compVal && histo_index < 256) begin
@@ -74,6 +75,7 @@ always_comb begin
             least2_n = {1'b1, sumCount[7:0]};
             charWipe2_n = '0;
             val2_n = compVal;
+            nextCharEn = 1;
         end
         if(val1 != 64'hFFFFFFFFFFFFFFFF && val2 != 64'hFFFFFFFFFFFFFFFF) begin
             sum_n = val1 + val2;
