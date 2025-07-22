@@ -10,7 +10,7 @@ typedef enum logic [2:0] {
     SEND
 } state_cb;
 
-module cb_synthesis_tb;
+module t05_cb_synthesis_tb;
     logic clk, reset, char_found;
     logic [3:0] finished;
     logic [6:0] max_index;
@@ -35,8 +35,8 @@ module cb_synthesis_tb;
     logic wait_cycle;
 
     always #5 clk = ~clk;
-    cb_synthesis cb1(.clk(clk), .write_finish(write_finish), .track_length(track_length), .pos(pos), .least1(least1), .least2(least2), .rst(reset), .max_index(max_index), .curr_path(curr_path), .curr_index(curr_index), .h_element(h_element), .curr_state(state), .char_path(char_path), .char_index(char_index), .char_found(char_found), .finished(finished), .wait_cycle(wait_cycle));
-    header_synthesis hd1 (.clk(clk), .write_finish(write_finish), .rst(reset), .bit1(bit1), .enable(enable), .char_index(char_index), .char_path(char_path), .char_found(char_found), .least1(least1), .least2(least2), .header(header));
+    t05_cb_synthesis cb1(.clk(clk), .write_finish(write_finish), .track_length(track_length), .pos(pos), .least1(least1), .least2(least2), .rst(reset), .max_index(max_index), .curr_path(curr_path), .curr_index(curr_index), .h_element(h_element), .curr_state(state), .char_path(char_path), .char_index(char_index), .char_found(char_found), .finished(finished), .wait_cycle(wait_cycle));
+    t05_header_synthesis hd1 (.clk(clk), .write_finish(write_finish), .rst(reset), .bit1(bit1), .enable(enable), .char_index(char_index), .char_path(char_path), .char_found(char_found), .least1(least1), .least2(least2), .header(header));
     task reset_fsm();
       begin
         reset = 1;
@@ -55,8 +55,8 @@ module cb_synthesis_tb;
     endtask
 
     initial begin
-      $dumpfile("waves/cb_synthesis.vcd"); //change the vcd vile name to your source file name
-      $dumpvars(0, cb_synthesis_tb);
+      $dumpfile("t05_cb_synthesis.vcd"); //change the vcd vile name to your source file name
+      $dumpvars(0, t05_cb_synthesis_tb);
       
       clk = 0;
       reset = 0;
