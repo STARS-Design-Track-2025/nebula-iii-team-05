@@ -39,6 +39,17 @@ module top (
     .clk(hwclk), .slave_select(green), .read_output(read_out), .writebit(pb[5]), .read_en(pb[4]), 
     .write_en(pb[6]), .read_stop(pb[1]), .read_address(32'd0), .write_address(32'd0), .finish(ss0[0]), .freq_flag(flag));
 
+  t05_histogram hist (
+    .clk(hwclk), .rst(reset),
+    .addr_i(read_output), // SPI (one char from file) and sram address input
+    .sram_in(sram_data_out_hist), //character index from the sram
+    .eof(enable),  //end of file enable going to the controller
+    output logic complete,  //end of byte going to the controller (might not need)
+    output logic [31:0] total, sram_out, //total number of 8 bit inputs that have came through and the sram output with the new "+ 1" value to the sram_in
+    output logic [7:0] hist_addr // the address given to the sram
+
+  )
+
   assign ss1[6] = sclk; // Connect the serial clock to one of the slave select lines for debugging
   team_05 team_05_inst (
     .clk(hwclk),
