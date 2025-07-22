@@ -1,4 +1,4 @@
-module header_synthesis (
+module t05_header_synthesis (
     input logic clk,
     input logic rst,
     // from cb synthesis
