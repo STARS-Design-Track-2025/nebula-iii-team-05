@@ -28,25 +28,20 @@ module t05_cb_synthesis (
     output logic [6:0] pos, // keeps track of current position in the path when in TRACK state
     output logic wait_cycle //waits one clock cycle in transistion between states to allow for output to stabilize
 );
-
-//   state_cb state;
-//   assign curr_state = state;
-
-    // next state logic
-    logic [127:0] next_path; // store current path
-    logic [6:0] next_index; // htree element index
-    state_cb next_state; // current codebook state
-    logic [6:0] next_track_length; // current path length (for tracking state)
-    logic wait_cycle;
-    logic next_wait_cycle;
-    logic [6:0] next_pos;
-
+// next state logic
+logic [127:0] next_path; // store current path
+logic [6:0] next_index; // htree element index
+state_cb next_state; // current codebook state
+logic [6:0] next_track_length; // current path length (for tracking state)
+//logic wait_cycle;
+logic next_wait_cycle;
+logic [6:0] next_pos;
 
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
         curr_state <= INIT; // initial state
         curr_path <= 128'b1; // control bit
-        //curr_index <= max_index; // top of tree
+        curr_index <= max_index; // top of tree
         track_length <= 7'b0; // set current path length to 0
         pos <= 7'b1;
         wait_cycle <= 1;
@@ -54,8 +49,10 @@ always_ff @(posedge clk, posedge rst) begin
     else begin
         curr_path <= next_path;
         curr_state <= next_state;
-        pos <= next_pos;
         track_length <= next_track_length;
+        curr_index <= next_index;
+        pos <= next_pos;
+        wait_cycle <= next_wait_cycle;
     end
 end
 
@@ -71,27 +68,27 @@ always_comb begin
         next_path = curr_path;
         next_index = curr_index;
         next_track_length = track_length;
-        wait_cycle = 1;
+        next_pos = pos;
+        next_wait_cycle = wait_cycle;
 
         case (curr_state)
             INIT: begin 
                 //next_index = max_index;
-              if (wait_cycle == 0) begin
+              if (wait_cycle == 0) begin // wait one cycle for inputs (like getting htree element from curr_index) to stabilize between states
                     next_state = LEFT;
                   next_pos = 1;
                 end
                 else begin
-                    next_state = INIT; 
-                    pos = 1;
-                    wait_cycle = 0;
+                     next_state = INIT; 
+                     next_wait_cycle = 0;
                 end
             end
-            LEFT: begin
+            LEFT: begin // move left (add 0 to path)
               if (wait_cycle == 0) begin
                   next_track_length = track_length + 1; // update total path length
                   next_state = state_cb'((least1[8] == 1'b0) ? SEND : LEFT);
                   if (least1[8] == 1'b0 || least1 == 9'b110000000) begin // if LSE is a char (or there is no element)
-                      if (least1 != 9'b110000000) begin
+                      if (least1 != 9'b110000000) begin // if there is a char (not no element)
                           char_index = least1[7:0]; // set output character (index) to LSE, NOT to tracking index
                           char_found = 1'b1;
                           next_state = SEND;
@@ -114,7 +111,7 @@ always_comb begin
                 next_wait_cycle = 0;
               end
             end
-            SEND: begin
+            SEND: begin // state after a character was found and waiting for char bits to be written through SPI
               if (wait_cycle == 0) begin
                   if (write_finish) begin
                       next_state = BACKTRACK;
@@ -128,26 +125,30 @@ always_comb begin
                 next_wait_cycle = 0;
               end
             end
-            TRACK: begin
+            TRACK: begin // after backtrack state when a character was found, use that backtracked path to start from the top of the tree and then retrieve the htree element
               if (wait_cycle == 0) begin
                   next_state = state_cb'((track_length >= pos) ? TRACK : RIGHT);
                   next_wait_cycle = 1;
                   if (track_length >= pos) begin // if the h_tree element of the previous node hasn't been reached
 
-                    if (curr_path[track_length - pos] == 1'b0) begin// if the movement in the tree is left
-                        next_index = least1[6:0]; // set next index to get from htree to LSE
-                        pos += 1; // remove one from the tracking length
-                    end
-                    else if (curr_path[track_length - pos] == 1'b1) begin// if the movement in the tree is right
-                        next_index = least2[6:0]; // set next index to get from htree to RSE
-                        pos += 1; // remove one from the tracking length
-                    end
-                end
-                else begin
-                        pos = 1; // to account for track length index being one less than actual length
-                end
+                      if (curr_path[track_length - pos] == 1'b0) begin// if the movement in the tree is left
+                          next_index = least1[6:0]; // set next index to get from htree to LSE
+                          next_pos = pos + 1; // remove one from the tracking length
+                      end
+                      else if (curr_path[track_length - pos] == 1'b1) begin// if the movement in the tree is right
+                          next_index = least2[6:0]; // set next index to get from htree to RSE
+                          next_pos = pos + 1; // remove one from the tracking length
+                      end
+                  end
+                  else begin
+                          next_pos = 1; // to account for track length index being one less than actual length
+                  end
+              end
+              else begin
+                next_wait_cycle = 0;
+              end
             end
-            BACKTRACK: begin
+            BACKTRACK: begin // after a char was found and bits were written through the spi (header portion) start to backtrack until you can move right again
               if (wait_cycle == 0) begin
                 next_wait_cycle = 1;
                   // if the top of the tree has been reached and left and right have already been traversed, next state is FINISH
@@ -168,7 +169,7 @@ always_comb begin
                 next_wait_cycle = 0;
               end
             end
-            RIGHT: begin
+            RIGHT: begin  // move right (add 1 to path)
               if (wait_cycle == 0) begin
                   next_track_length = track_length + 1; // update total path length
                   next_wait_cycle = 1;
@@ -185,7 +186,6 @@ always_comb begin
                       end
                       next_path = {curr_path[126:0], 1'b1}; // left shift and add 1 (left) to output character path
                       char_path = next_path;
-                      //wait_cycle = 1;
                   end
 
                   else if (least2[8] == 1'b1) begin // if RSE is a sum
@@ -198,13 +198,14 @@ always_comb begin
               end
             end
             FINISH: begin
-                finished = 4'b0101;
+                finished = 4'b0101; // FIN state sent to (CONTROLLER)
             end
             default: begin
                 next_state = curr_state;
             end
         endcase
-        curr_index = next_index;
+        //curr_index = next_index;
 
 end
 endmodule;
+
