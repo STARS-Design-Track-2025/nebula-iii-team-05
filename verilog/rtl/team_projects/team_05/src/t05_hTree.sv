@@ -1,17 +1,17 @@
 `default_nettype none
 module t05_hTree (
   input logic clk, rst_n,
-  input logic [8:0] least1, least2,
-  input logic [45:0] sum,
+  input logic [8:0] least1, least2,//From FLV
+  input logic [45:0] sum,//From FLV
   input logic [63:0] nulls,//sum node to null sum from SRAM
   input logic [3:0] HT_en, // Enable signal for HTREE operation
-  input logic SRAM_finished,
+  input logic SRAM_finished, // from SRAM
   output logic [70:0] tree_reg, null1_reg, null2_reg,// nodes to be written to SRAM
-  output logic [6:0] clkCount,nullSumIndex,
-  output logic HT_Finished,HT_fin_reg,
-  //temp
-  output logic [3:0] state_reg,//for testing
-  output logic ERROR, WorR
+  output logic [6:0] clkCount,nullSumIndex,//to Sram, To Codebook
+  output logic [3:0] op_fin, // to controller
+  //TEMPORARY
+//   output logic [3:0] state_reg,//for testing
+  output logic WorR // to SRAM
 );
     logic [6:0] clkCount_reg, nullSumIndex_reg;
     logic [8:0] least1_reg, least2_reg;
@@ -22,6 +22,8 @@ module t05_hTree (
     logic HT_fin;
     logic HT_finished;
     logic err;
+    logic HT_Finished,HT_fin_reg,ERROR;
+    // logic [3:0] state_reg;
 
     // logic [6:0] scounter;
     // logic [6:0] clkCount;
@@ -85,6 +87,7 @@ end
         HT_fin = HT_fin_reg;
         HT_finished = 1'b0;
         WorR = 1'b0; // Default write operation
+        op_fin = 4'b0000; // Default operation finish signal
 
         if (HT_en == 4'b0011) begin
             if (((least1[8] && least2 == 9'b110000000) || (least2[8] && least1 == 9'b110000000)) && least1 != least2) begin // single character file
@@ -171,6 +174,17 @@ end
             err = 1'b1;
         end else begin
             err = 1'b0;
+        end
+
+        // op fin sent to controller
+        if (ERROR) begin
+            op_fin = 4'b1000; // Indicate error operation finish
+        end else if (HT_Finished) begin
+            op_fin = 4'b0100;
+        end else if (HT_fin_reg) begin
+            op_fin = 4'b0011;
+        end else begin
+            op_fin = 4'b0000; // Default operation finish signal
         end
     end
 
