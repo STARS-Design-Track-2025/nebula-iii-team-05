@@ -9,9 +9,13 @@ module t05_hTree_tb;
   logic [6:0] clkCount, nullSumIndex;
   logic HT_Finished, HT_fin_reg;
   logic [3:0] HT_en,state; //temp
+  logic [3:0] op_fin;
+  logic WorR;
   logic err;
 
-  t05_hTree inst (.clk(clk), .rst_n(rst_n), .least1(least1), .least2(least2), .sum(sum), .nulls(nulls), .HT_en(HT_en), .SRAM_finished(SRAM_finished), .tree_reg(tree), .null1_reg(null1), .null2_reg(null2), .clkCount(clkCount), .nullSumIndex(nullSumIndex), .HT_Finished(HT_Finished), .HT_fin_reg(HT_fin_reg), .state_reg(state), .ERROR(err));
+  t05_hTree inst (.clk(clk), .rst_n(rst_n), .least1(least1), .least2(least2), .sum(sum),
+   .nulls(nulls), .HT_en(HT_en), .SRAM_finished(SRAM_finished), .tree_reg(tree), .null1_reg(null1),
+    .null2_reg(null2), .clkCount(clkCount), .nullSumIndex(nullSumIndex), .op_fin(op_fin),.state_reg(state)/*For testing only*/, .WorR(WorR));
 
   always begin
         clk = 1'b1;
@@ -21,12 +25,17 @@ module t05_hTree_tb;
   end
 
   task automatic createNode(input logic [8:0] l1, input logic [8:0] l2, input logic [45:0] nsum); 
+    logic [70:0] tree_before;
+    
     least1 = l1;
     least2 = l2;
     sum = nsum;
 
     $display("=== NODE CREATION TEST START ===");
     $display("Inputs: L1=%b, L2=%b, Sum=%d", l1, l2, nsum);
+
+    // Capture tree state before operation
+    tree_before = tree;
 
     // Start with SRAM ready to avoid waiting in SRAM states initially
     SRAM_finished = 1'b1;
@@ -37,7 +46,7 @@ module t05_hTree_tb;
     @(posedge clk);
     
     // Check if we entered NEWNODE state and tree is being formed
-    $display("After enable: State=%d, tree=%b", state, tree);
+    $display("After enable: State=%d, tree=%b, op_fin=%b", state, tree, op_fin);
     
     // If we need to handle SRAM states, simulate the delay
     if (state == 4'd2 || state == 4'd4) begin // L1SRAM or L2SRAM
@@ -57,18 +66,40 @@ module t05_hTree_tb;
     
     // Check final results
     $display("=== FINAL RESULTS ===");
-    $display("State: %d, clkCount: %d", state, clkCount);
+    $display("State: %d, clkCount: %d, op_fin: %b, WorR: %b", state, clkCount, op_fin, WorR);
     
-    // The tree was built with (clkCount-1) due to timing
-    $display("Expected Tree: {%d, %b, %b, %d}", clkCount-1, l1, l2, nsum);
-    $display("Actual Tree:   %b", tree);
-    
-    if (tree == {(clkCount-7'd1), least1, least2, sum}) begin
-        $display("✓ NODE CREATION SUCCESSFUL");
+    // Check for NULL + NULL case (Huffman tree completion)
+    if (l1 == 9'b110000000 && l2 == 9'b110000000) begin
+        // NULL + NULL case - expect same tree (no change) and finished signal
+        $display("NULL + NULL case detected");
+        $display("Expected: Tree unchanged, op_fin = 4'b0100");
+        $display("Actual: tree_before=%b, tree_now=%b, op_fin=%b", tree_before, tree, op_fin);
+        
+        if (tree == tree_before) begin
+            $display("✓ TREE UNCHANGED (as expected for NULL + NULL)");
+        end else begin
+            $display("✗ TREE CHANGED (should remain unchanged for NULL + NULL)");
+            $display("  Before: %b", tree_before);
+            $display("  After:  %b", tree);
+        end
+        
+        if (op_fin == 4'b0100) begin
+            $display("✓ OP_FIN CORRECT (4'b0100 for completion)");
+        end else begin
+            $display("✗ OP_FIN INCORRECT (expected 4'b0100, got %b)", op_fin);
+        end
     end else begin
-        $display("✗ NODE CREATION FAILED");
-        $display("  Expected: %b", {(clkCount-7'd1), least1, least2, sum}); //might pose a problem for CB the index might be one higher than necessary
-        $display("  Actual:   %b", tree);
+        // Normal case - expect new tree to be created
+        $display("Expected Tree: {%d, %b, %b, %d}", clkCount-1, l1, l2, nsum);
+        $display("Actual Tree:   %b", tree);
+        
+        if (tree == {(clkCount-7'd1), least1, least2, sum}) begin
+            $display("✓ NODE CREATION SUCCESSFUL");
+        end else begin
+            $display("✗ NODE CREATION FAILED");
+            $display("  Expected: %b", {(clkCount-7'd1), least1, least2, sum});
+            $display("  Actual:   %b", tree);
+        end
     end
     
     // Check null node creation for internal nodes
@@ -91,12 +122,6 @@ module t05_hTree_tb;
         $display("  Actual:   %b", null2);
       end
     end
-
-    if (HT_Finished && least1 == 9'b110000000 && least2 == 9'b110000000) begin
-      $display("✓ HT_Finished correctly asserted");
-    end 
-
-   
     
     // Disable operation and wait for completion
     HT_en = 4'b0;
@@ -138,17 +163,17 @@ module t05_hTree_tb;
     least2 = 9'b000000010; // Simple character  
     sum = 46'd50;
     
-    $display("Before enable: State=%d, HT_en=%b", state, HT_en);
+    $display("Before enable: State=%d, HT_en=%b, op_fin=%b", state, HT_en, op_fin);
     HT_en = 4'b0011;
     @(posedge clk);
-    $display("After enable: State=%d, tree=%b", state, tree);
+    $display("After enable: State=%d, tree=%b, op_fin=%b", state, tree, op_fin);
     @(posedge clk);
-    $display("Next cycle: State=%d, tree=%b", state, tree);
+    $display("Next cycle: State=%d, tree=%b, op_fin=%b", state, tree, op_fin);
     
     HT_en = 4'b0000;
     @(posedge clk);
     @(posedge clk);
-    $display("After disable: State=%d, tree=%b", state, tree);
+    $display("After disable: State=%d, tree=%b, op_fin=%b", state, tree, op_fin);
     $display("");
 
     rst_n = 1'b0; // Reset for next test
@@ -160,54 +185,34 @@ module t05_hTree_tb;
     $display("\n\n=== TEST 1: CHARACTER + CHARACTER ===\n");
     createNode({1'b0, 8'h41}, {1'b0, 8'h42}, 46'd120); // 'A', 'B', sum = 120
     
-    if (HT_Finished) begin
-      $display("ERROR: HT_Finished should not be asserted");
-    end
-    
     // TEST 2 - L1 = CHARACTER, L2 = SUM NODE
     $display("\n\n=== TEST 2: CHARACTER + SUM NODE ===\n");
     createNode({1'b0, 8'h43}, {1'b1, 8'd1}, 46'd200); // 'C', 'sum node', sum = 200
-    
-    if (HT_Finished) begin
-      $display("ERROR: HT_Finished should not be asserted");
-    end
     
     // TEST 3 - L1 = SUM NODE, L2 = CHARACTER
     $display("\n\n=== TEST 3: SUM NODE + CHARACTER ===\n");
     createNode({1'b0, 8'h44}, {1'b0, 8'h45}, 46'd280); // 'D', 'E', sum = 280
     
-    if (HT_Finished) begin
-      $display("ERROR: HT_Finished should not be asserted");
-    end
-    
     // TEST 4 - L1 = SUM NODE, L2 = SUM NODE
     $display("\n\n=== TEST 4: SUM NODE + SUM NODE ===\n");
     createNode({1'b1, 8'd2}, {1'b1, 8'd3}, 46'd480); // 'sum node', 'sum node', sum = 480
-    
-    if (HT_Finished) begin
-      $display("ERROR: HT_Finished should not be asserted");
-    end
     
     // TEST 5 - L1 = SUM NODE, L2 = NULL
     $display("\n\n=== TEST 5: SUM NODE + NULL ===\n");
     createNode({1'b0, 8'd4}, {9'b110000000}, 46'd480); // 'sum node', 'null node', sum = 480
     
-    if (HT_Finished) begin
-      $display("ERROR: HT_Finished should not be asserted");
-    end
-    
     // TEST 6 - L1 = NULL, L2 = NULL
     $display("\n\n=== TEST 6: NULL + NULL ===\n");
     createNode({9'b110000000}, {9'b110000000}, 46'd0); // 'null node', 'null node', sum = 0
     
-    // Wait for HT_Finished to propagate through state machine
+    // Wait for op_fin signal to propagate through state machine
     @(posedge clk);
     @(posedge clk);
     
-    if (HT_Finished) begin
-      $display("✓ HT_Finished correctly asserted for NULL + NULL");
+    if (op_fin == 4'b0100) begin
+      $display("✓ op_fin correctly asserted (4'b0100) for NULL + NULL completion");
     end else begin
-      $display("✗ ERROR: HT_Finished should be asserted for NULL + NULL");
+      $display("✗ ERROR: op_fin should be 4'b0100 for NULL + NULL, got %b", op_fin);
     end
     
     // Set up universal null pattern
@@ -292,6 +297,34 @@ module t05_hTree_tb;
     
     HT_en = 4'b0000;
     #20;
+
+    // TEST 10 - OP_FIN SIGNAL TESTING
+    $display("\n\n=== TEST 10: OP_FIN SIGNAL TESTING ===\n");
+    rst_n = 1'b0;
+    #20;
+    rst_n = 1'b1;
+    #20;
+    
+    // Test that op_fin signals are properly generated
+    least1 = {1'b0, 8'h50}; // 'P'
+    least2 = {1'b0, 8'h51}; // 'Q'
+    sum = 46'd1000;
+    
+    $display("Starting op_fin test...");
+    $display("Initial: op_fin=%b, WorR=%b", op_fin, WorR);
+    
+    HT_en = 4'b0011;
+    @(posedge clk);
+    $display("After enable: op_fin=%b, WorR=%b, state=%d", op_fin, WorR, state);
+    
+    // Wait for completion
+    repeat (15) @(posedge clk);
+    $display("After completion: op_fin=%b, WorR=%b, state=%d", op_fin, WorR, state);
+    
+    HT_en = 4'b0;
+    @(posedge clk);
+    @(posedge clk);
+    $display("After disable: op_fin=%b, WorR=%b, state=%d", op_fin, WorR, state);
 
     $display("\n\n=== ALL TESTS COMPLETED ===\n");
 

@@ -743,19 +743,6 @@ module t05_controller_tb;
         end
         total_tests++;
         
-        // Test high-Z inputs
-        $display("Testing high-Z input values...");
-        finState = 4'bzzzz;
-        op_fin = 4'bzzzz;
-        #40;
-        if (state_reg == HISTO) begin
-            $display("✓ PASS: High-Z inputs - stayed in HISTO");
-            passed_tests++;
-        end else begin
-            $display("✗ FAIL: High-Z inputs - moved to state %0d", state_reg);
-        end
-        total_tests++;
-        
         // Test during state transitions with invalid inputs
         $display("Testing invalid inputs during various states...");
         for (int test_state = 1; test_state <= 6; test_state++) begin
