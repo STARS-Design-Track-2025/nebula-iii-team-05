@@ -29,25 +29,32 @@ module t05_cb_synthesis (
 );
 
 
-// next state logic
-logic [127:0] next_path; // store current path
-logic [6:0] next_index; // htree element index
-state_cb next_state; // current codebook state
-logic [6:0] next_track_length; // current path length (for tracking state)
-logic wait_cycle;
+    // next state logic
+    logic [127:0] next_path; // store current path
+    logic [6:0] next_index; // htree element index
+    state_cb next_state; // current codebook state
+    logic [6:0] next_track_length; // current path length (for tracking state)
+    logic wait_cycle;
+    logic next_wait_cycle;
+    logic [6:0] next_pos;
 
 
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
         curr_state <= INIT; // initial state
         curr_path <= 128'b1; // control bit
-        //curr_index <= max_index; // top of tree
+        curr_index <= max_index; // top of tree
+        pos <= 1'b1;
+        wait_cycle <= 1;
         track_length <= 7'b0; // set current path length to 0
     end
     else begin
         curr_path <= next_path;
         curr_state <= next_state;
+        pos <= next_pos;
         track_length <= next_track_length;
+        wait_cycle <= next_wait_cycle;
+        curr_index <= next_index;
     end
 end
 
@@ -61,9 +68,11 @@ always_comb begin
         finished = 4'b0;
         next_state = curr_state;
         next_path = curr_path;
-        //next_index = curr_index;
+        next_index = curr_index;
         next_track_length = track_length;
-        wait_cycle = 1;
+        next_pos = pos;
+        next_wait_cycle = wait_cycle;
+        //wait_cycle = 1;
 
         case (curr_state)
             INIT: begin 
@@ -73,8 +82,9 @@ always_comb begin
                 end
                 else begin
                     next_state = INIT; 
-                    pos = 1;
-                    wait_cycle = 0;
+                    // pos = 1;
+                    // wait_cycle = 0;
+                    next_wait_cycle = 0;
                 end
             end
             LEFT: begin
@@ -112,15 +122,15 @@ always_comb begin
 
                     if (curr_path[track_length - pos] == 1'b0) begin// if the movement in the tree is left
                         next_index = least1[6:0]; // set next index to get from htree to LSE
-                        pos += 1; // remove one from the tracking length
+                        next_pos = pos + 1; // remove one from the tracking length
                     end
                     else if (curr_path[track_length - pos] == 1'b1) begin// if the movement in the tree is right
                         next_index = least2[6:0]; // set next index to get from htree to RSE
-                        pos += 1; // remove one from the tracking length
+                        next_pos = pos + 1; // remove one from the tracking length
                     end
                 end
                 else begin
-                        pos = 1; // to account for track length index being one less than actual length
+                        next_pos = 1; // to account for track length index being one less than actual length
                 end
             end
             BACKTRACK: begin
@@ -165,7 +175,6 @@ always_comb begin
                 next_state = curr_state;
             end
         endcase
-        curr_index = next_index;
 
 end
 end
