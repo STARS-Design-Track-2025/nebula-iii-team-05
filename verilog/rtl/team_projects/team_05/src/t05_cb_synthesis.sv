@@ -11,21 +11,21 @@
 module t05_cb_synthesis (
     input logic clk,
     input logic rst,
-    input logic [6:0] max_index,
-    input logic [70:0] h_element,
-    input logic write_finish,
-    //input logic [2:0] curr_process,
-    output logic char_found,
-    output logic [127:0] char_path,
-    output logic [7:0] char_index,
-    output state_cb curr_state,
-    output logic [6:0] curr_index,
-    output logic [127:0] curr_path,
-    output logic [8:0] least1,
-    output logic [8:0] least2,
-    output logic finished,
-    output logic [6:0] track_length,
-    output logic [6:0] pos
+    input logic [6:0] max_index, // max index sent from HTREE
+    input logic [70:0] h_element, // HTREE element sent from SRAM
+    input logic write_finish, // write finish sent from WRITE FINISH
+    //input logic [2:0] curr_process, // curr process (EN STATE FROM CONTROLLER)
+    output logic char_found, // char found (enable sent to header synthesis)
+    output logic [127:0] char_path, // path of a character (sent to SRAM for TRANSLATION MODULE)
+    output logic [7:0] char_index, // index of character found (sent to SRAM for TRANSLATION MODULE) 
+    output state_cb curr_state, // INTERNAL state of CB SYNTHESIS
+    output logic [6:0] curr_index, // HTREE INDEX, sent to SRAM to fetch
+    output logic [127:0] curr_path, // INTERNAL path when traversing the tree
+    output logic [8:0] least1, // least1 (parsed from h_element)
+    output logic [8:0] least2, // least2 (parse from h_element)
+    output logic [3:0] finished, // FIN state sent to CONTROLLER
+    output logic [6:0] track_length, // keeps track of internal path length 
+    output logic [6:0] pos // keeps track of position in the internal path during the track state
 );
 
 
@@ -66,7 +66,7 @@ always_comb begin
 
         case (curr_state)
             INIT: begin 
-                if (!wait_cycle) begin
+                if (!wait_cycle) begin // wait one cycle to wait for htree element to come in from max index and inputs to stabilize
                     next_state = LEFT;
                 end
                 else begin
@@ -75,7 +75,7 @@ always_comb begin
                     wait_cycle = 0;
                 end
             end
-            LEFT: begin
+            LEFT: begin // move left (add 0 to path)
                 next_track_length = track_length + 1; // update total path length
                 next_state = state_cb'((least1[8] == 1'b0) ? SEND : LEFT);
                 if (least1[8] == 1'b0 || least1 == 9'b110000000) begin // if LSE is a char (or there is no element)
@@ -96,7 +96,7 @@ always_comb begin
                     next_index = least1[6:0]; // set next index to get from htree to the sum
                 end
             end
-            SEND: begin
+            SEND: begin // send char index to header synthesis and wait for writing to be done in SPI
                 if (write_finish) begin
                         next_state = BACKTRACK;
                 end
@@ -104,7 +104,7 @@ always_comb begin
                     next_state = curr_state;
                 end
             end
-            TRACK: begin
+            TRACK: begin // once backtracking after finding a character, track to the new path made by the backtrack from the top of the tree
                 next_state = state_cb'((track_length >= pos) ? TRACK : RIGHT);
                 if (track_length >= pos) begin // if the h_tree element of the previous node hasn't been reached
 
@@ -121,7 +121,7 @@ always_comb begin
                         pos = 1; // to account for track length index being one less than actual length
                 end
             end
-            BACKTRACK: begin
+            BACKTRACK: begin // once a char was found and SPI writing is finished, shift out the most recent move and move to either track or finish or backtrack again
                 // if the top of the tree has been reached and left and right have already been traversed, next state is FINISH
                 next_state = state_cb'(state_cb'(track_length < 7'b1 && curr_path[0] == 1'b1) ? FINISH : (state_cb'(curr_path[0] == 1'b1) ? BACKTRACK : TRACK)); 
                 if (curr_path[0] == 1'b1 && track_length > 0) begin // if last move was right and the number moves is greater than 0 (not at top of tree)
@@ -135,7 +135,7 @@ always_comb begin
                     next_track_length = track_length - 1;
                 end
             end
-            RIGHT: begin
+            RIGHT: begin // move right (add a 1 to the path)
                 next_track_length = track_length + 1; // update total path length
                 next_state = state_cb'((least2[8] == 1'b0) ? SEND : LEFT);
 
@@ -157,14 +157,13 @@ always_comb begin
                     next_index = least2[6:0]; // set next index to get from htree to the sum
                 end
             end
-            FINISH: begin
-                finished = 1'b1;
+            FINISH: begin // finish (FIN state to be sent to CONTROLLER)
+                finished = 4'b0101;
             end
             default: begin
                 next_state = curr_state;
             end
         endcase
-        curr_index = next_index;
 
 end
 endmodule;
