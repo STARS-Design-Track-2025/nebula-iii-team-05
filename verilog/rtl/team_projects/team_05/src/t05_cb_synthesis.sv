@@ -11,21 +11,41 @@ typedef enum logic [2:0] {
 module t05_cb_synthesis (
     input logic clk,
     input logic rst,
-    input logic [6:0] max_index,
-    input logic [70:0] h_element,
-    input logic write_finish,
-    //input logic [2:0] curr_process,
-    output logic char_found,
-    output logic [127:0] char_path,
-    output logic [7:0] char_index,
-    output state_cb curr_state,
-    output logic [6:0] curr_index,
-    output logic [127:0] curr_path,
-    output logic [8:0] least1,
-    output logic [8:0] least2,
-    output logic finished,
-    output logic [6:0] track_length,
-    output logic [6:0] pos
+    input logic [6:0] max_index, // max index e.g. the top of the tree, given from HTREE MODULE
+    input logic [70:0] h_element, // h_element given to traverse to from SRAM (given curr_index)
+    input logic write_finish, // sent from the header synthesis when all bits of header potion have been written in SPI (then continue to traverse the tree)
+    input logic [3:0] curr_process, // controller state, comment out when testing this module individually
+    output logic char_found, // sent as an enable to the SRAM if a character was found to write path (also to the header synthesis module)
+    output logic [127:0] char_path, // sends the character path to SRAM as data
+    output logic [7:0] char_index, // sends the character index to SRAM as an index to write at correct address
+    output state_cb curr_state, // current internal state of this module in binary tree traversal
+    output logic [6:0] curr_index, // current index of the htree element currently being searched (sent to HTREE MODULE)
+    output logic [127:0] curr_path, // current path in the tree (begin updated as the tree is traversed)
+    output logic [8:0] least1, // least1 of the current htree element
+    output logic [8:0] least2, // least2 of the current htree element
+    output logic [3:0] finished, // finish signal sent to the CONTROLLER
+    output logic [6:0] track_length, // keeps track of current path length to know when to stop tracking the path in the TRACK state
+    output logic [6:0] pos, // keeps track of current position in the path when in TRACK state
+    output logic wait_cycle //waits one clock cycle in transistion between states to allow for output to stabilize
+);
+
+//   state_cb state;
+//   assign curr_state = state;
+    input logic [6:0] max_index, // max index sent from HTREE
+    input logic [70:0] h_element, // HTREE element sent from SRAM
+    input logic write_finish, // write finish sent from WRITE FINISH
+    //input logic [2:0] curr_process, // curr process (EN STATE FROM CONTROLLER)
+    output logic char_found, // char found (enable sent to header synthesis)
+    output logic [127:0] char_path, // path of a character (sent to SRAM for TRANSLATION MODULE)
+    output logic [7:0] char_index, // index of character found (sent to SRAM for TRANSLATION MODULE) 
+    output state_cb curr_state, // INTERNAL state of CB SYNTHESIS
+    output logic [6:0] curr_index, // HTREE INDEX, sent to SRAM to fetch
+    output logic [127:0] curr_path, // INTERNAL path when traversing the tree
+    output logic [8:0] least1, // least1 (parsed from h_element)
+    output logic [8:0] least2, // least2 (parse from h_element)
+    output logic [3:0] finished, // FIN state sent to CONTROLLER
+    output logic [6:0] track_length, // keeps track of internal path length 
+    output logic [6:0] pos // keeps track of position in the internal path during the track state
 );
 
 
