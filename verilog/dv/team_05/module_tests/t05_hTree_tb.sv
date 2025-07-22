@@ -12,6 +12,7 @@ module t05_hTree_tb;
   logic [3:0] op_fin;
   logic WorR;
   logic err;
+  int test_progress = 0;
 
   t05_hTree inst (.clk(clk), .rst_n(rst_n), .least1(least1), .least2(least2), .sum(sum),
    .nulls(nulls), .HT_en(HT_en), .SRAM_finished(SRAM_finished), .tree_reg(tree), .null1_reg(null1),
@@ -30,7 +31,7 @@ module t05_hTree_tb;
     least1 = l1;
     least2 = l2;
     sum = nsum;
-
+    test_progress ++;
     $display("=== NODE CREATION TEST START ===");
     $display("Inputs: L1=%b, L2=%b, Sum=%d", l1, l2, nsum);
 
@@ -69,6 +70,7 @@ module t05_hTree_tb;
     $display("State: %d, clkCount: %d, op_fin: %b, WorR: %b", state, clkCount, op_fin, WorR);
     
     // Check for NULL + NULL case (Huffman tree completion)
+   
     if (l1 == 9'b110000000 && l2 == 9'b110000000) begin
         // NULL + NULL case - expect same tree (no change) and finished signal
         $display("NULL + NULL case detected");
@@ -199,10 +201,22 @@ module t05_hTree_tb;
     
     // TEST 5 - L1 = SUM NODE, L2 = NULL
     $display("\n\n=== TEST 5: SUM NODE + NULL ===\n");
-    createNode({1'b0, 8'd4}, {9'b110000000}, 46'd480); // 'sum node', 'null node', sum = 480
-    
-    // TEST 6 - L1 = NULL, L2 = NULL
-    $display("\n\n=== TEST 6: NULL + NULL ===\n");
+    createNode({1'b1, 8'd4}, {9'b110000000}, 46'd480); // 'sum node', 'null node', sum = 480
+
+    // TEST 6 - L1 = Null, L2 = Sum Node
+    $display("\n\n=== TEST 6: NULL + SUM NODE ===\n");
+    createNode({9'b110000000}, {1'b1, 8'd4}, 46'd480); // 'null node', 'sum node', sum = 480
+
+    // TEST 7 - L1 = Null, L2 = CHARACTER
+    $display("\n\n=== TEST 7: NULL + CHARACTER ===\n");
+    createNode({9'b110000000}, {1'b0, 8'd4}, 46'd480); // 'null node', 'character', sum = 480
+
+    // TEST 8 - L1 = CHARACTER, L2 = NULL
+    $display("\n\n=== TEST 8: CHARACTER + NULL ===\n");
+    createNode({1'b0, 8'd4}, {9'b110000000}, 46'd480); // 'character', 'null node', sum = 480
+
+    // TEST 9 - L1 = NULL, L2 = NULL
+    $display("\n\n=== TEST 9: NULL + NULL ===\n");
     createNode({9'b110000000}, {9'b110000000}, 46'd0); // 'null node', 'null node', sum = 0
     
     // Wait for op_fin signal to propagate through state machine
@@ -218,8 +232,9 @@ module t05_hTree_tb;
     // Set up universal null pattern
     nulls = {1'b1, 8'hFF, 1'b1, 8'hFF, 46'd46912496118442}; // null node sum = binary 101 pattern
     
-    // TEST 7 - Clock count ramping test
-    $display("\n\n=== TEST 7: CLOCK COUNT RAMPING ===\n");
+    // TEST 10 - Clock count ramping test
+    test_progress ++;
+    $display("\n\n=== TEST 10: CLOCK COUNT RAMPING ===\n");
     $display("Starting clkCount ramp test from count: %d", clkCount);
     
     for (int i = 0; i < 121; i++) begin
@@ -252,20 +267,21 @@ module t05_hTree_tb;
     $display("Math check: 6 + 121 = %d, but 7-bit max is 127", 6+121);
     $display("Expected behavior: Should saturate at 127 or wrap around");
     
-    // TEST 8 - Maximum Node Indices
-    $display("\n\n=== TEST 8: MAXIMUM NODE INDICES ===\n");
+    // TEST 11 - Maximum Node Indices
+    test_progress ++;
+    $display("\n\n=== TEST 11: MAXIMUM NODE INDICES ===\n");
     least1 = {1'b1, 8'h7F}; // Max index 127
     least2 = {1'b1, 8'h7E}; // Index 126
     sum = 46'd999999;
     
     HT_en = 4'b0011;
     #50;
-    $display("Test 8: Maximum Node Indices");
+    $display("Test 11: Maximum Node Indices");
     $display("[%b]tree[%b,%b,%b]", clkCount, tree[70:64], tree[63:46], tree[44:0]);
     if (tree == {(clkCount-7'd1), least1, least2, sum}) begin
-        $display("✓ Test 8 PASSED");
+        $display("✓ Test 11 PASSED");
     end else begin
-        $display("✗ Test 8 FAILED");
+        $display("✗ Test 11 FAILED");
         $display("  Expected: %b", {(clkCount-7'd1), least1, least2, sum});
         $display("  Actual:   %b", tree);
     end
@@ -279,8 +295,9 @@ module t05_hTree_tb;
     rst_n = 1'b1;
     #20;
     
-    // TEST 9 - SRAM Not Ready
-    $display("\n\n=== TEST 9: SRAM NOT READY ===\n");
+    // TEST 12 - SRAM Not Ready
+    test_progress ++;
+    $display("\n\n=== TEST 12: SRAM NOT READY ===\n");
     least1 = {1'b1, 8'h10}; // Sum node
     least2 = {1'b0, 8'h42}; // 'B'
     sum = 46'd5000;
@@ -298,8 +315,9 @@ module t05_hTree_tb;
     HT_en = 4'b0000;
     #20;
 
-    // TEST 10 - OP_FIN SIGNAL TESTING
-    $display("\n\n=== TEST 10: OP_FIN SIGNAL TESTING ===\n");
+    // TEST 13 - OP_FIN SIGNAL TESTING
+    test_progress ++;
+    $display("\n\n=== TEST 13: OP_FIN SIGNAL TESTING ===\n");
     rst_n = 1'b0;
     #20;
     rst_n = 1'b1;
