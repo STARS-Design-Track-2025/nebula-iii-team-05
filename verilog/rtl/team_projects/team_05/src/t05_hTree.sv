@@ -10,8 +10,7 @@ module t05_hTree (
   output logic [6:0] clkCount,nullSumIndex,
   output logic HT_Finished,HT_fin_reg,
   //temp
-  output logic [3:0] state_reg,//for testing
-  output logic ERROR, WorR
+  output logic error, WorR
 );
     logic [6:0] clkCount_reg, nullSumIndex_reg;
     logic [8:0] least1_reg, least2_reg;
@@ -66,9 +65,8 @@ always_ff @(posedge clk or negedge rst_n) begin
         nullSumIndex <= nullSumIndex_reg;
         SRAM_fin <= SRAM_finished;
         HT_fin_reg <= HT_fin;
-        state_reg <= state;
         HT_Finished <= HT_finished;
-        ERROR <= err;
+        error <= err;
 
     end
 end
