@@ -34,8 +34,13 @@ module t05_findLeastValue_tb;
         #2
         compVal = 1000;
         #66
+        compVal = 0;
+        #10
         compVal = 400;
-        #2
+        #50
+        rst = 1;
+        #50
+        rst = 0;
         compVal = 400;
         #2 
         compVal = 300;
@@ -48,6 +53,36 @@ module t05_findLeastValue_tb;
         #2
         compVal = 20;
         #200
+
+        rst = 1;
+        #40
+        rst = 0;
+
+        compVal = 0;
+        #10
+        compVal = 0;
+        #10
+        #700
+
+        rst = 1;
+        #40
+        rst = 0;
+
+        #40 
+        compVal = 100;
+        #2
+        compVal = 0;
+        #750
+
+        rst = 1;
+        #40
+        rst = 0;
+
+        #600
+        compVal = 100;
+        #2
+        compVal = 0;
+        #400
 
         #4 $finish;
     end

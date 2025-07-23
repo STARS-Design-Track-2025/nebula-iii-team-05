@@ -46,7 +46,7 @@ clean:  ${PATTERNS}
 .PHONY: assy2hex_%
 assy2hex_%:
 	@if [ -f "$*/$*_cpu.asm" ]; then \
-		$(GCC_PATH)/$(GCC_PREFIX)-as -march=rv32i -mabi=ilp32 -o $*/$*_cpu.o $*/$*_cpu.asm; \
+		$(GCC_PATH)/$(GCC_PREFIX)-as -march=rv32im -mabi=ilp32 -o $*/$*_cpu.o $*/$*_cpu.asm; \
 		$(GCC_PATH)/$(GCC_PREFIX)-ld -m elf32lriscv -Ttext=0x0 -o $*/$*_cpu.elf $*/$*_cpu.o; \
 		$(GCC_PATH)/$(GCC_PREFIX)-objcopy -O binary $*/$*_cpu.elf $*/$*_cpu.bin; \
 		xxd -p -c 4 $*/$*_cpu.bin | awk '{print substr($$0,7,2) substr($$0,5,2) substr($$0,3,2) substr($$0,1,2)}' > $*/$*_cpu.hex; \

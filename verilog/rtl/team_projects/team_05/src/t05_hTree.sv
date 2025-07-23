@@ -86,7 +86,6 @@ always_ff @(posedge clk or negedge rst_n) begin
         nullSumIndex <= nullSumIndex_reg;
         SRAM_fin <= SRAM_finished;
         HT_fin_reg <= HT_fin;
-        state_reg <= state;
         HT_Finished <= HT_finished;
         ERROR <= err;
         node_reg <= node;

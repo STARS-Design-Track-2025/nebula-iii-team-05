@@ -556,19 +556,26 @@ tbsim-source-%: nebula
 # Example target: make cram_team_00
 .PHONY: cram_%
 cram_%:
-	@export BUILD=verilog/rtl/team_projects/$*/build &&\
-	export ICE=fpga_support/ice40hx8k.sv &&\
-	export UART=fpga_support/uart/* &&\
-	export PINMAP=fpga_support/pinmap.pcf &&\
-	export TEAM_DIR=verilog/rtl/team_projects/$* &&\
-	export SRC_DIR=verilog/rtl/team_projects/$*/src &&\
+	@export USER_PROJECT_VERILOG=$(UPRJ_ROOT)/verilog &&\
+	export BUILD=$$USER_PROJECT_VERILOG/rtl/team_projects/$*/build &&\
+	export ICE=$(UPRJ_ROOT)/fpga_support/ice40hx8k.sv &&\
+	export UART=$(UPRJ_ROOT)/fpga_support/uart &&\
+	export PINMAP=$(UPRJ_ROOT)/fpga_support/pinmap.pcf &&\
+	export TEAM_DIR=$$USER_PROJECT_VERILOG/rtl/team_projects/$* &&\
+	export SRC_DIR=$$USER_PROJECT_VERILOG/rtl/team_projects/$*/src &&\
+	export SRAM_WRAPPER="$$USER_PROJECT_VERILOG/rtl/sram/sram_WB_Wrapper.sv" &&\
 	export FPGA_TOP=$*_fpga_top &&\
 	mkdir -p $$BUILD &&\
-	yosys -p "read_verilog -sv -noblackbox $$ICE $$UART $$TEAM_DIR/*.sv $$SRC_DIR/*.sv; synth_ice40 -top ice40hx8k -json $$BUILD/$$FPGA_TOP.json" &&\
+	sed -i 's/sram_for_FPGA/sky130_sram_8kbyte_1r1w_32x2048_8/' $$SRAM_WRAPPER &&\
+	sed -i 's/sky130_sram_8kbyte_1r1w_32x2048_8/sram_for_FPGA/' $$SRAM_WRAPPER &&\
+	yosys -p "read_verilog -sv -noblackbox $$ICE $$UART $$TEAM_DIR/*.sv $$SRC_DIR/*.sv \
+		$$USER_PROJECT_VERILOG/rtl/wishbone_manager/wishbone_manager.sv $$SRAM_WRAPPER \
+		$$USER_PROJECT_VERILOG/rtl/sram/sram_for_FPGA.v; \
+		synth_ice40 -top ice40hx8k -json $$BUILD/$$FPGA_TOP.json" &&\
 	nextpnr-ice40 --hx8k --package ct256 --pcf $$PINMAP --asc $$BUILD/$$FPGA_TOP.asc --json $$BUILD/$$FPGA_TOP.json &&\
 	icepack $$BUILD/$$FPGA_TOP.asc $$BUILD/$$FPGA_TOP.bin &&\
-	iceprog -S $$BUILD/$$FPGA_TOP.bin
-
+	iceprog -S $$BUILD/$$FPGA_TOP.bin &&\
+	sed -i 's/sram_for_FPGA/sky130_sram_8kbyte_1r1w_32x2048_8/' $$SRAM_WRAPPER
 
 # KLayout Command
 klayout_cmd = \
