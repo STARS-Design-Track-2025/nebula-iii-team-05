@@ -34,7 +34,7 @@ module sram_for_FPGA #(
   reg [DATA_WIDTH-1:0]    mem [0:RAM_DEPTH-1];
 
   // Uncomment if using external memory file
-  // initial $readmemh(FILENAME, mem, 0, 8);  // SPECIFY UP TO WHICH WORD ADDRESS YOU WILL WRITE!!
+  // initial $readmemh(FILENAME, mem);  // UNCOMMENT!! (if needed)
 
   reg  csb0_reg;
   reg [NUM_WMASKS-1:0]   wmask0_reg;
