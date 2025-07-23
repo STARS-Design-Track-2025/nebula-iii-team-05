@@ -1,11 +1,11 @@
 module t05_translation (
     input logic clk, rst,
-    input logic [3:0] en_state,
-    input logic [31:0] totChar,
-    input logic [7:0] charIn,
-    input logic [127:0] path,
-    output logic writeBin, nextCharEn, writeEn,
-    output logic [2:0] fin_state
+    input logic [3:0] en_state,                     //Enable State
+    input logic [31:0] totChar,                     //Total number of characters in file
+    input logic [7:0] charIn,                       //Character coming in from the SPI
+    input logic [127:0] path,                       //Path obtained from SRAM
+    output logic writeBin, nextCharEn, writeEn,     //writeBin == bit being written into file, nextCharEn calls for the next character, writeEn means to write to file 
+    output logic [2:0] fin_state                    //Finish State
 );
     logic [6:0] index, index_n;
     logic resEn, resEn_n;

@@ -1,44 +1,117 @@
 module t05_histogram(
-    input logic clk, rst,
-    input logic [7:0] addr_i, //sram_addr_in,// SPI and sram address input
-    input logic [31:0] sram_in, //character index from the sram
-    output logic eof,  //end of file enable going to the controller
-    output logic complete,  //end of byte going to the controller (might not need)
-    output logic [31:0] total, sram_out, //total number of 8 bit inputs that have came through and the sram output with the new "+ 1" value to the sram_in
-    output logic [7:0] hist_addr // the address given to the sram
-
+    input  logic       clk, rst,
+    input  logic [7:0] spi_in,        // input byte from SPI
+    input  logic [31:0] sram_in,       // value from SRAM
+    output logic       eof, complete, // eof = end of file; complete = done with byte
+    output logic [31:0] total, sram_out,  //total number of characters within the file,  the updated data going to the sram 
+    output logic [7:0]  hist_addr,     // address to SRAM
+    output logic [1:0] wr_r_en        // enable going to sram to tell it to read or write
 );
+//send a controller enable to controller
+//accept an enable from sram to know when to procccess new data
+logic [31:0] char_total;
+logic [3:0] state, next_state;
+logic [7:0] new_spi;
 
-//should be giving an addr to sram then sram will give back the index to that coresponding address then the hist will add 1 to it then give it back to the sram to be stored
-logic clear;
-logic [7:0] shift; //assign end_file to what the end of the file would be
-logic [7:0] end_file = 8'b00011010;
+typedef enum logic [3:0] {
+    IDLE  = 4'd0,
+    READ  = 4'd1,
+    WAIT  = 4'd2,
+    WRITE = 4'd3,
+    HALT  = 4'd4,
+    DONE = 4'd5,
+    READ2 = 4'd6
+} state_t;
 
+logic [1:0] wait_cnt;
+logic [7:0] end_file = 8'h1A;
 
-
-always_ff @( posedge clk, posedge rst) begin
-    if (rst || eof) begin
-        sram_out <= 0;
-        hist_addr <= 0;
-        shift <= shift;
-        total <= total;
-        complete <= 0;
+always_ff @( posedge clk, posedge rst ) begin
+    if (rst) begin
+        state <= IDLE;
     end else begin
-        sram_out <= sram_in + 1;  //the old index will have 1 added to it and by used as sram_out
-        hist_addr <= addr_i;  // the data_i will be used as the addr
-        shift <= addr_i; // the shift will be replaced with the data_in and the eof will trigger if it matches the endfile byte
-        total <= total +1;  // the total characters will be added onto each other
-    end
+        state <= next_state;
+    end 
+end
 
-    if (end_file == shift) begin
-        eof <= 1;
-    end else begin
-        eof <= 0;
-    end
-
-    if (eof && !rst) begin
-        complete <= 1;
+always_ff @(posedge clk, posedge rst) begin
+    if (rst) begin
+        wait_cnt <= 0;
+    end else if (state == WAIT) begin
+        wait_cnt <= wait_cnt + 1;
     end
 end
+
+always_ff @( posedge clk, posedge rst ) begin : blockName
+    if (rst) begin
+        new_spi <= 0;
+    end else begin
+        new_spi <= spi_in;
+    end
+end
+
+// Next state logic
+always_ff @( posedge clk, posedge rst ) begin
+    if (rst) begin
+        state      <= IDLE;
+        wait_cnt   <= 0;
+        wr_r_en    <= 0;
+        total      <= 0;
+        sram_out   <= 0;
+        hist_addr  <= 0;
+        eof        <= 0;
+        complete   <= 0;
+        char_total <= 0;
+    end 
+    case (state)
+        IDLE:  begin //beginning of the histogram
+            next_state <= READ;
+            wr_r_en   <= 2'd3;
+            complete  <= 0;
+            eof       <= 0;
+            hist_addr <= spi_in;
+        end
+        READ:  begin  //giving the sram the character that it wants to pull
+            next_state <= WAIT;
+            wr_r_en   <= 2'd0;
+            hist_addr <= new_spi;
+            char_total <= char_total + 1;
+        end
+        READ2: begin  //giving the updated data to the sram for storage
+            next_state <= WAIT;
+            wr_r_en <= 2'd0;
+        end
+        WAIT:  begin  //wait cycle between input and output from sram
+            if (wait_cnt == 2) begin
+                wait_cnt <= 0;
+                next_state <= DONE;
+            end else begin
+                next_state <= WRITE;
+            end
+        end
+        WRITE: begin  //pulling the data from the sram and adding 1
+            wr_r_en <= 2'd1;
+            sram_out <= sram_in + 1;
+            if (spi_in == end_file) begin
+                next_state <= HALT;
+                eof <= 1;
+                wr_r_en <= 2'd3;
+            end else begin
+                next_state <= READ2;
+            end
+        end
+        DONE: begin  //done with that 1 cycle
+            next_state <= IDLE;
+            complete <= 1;
+            wr_r_en <= 2'd3;
+        end
+        HALT:   begin  //the end of file has been enabled and histogram will stop
+            next_state <= HALT;
+            eof <= 1;
+            total <= char_total;
+            wr_r_en <= 2'd3;
+        end
+    endcase
+    end
 
 endmodule

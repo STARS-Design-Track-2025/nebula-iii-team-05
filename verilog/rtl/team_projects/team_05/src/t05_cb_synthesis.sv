@@ -1,13 +1,13 @@
 `timescale 1ms/10ps
-// typedef enum logic [2:0] {
-//     LEFT=0,
-//     RIGHT,
-//     TRACK,
-//     BACKTRACK,
-//     FINISH,
-//     INIT,
-//     SEND
-// } state_cb;
+typedef enum logic [2:0] {
+    LEFT=0,
+    RIGHT,
+    TRACK,
+    BACKTRACK,
+    FINISH,
+    INIT,
+    SEND
+} state_cb;
   
 module t05_cb_synthesis (
     input logic clk,
@@ -15,29 +15,26 @@ module t05_cb_synthesis (
     input logic [6:0] max_index,
     input logic [70:0] h_element,
     input logic write_finish,
-    //input logic [2:0] curr_process,
+    input logic SRAM_read_finished,
+    input logic [2:0] curr_process,
     output logic char_found,
     output logic [127:0] char_path,
     output logic [7:0] char_index,
-    output state_cb curr_state,
     output logic [6:0] curr_index,
-    output logic [127:0] curr_path,
     output logic [8:0] least1,
     output logic [8:0] least2,
     output logic [3:0] finished,
     output logic [6:0] track_length,
-  output logic [6:0] pos,
-  output logic wait_cycle
 );
 
 // next state logic
-logic [127:0] next_path; // store current path
+logic [127:0] curr_path, next_path; // store current path
 logic [6:0] next_index; // htree element index
-state_cb next_state; // current codebook state
+state_cb next_state, curr_state; // current codebook state
 logic [6:0] next_track_length; // current path length (for tracking state)
 //logic wait_cycle;
-logic next_wait_cycle;
-logic [6:0] next_pos;
+logic next_wait_cycle, wait_cycle;
+logic [6:0] next_pos, pos;
 logic sent;
 logic next_sent;
 

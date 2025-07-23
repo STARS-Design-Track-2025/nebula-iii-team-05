@@ -1,11 +1,11 @@
 module t05_findLeastValue (
     input logic clk, rst,
-    input logic [63:0] compVal,
-    input logic [3:0] en_state,
-    output logic [63:0] sum,
-    output logic [7:0] charWipe1, charWipe2,
-    output logic [8:0] least1, least2, histo_index,
-    output logic [2:0] fin_state
+    input logic [63:0] compVal,                         //Value being compared to least1 and least2, either a histogram value or sum
+    input logic [3:0] en_state,                         //Enable state
+    output logic [63:0] sum,                            //Sum of two values
+    output logic [7:0] charWipe1, charWipe2,            //Characters to be wiped from SRAM
+    output logic [8:0] least1, least2, histo_index,     //Least values and the index for the next value from SRAM
+    output logic [2:0] fin_state                        //Finish Enable
 );
 logic [8:0] least1_n, least2_n, count_n, sumCount;
 logic [63:0] val1, val2, val1_n, val2_n, sum_n;
@@ -50,7 +50,6 @@ always_comb begin
     least2_n = least2;
     sumCount = histo_index - 256;
     sum_n = sum;
-    nextCharEn = 0;
 
     if(compVal != 0 && histo_index < 384) begin
         if(val1 > compVal && histo_index < 256) begin
@@ -75,7 +74,6 @@ always_comb begin
             least2_n = {1'b1, sumCount[7:0]};
             charWipe2_n = '0;
             val2_n = compVal;
-            nextCharEn = 1;
         end
         if(val1 != 64'hFFFFFFFFFFFFFFFF && val2 != 64'hFFFFFFFFFFFFFFFF) begin
             sum_n = val1 + val2;
