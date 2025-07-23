@@ -9,7 +9,7 @@ INTEGRATION_MODE = False
 ALLOWED_DIRECTORIES = {".github", "def", "docs", "gds", "lef", "lib", "mag", "sdc", "signoff", "spef", "spi", "verilog/rtl/team_projects"}
 
 # Only change commit hash if you are a member of the post-program integration team.  All others will be banished off the face of the Earth
-STABLE_COMMIT_HASH = "8d4d8d734af9cc1986e912cf38d79ac91b6ba7f2"  # 07/19/2025
+STABLE_COMMIT_HASH = "c91c049f5cc7811ddd143b471198dcea7065a06f"  # 07/23/2025
 
 
 # Patterns for per-team project areas
