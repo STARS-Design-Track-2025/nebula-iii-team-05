@@ -7,13 +7,12 @@ module t05_header_synthesis (
     input logic [8:0] least2,
     input logic [127:0] char_path,
     input logic [6:0] track_length,
-    output logic [8:0] header,
     output logic enable,
     output logic bit1,
     output logic write_finish
 );
 logic char_added;
-logic [8:0] next_header;
+logic [8:0] next_header, header;
 logic [7:0] zeroes;
 logic [7:0] next_zeroes;
 logic next_enable;
