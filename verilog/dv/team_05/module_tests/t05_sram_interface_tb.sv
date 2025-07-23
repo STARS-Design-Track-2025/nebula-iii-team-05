@@ -1,156 +1,178 @@
-`timescale 1ms/1ns
+`timescale 1ns / 1ps
 
-module sraminterface_tb;
+module t05_sram_interface_tb;
 
-  logic clk, rst, trn_nxt_char;
+  // Clock and reset
+  logic clk, rst;
+
+  // Inputs
   logic [31:0] histogram;
   logic [7:0] histgram_addr;
   logic hist_r_wr;
-  logic [7:0] find_least;
+
+  logic [8:0] find_least;
+  logic [7:0] charwipe1, charwipe2;
+  logic flv_r_wr;
+
   logic [70:0] new_node;
   logic [6:0] htreeindex;
   logic htree_r_wr;
-  logic [7:0] codebook;
+
+  logic [6:0] curr_index;
+  logic [7:0] char_index;
   logic [127:0] codebook_path;
+
   logic [7:0] translation;
   logic [2:0] state;
+
   logic [31:0] sram_data_out_his;
   logic [63:0] sram_data_out_flv;
-  logic [128:0] sram_data_out_trn;
+  logic [127:0] sram_data_out_trn;
   logic [70:0] sram_data_out_cb;
-  logic [31:0] sram_data_out_ht;
-  logic wr_en, r_en;
-  logic [3:0] select;
-  logic [31:0] old_char, addr, sram_data_in;
-  logic [63:0] comp_val;
-  logic [70:0] h_element;
-  logic [128:0] char_code;
-  logic busy_o;
+  logic [70:0] sram_data_out_ht;
 
-  // Instantiate the DUT
-  sraminterface dut (
-    .clk(clk),
-    .rst(rst),
-    .busy_o(busy_o),
-    .trn_nxt_char(trn_nxt_char),
-    .histogram(histogram),
-    .histgram_addr(histgram_addr),
-    .hist_r_wr(hist_r_wr),
-    .find_least(find_least),
-    .new_node(new_node),
-    .htreeindex(htreeindex),
-    .htree_r_wr(htree_r_wr),
-    .codebook(codebook),
-    .codebook_path(codebook_path),
-    .translation(translation),
-    .state(state),
-    .sram_data_out_his(sram_data_out_his),
-    .sram_data_out_flv(sram_data_out_flv),
-    .sram_data_out_trn(sram_data_out_trn),
-    .sram_data_out_cb(sram_data_out_cb),
+  // Outputs
+  logic wr_en, r_en, busy_o;
+  logic [3:0] select;
+  logic [31:0] addr;
+  logic [63:0] sram_data_in_ht, nulls;
+  logic [31:0] sram_data_in_hist, old_char;
+  logic [63:0] comp_val, sram_data_in_flv;
+  logic [70:0] h_element;
+  logic [127:0] cb_path_sram, path;
+
+  // Instantiate DUT
+  t05_sram_interface dut (
+    .clk(clk), .rst(rst),
+    .histogram(histogram), .histgram_addr(histgram_addr), .hist_r_wr(hist_r_wr),
+    .find_least(find_least), .charwipe1(charwipe1), .charwipe2(charwipe2), .flv_r_wr(flv_r_wr),
+    .new_node(new_node), .htreeindex(htreeindex), .htree_r_wr(htree_r_wr),
+    .curr_index(curr_index), .char_index(char_index), .codebook_path(codebook_path),
+    .translation(translation), .state(state),
+    .sram_data_out_his(sram_data_out_his), .sram_data_out_flv(sram_data_out_flv),
+    .sram_data_out_trn(sram_data_out_trn), .sram_data_out_cb(sram_data_out_cb),
     .sram_data_out_ht(sram_data_out_ht),
-    .wr_en(wr_en),
-    .r_en(r_en),
-    .select(select),
-    .old_char(old_char),
-    .addr(addr),
-    .sram_data_in(sram_data_in),
-    .comp_val(comp_val),
-    .h_element(h_element),
-    .char_code(char_code)
+    .wr_en(wr_en), .r_en(r_en), .busy_o(busy_o), .select(select), .addr(addr),
+    .sram_data_in_ht(sram_data_in_ht), .nulls(nulls),
+    .sram_data_in_hist(sram_data_in_hist), .old_char(old_char),
+    .comp_val(comp_val), .sram_data_in_flv(sram_data_in_flv),
+    .h_element(h_element), .cb_path_sram(cb_path_sram), .path(path)
   );
 
-  // Clock generator
-  initial clk = 0;
+  // Clock generation
   always #1 clk = ~clk;
 
-  // Test sequence
+  // SRAM simulation variables
+  logic [31:0] fake_sram_hist [0:255];  // simple histogram memory
+
   initial begin
-    $display("Starting sraminterface testbench");
-    $dumpfile("waves/sraminterface.vcd");
-    $dumpvars(0, sraminterface_tb);
-
-    // Initialize
+    $dumpfile("t05_sram_interface.vcd");
+    $dumpvars(0, t05_sram_interface_tb);
+    // Initialize signals
+    clk = 0;
     rst = 1;
-    trn_nxt_char = 0;
-    histogram = 32'hAABBCCDD;
-    histgram_addr = 8'd3;
-    hist_r_wr = 0; // read first
-    find_least = 8'd20;
-    new_node = 71'h123456789ABCD;
-    htreeindex = 7'd5;
+
+    // Inputs
+    histogram = 32'd0;
+    histgram_addr = 8'd0;
+    hist_r_wr = 1'b1; // write mode
+
+    sram_data_out_his = 32'b0;
+    find_least = 0;
+    charwipe1 = 0; 
+    charwipe2 = 0;
+    flv_r_wr = 0;
+    new_node = 0;
+    htreeindex = 0;
+    htree_r_wr = 0;
+    curr_index = 0;
+    char_index = 0;
+    codebook_path = 0;
+    translation = 0;
+    state = 3'b000; // HIST
+
+    // Hold reset
+    #10 rst = 0;
+//WRITING STAGE
+    // --- HIST WRITE ---
+    $display("Writing to histogram SRAM...");
+    hist_r_wr = 1; // write
+    state = 3'b001; // HIST
+    histogram_addr = 8'd3;
+    histogram = 32'd17;
+    #10;
+    rst = 1;
+    #2;
+    rst = 0;
+    //FLV WRITE
+    state = 3'd2;
+    flv_r_wr = 1;
+    charwipe1 = 8'd3;
+    charwipe2 = 8'd42;
+    #10;
+    rst = 1;
+    #2;
+    rst =0;
+
+    //HTREE WRITE
     htree_r_wr = 1;
-    codebook = 8'd15;
-    codebook_path = 128'hCAFEBABE12345678CAFEBABE12345678;
-    translation = 8'd7;
-    state = 3'b001; // HIST state
-    sram_data_out_his = 32'hDEADBEEF;
-    sram_data_out_flv = 64'h1122334455667788;
-    sram_data_out_trn = 129'hFEDCBA9876543210FEDCBA987654321;
-    sram_data_out_cb = 71'h13579BDF13579;
-    sram_data_out_ht = 32'hFEEDFACE;
+    state = 3'd3;
+    new_node[6:0] = 33;
+    new_node[70:7] = 249;
+    #10;
+    rst = 1;
+    #2;
+    rst =0;
+    //CODEBOOK WRITE
+    state = 3'd5;
+    char_index = 11;
+    codebook_path = 128'd345;
+    #10;
+    rst = 1;
+    #2;
+    rst =0;
+    //HIST READ
 
-    #1 rst = 0;  //testing the rst, everything back to 0
+    //FLV READ
+    state = 3'd2;
+    flv_r_wr = 0;
+    find_least = 67;
+    
+    //HTREE READ
+    state = 3'd3;
+    htree_r_wr = 0;
+    htreeindex = 33;
+    sram_data_out_ht = 249;
+    #10;
+    rst = 1;
+    #2;
+    rst =0;
+    //CODEBOOK READ
+    state = 3'd5;
+    curr_index = 55;
+    sram_data_out_cb = 249;
+    #10;
+    rst = 1;
+    #2;
+    rst =0;
+    //TRANSLATION READ    
+    state = 3'd6;
+    translation = 11;
+    sram_data_out_trn = 128'd345;
+    #10;
+    rst = 1;
+    #2;
+    rst =0;
 
-    // Histogram write test
-    state = 3'd1;
-    hist_r_wr = 1; // write mode
-    histgram_addr = 8'd10;
-    histogram = 32'd7;
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
-    hist_r_wr = 0; // switch to read
-    histgram_addr = 8'd10; //should output the same vaule that was inputted before "10"
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
-    // FLV test
-    state = 3'b010;
-    find_least = 8'd23;
+    // --- HIST READ ---
+    $display("Reading from histogram SRAM...");
+    hist_r_wr = 0; // read
+    sram_data_out_his = fake_sram_hist[histgram_addr]; // simulate return from SRAM
+    #50;
 
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
-    // Translation test
-    state = 3'b110;
-    trn_nxt_char = 1;
-    translation = 8'd44;
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
-    // Codebook test
-    state = 3'b101;
-    codebook = 8'd9;
-    codebook_path = 128'd122;
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
+    $display("Read old_char = %h", old_char);
 
-    // HTREE test
-    state = 3'b011;
-    htree_r_wr = 0; // read mode
-    htreeindex = 7'd11;
-    rst = 1;
-    #1;
-    rst = 0;
-    htree_r_wr = 1;
-    new_node = 71'd695;
-    htreeindex = 7'd14;
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
-    $display("Test complete. Inspect signals in waveform.");
     $finish;
   end
 
 endmodule
-
-
-

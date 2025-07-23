@@ -1,176 +1,104 @@
-`timescale 1ns / 1ps
+`timescale 1ns/1ps
 
 module t05_histogram_tb;
 
-    // Clock and reset
-    logic clk, rst;
+  logic clk, rst;
+  logic [7:0] spi_in;
+  logic [31:0] sram_in;
+  logic eof, complete;
+  logic [31:0] total, sram_out;
+  logic [7:0] hist_addr;
+  logic [1:0] wr_r_en;
 
-    // Inputs to DUT
-    logic [7:0]  addr_i;
-    logic [31:0] sram_in;
+  // Instantiate DUT
+  t05_histogram dut (
+    .clk(clk),
+    .rst(rst),
+    .spi_in(spi_in),
+    .sram_in(sram_in),
+    .eof(eof),
+    .complete(complete),
+    .total(total),
+    .sram_out(sram_out),
+    .hist_addr(hist_addr),
+    .wr_r_en(wr_r_en)
+  );
 
-    // Outputs from DUT
-    logic eof, complete;
-    logic [31:0] total, sram_out;
-    logic [7:0]  hist_addr;
-    logic wr_r_en;
+  // Clock generation
+  initial clk = 0;
+  always #5 clk = ~clk; // 10ns clock period
 
-    // Instantiate DUT
-    t05_histogram dut (
-        .clk(clk),
-        .rst(rst),
-        .spi_in(addr_i),
-        .sram_in(sram_in),
-        .eof(eof),
-        .complete(complete),
-        .total(total),
-        .sram_out(sram_out),
-        .hist_addr(hist_addr),
-        .wr_r_en(wr_r_en)
-    );
+  // SRAM model: dummy 256-entry memory initialized to 0
+  logic [31:0] sram_mem [0:255];
+  logic [7:0] data_sequence [0:4];
 
-    // Clock generator
-    always #5 clk = ~clk;
+  // Test stimulus
+  initial begin
 
-    // SRAM model: very simple ROM for test
-    logic [31:0] fake_sram[0:255];
+    data_sequence[0] = 8'd65;  // 'A'
+  data_sequence[1] = 8'd66;  // 'B'
+  data_sequence[2] = 8'd65;  // 'A'
+  data_sequence[3] = 8'd67;  // 'C'
+  data_sequence[4] = 8'h1A;  // EOF
 
-    initial begin
-        clk = 0;
-        rst = 1;
-        addr_i = 0;
-        sram_in = 0;
 
-        // Init fake SRAM contents
-        foreach (fake_sram[i])
-            fake_sram[i] = i;
+    $display("Starting t05_histogram testbench...");
+    $dumpfile("t05_histogram.vcd");
+    $dumpvars(0, t05_histogram_tb);
 
-        // Apply reset
-        #20;
-        rst = 0;
+    // Initialize everything
+    rst = 1;
+    spi_in = 8'd0;
+    sram_in = 32'd0;
+    #20;
 
-        // Send some bytes
-        repeat (10) begin
-            @(negedge clk);
-            // addr_i = $urandom_range('0, 32'd255);
-            addr_i = 0; 
-            @(posedge clk);
-            sram_in = fake_sram[addr_i];
+    rst = 0;
 
-            wait (complete || eof);
-        end
+    // Feed in a sequence of characters: A, B, A, C, EOF (0x1A)
 
-        // Send EOF character (0x1A)
-        @(negedge clk);
-        addr_i = 8'h1A;
-        @(posedge clk);
-        sram_in = fake_sram[8'h1A];
 
-        wait (eof);
+      @(posedge clk);
+      spi_in = data_sequence[0];
+      sram_in = 0;  // simulate returning value from SRAM
+      wait (complete);             // wait until module says it's done
+      @(posedge clk);
+      @(posedge clk);
+      spi_in = data_sequence[1];
+      sram_in = 0;  // simulate returning value from SRAM
+      wait (complete);             // wait until module says it's done
+      @(posedge clk);
+      @(posedge clk);
+      spi_in = data_sequence[2];
+      sram_in = 1;  // simulate returning value from SRAM
+      wait (complete);             // wait until module says it's done
+      @(posedge clk);
+      @(posedge clk);
+      spi_in = data_sequence[3];
+      sram_in = 0;  // simulate returning value from SRAM
+      wait (complete);             // wait until module says it's done
+      @(posedge clk);
+      @(posedge clk);
+      spi_in = data_sequence[4];
+      sram_in = 0;  // simulate returning value from SRAM
+      wait (complete);             // wait until module says it's done
+      @(posedge clk);
 
-        // Show final result
-        $display("=== Simulation Complete ===");
-        $display("Total Characters Processed: %0d", total);
-        $display("Final Output Value: %0d", sram_out);
-        $stop;
-    end
+      if (!eof) begin
+        sram_mem[hist_addr] = sram_out; // emulate SRAM write
+        $display("Updated [%0d] = %0d", hist_addr, sram_out);
+      end
+
+
+    // Wait for histogram to halt
+    repeat (10) @(posedge clk);
+
+    // Check results
+    $display("Histogram Complete. Total characters processed: %0d", total);
+    $display("A count: %0d", sram_mem[8'd65]);
+    $display("B count: %0d", sram_mem[8'd66]);
+    $display("C count: %0d", sram_mem[8'd67]);
+
+    $finish;
+  end
 
 endmodule
-// `timescale 1ms/100ps
-// module t05_histogram_tb;
-
-//     logic clk, rst, clear;
-//     logic [7:0] addr_i, sram_addr_in;
-//     logic [31:0] sram_in, sram_out;
-//     logic [7:0] hist_addr;
-//     logic [31:0] total;
-//     logic eof, complete;
-
-//     // Simulated SRAM storage
-//     logic [31:0] sram [0:255];
-
-//     // Instantiate DUT
-//     t05_histogram dut (
-//         .clk(clk),
-//         .rst(rst),
-//         .addr_i(addr_i),
-//         .sram_addr_in(sram_addr_in),
-//         .sram_in(sram_in),
-//         .sram_out(sram_out),
-//         .eof(eof),
-//         .complete(complete),
-//         .total(total),
-//         .hist_addr(hist_addr)
-//     );
-
-//     // Clock generation
-//     always #1 clk = ~clk;
-
-//     // Simulated SRAM behavior
-//     always_ff @(posedge clk) begin
-//         if (!rst && !eof) begin
-//             sram_in <= sram[hist_addr];     // Read from SRAM
-//             if (sram_out != 0)              // Write back updated value (skip 0 on reset)
-//                 sram[hist_addr] <= sram_out;
-//         end
-//     end
-
-//     // Clear on EOF
-//     always_ff @(posedge clk or posedge rst) begin
-//         if (rst)
-//             clear <= 0;
-//         else
-//             clear <= eof;
-//     end
-
-//     // Test sequence
-//     initial begin
-//         $dumpfile("t05_histogram.vcd");
-//         $dumpvars(0, t05_histogram_tb);
-
-//         // Initialize
-//         clk = 0;
-//         rst = 1;
-//         addr_i = 0;
-//         sram_in = 0;
-//         sram_addr_in = 0;
-//         #2;
-
-//         for (int i = 0; i < 256; i++) begin
-//             sram[i] = $urandom_range(0, 10);
-//         end
-
-//         #1;
-
-//         rst = 0;
-//         #2;
-
-//         // Send some bytes
-//         addr_i = 8'h41; #2; // A
-//         addr_i = 8'h42; #2; // B
-//         addr_i = 8'h43; #2; // C
-//         addr_i = 8'h44; #2; // D
-//         addr_i = 8'h45; #2; // E
-//         addr_i = 8'h46; #2; // F
-//         addr_i = 8'h41; #2; // A
-//         addr_i = 8'h42; #2; // B
-//         addr_i = 8'h45; #2; // E
-//         addr_i = 8'h46; #2; // F
-
-//         // EOF (0x1A)
-//         addr_i = 8'h1A; #2;
-
-//         #2;
-//         $display("EOF: %b", eof);
-//         $display("Total count before clear: %0d", total);
-
-//         $display("Histogram:");
-//         for (int i = 0; i < 256; i++) begin
-//             if (sram[i] != 0)
-//                 $display("Byte 0x%02h: %0d", i, sram[i]);
-//         end
-
-//         #10;
-//         $finish;
-//     end
-// endmodule

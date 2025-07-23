@@ -7,8 +7,11 @@ module t05_histogram(
     output logic [7:0]  hist_addr,     // address to SRAM
     output logic [1:0] wr_r_en        // enable going to sram to tell it to read or write
 );
+//send a controller enable to controller
+//accept an enable from sram to know when to procccess new data
 logic [31:0] char_total;
 logic [3:0] state, next_state;
+logic [7:0] new_spi;
 
 typedef enum logic [3:0] {
     IDLE  = 4'd0,
@@ -39,6 +42,14 @@ always_ff @(posedge clk, posedge rst) begin
     end
 end
 
+always_ff @( posedge clk, posedge rst ) begin : blockName
+    if (rst) begin
+        new_spi <= 0;
+    end else begin
+        new_spi <= spi_in;
+    end
+end
+
 // Next state logic
 always_ff @( posedge clk, posedge rst ) begin
     if (rst) begin
@@ -58,11 +69,12 @@ always_ff @( posedge clk, posedge rst ) begin
             wr_r_en   <= 2'd3;
             complete  <= 0;
             eof       <= 0;
+            hist_addr <= spi_in;
         end
         READ:  begin  //giving the sram the character that it wants to pull
             next_state <= WAIT;
             wr_r_en   <= 2'd0;
-            hist_addr <= spi_in;
+            hist_addr <= new_spi;
             char_total <= char_total + 1;
         end
         READ2: begin  //giving the updated data to the sram for storage
@@ -82,6 +94,8 @@ always_ff @( posedge clk, posedge rst ) begin
             sram_out <= sram_in + 1;
             if (spi_in == end_file) begin
                 next_state <= HALT;
+                eof <= 1;
+                wr_r_en <= 2'd3;
             end else begin
                 next_state <= READ2;
             end
@@ -89,11 +103,13 @@ always_ff @( posedge clk, posedge rst ) begin
         DONE: begin  //done with that 1 cycle
             next_state <= IDLE;
             complete <= 1;
+            wr_r_en <= 2'd3;
         end
         HALT:   begin  //the end of file has been enabled and histogram will stop
             next_state <= HALT;
             eof <= 1;
             total <= char_total;
+            wr_r_en <= 2'd3;
         end
     endcase
     end
