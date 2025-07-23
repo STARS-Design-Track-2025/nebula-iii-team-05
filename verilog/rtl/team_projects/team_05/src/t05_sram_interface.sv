@@ -171,9 +171,9 @@ module t05_sram_interface(  //send enable to htree and codebook for when it is d
             case (state)
                 HIST: begin
                     addr <= base_addr + (4 * histgram_addr);
-                    if (wr_en && !r_en) begin
+                    if (do_write) begin
                         sram_data_in_hist <= histogram;
-                    end else if (r_en && !wr_en)  begin 
+                    end else if (do_read)  begin 
                         old_char <= sram_data_out_his;
                     end
                 end

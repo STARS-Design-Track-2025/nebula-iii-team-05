@@ -69,7 +69,8 @@ always_ff @( posedge clk, posedge rst ) begin
             wr_r_en   <= 2'd3;
             complete  <= 0;
             eof       <= 0;
-            hist_addr <= spi_in;
+            hist_addr <= 00;
+            sram_out <= 0;
         end
         READ:  begin  //giving the sram the character that it wants to pull
             next_state <= WAIT;
@@ -82,6 +83,7 @@ always_ff @( posedge clk, posedge rst ) begin
             wr_r_en <= 2'd0;
         end
         WAIT:  begin  //wait cycle between input and output from sram
+            wr_r_en <= 2'd3;
             if (wait_cnt == 2) begin
                 wait_cnt <= 0;
                 next_state <= DONE;
@@ -108,7 +110,7 @@ always_ff @( posedge clk, posedge rst ) begin
         HALT:   begin  //the end of file has been enabled and histogram will stop
             next_state <= HALT;
             eof <= 1;
-            total <= char_total;
+            total <= char_total + 1;
             wr_r_en <= 2'd3;
         end
     endcase

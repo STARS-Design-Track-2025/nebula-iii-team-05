@@ -98,12 +98,13 @@ module t05_sram_interface_tb;
     $display("Writing to histogram SRAM...");
     hist_r_wr = 1; // write
     state = 3'b001; // HIST
-    histogram_addr = 8'd3;
+    histgram_addr = 8'd3;
     histogram = 32'd17;
     #10;
     rst = 1;
     #2;
     rst = 0;
+    sram_data_in_flv = 45;
     //FLV WRITE
     state = 3'd2;
     flv_r_wr = 1;
@@ -132,12 +133,23 @@ module t05_sram_interface_tb;
     #2;
     rst =0;
     //HIST READ
-
+    state = 3'd1;
+    hist_r_wr = 0;
+    histgram_addr = 8'd3;
+    sram_data_out_his = 32'd17;
+    #10;
+    rst = 1;
+    #2;
+    rst =0;  
     //FLV READ
     state = 3'd2;
     flv_r_wr = 0;
     find_least = 67;
-    
+    sram_data_out_flv = 64'd225;
+    #10;
+    rst = 1;
+    #2;
+    rst =0;   
     //HTREE READ
     state = 3'd3;
     htree_r_wr = 0;
