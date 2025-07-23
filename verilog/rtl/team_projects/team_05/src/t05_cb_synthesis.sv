@@ -28,6 +28,7 @@ module t05_cb_synthesis (
     output logic [6:0] pos, // keeps track of current position in the path when in TRACK state
     output logic wait_cycle //waits one clock cycle in transistion between states to allow for output to stabilize
 );
+
 // next state logic
 logic [127:0] next_path; // store current path
 logic [6:0] next_index; // htree element index
@@ -207,4 +208,3 @@ always_comb begin
 
 end
 endmodule;
-
