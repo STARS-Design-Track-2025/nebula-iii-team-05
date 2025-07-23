@@ -24,14 +24,14 @@ module t05_controller (
 
     // Finish state enumeration for module completion signaling
     typedef enum logic [3:0] {
-        IDLE_FIN=0,         // No module finished
-        HFIN=1,             // Histogram module finished
-        FLV_FIN=2,          // FLV module finished
-        HTREE_FIN=3,        // Huffman tree module finished (normal completion)
-        HTREE_FINISHED=4,   // Huffman tree module finished (special completion - NULL+NULL case)
-        CBS_FIN=5,          // Code book module finished
-        TRN_FIN=6,          // Transmission module finished
-        SPI_FIN=7,          // SPI module finished
+        IDLE_FIN=0,         // No finished
+        HFIN=1,             // Histogram finished
+        FLV_FIN=2,          // FLV finished
+        HTREE_FIN=3,        // Huffman tree finished (normal completion)
+        HTREE_FINISHED=4,   // Huffman tree  finished (special completion - NULL+NULL case)
+        CBS_FIN=5,          // Code book  finished
+        TRN_FIN=6,          // Transmission finished
+        SPI_FIN=7,          // SPI  finished
         ERROR_FIN=8         // Error condition detected
     } finState_t;
     
