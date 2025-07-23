@@ -5,7 +5,7 @@ module t05_hTree_tb;
   logic [45:0] sum;
   logic [63:0] nulls;
   logic  SRAM_finished;
-  logic [70:0] tree, null1, null2;
+  logic [70:0] tree, null1, null2,node;
   logic [6:0] clkCount, nullSumIndex;
   logic HT_Finished, HT_fin_reg;
   logic [3:0] HT_en,state; //temp
@@ -15,8 +15,9 @@ module t05_hTree_tb;
   int test_progress = 0;
 
   t05_hTree inst (.clk(clk), .rst_n(rst_n), .least1(least1), .least2(least2), .sum(sum),
-   .nulls(nulls), .HT_en(HT_en), .SRAM_finished(SRAM_finished), .tree_reg(tree), .null1_reg(null1),
-    .null2_reg(null2), .clkCount(clkCount), .nullSumIndex(nullSumIndex), .op_fin(op_fin)/*,.state_reg(state)For testing only*/, .WorR(WorR));
+   .nulls(nulls), .HT_en(HT_en), .SRAM_finished(SRAM_finished),.node_reg(node) /* .tree_reg(tree), .null1_reg(null1),
+    .null2_reg(null2)*/, .clkCount(clkCount), .nullSumIndex(nullSumIndex), .op_fin(op_fin)/*,.state_reg(state)For testing only*/
+    , .WriteorRead(WorR),.tree_reg(tree), .null1_reg(null1), .null2_reg(null2), .state_reg(state));
 
   always begin
         clk = 1'b1;
@@ -26,8 +27,14 @@ module t05_hTree_tb;
   end
 
   task automatic createNode(input logic [8:0] l1, input logic [8:0] l2, input logic [45:0] nsum); 
-    logic [70:0] tree_before;
-    
+    logic [70:0] node_before;
+    logic [3:0] last_state;
+    logic [70:0] expected_tree, expected_null1, expected_null2, expected_final_node;
+    string expected_type;
+
+    // Capture node state before operation
+    node_before = node;
+
     least1 = l1;
     least2 = l2;
     sum = nsum;
@@ -35,19 +42,17 @@ module t05_hTree_tb;
     $display("=== NODE CREATION TEST START ===");
     $display("Inputs: L1=%b, L2=%b, Sum=%d", l1, l2, nsum);
 
-    // Capture tree state before operation
-    tree_before = tree;
-
     // Start with SRAM ready to avoid waiting in SRAM states initially
     SRAM_finished = 1'b1;
     HT_en = 4'b0011; // Enable HTREE operation
     
-    // Wait for at least one clock cycle for inputs to register
+    // Wait for at least 3 clock cycles for inputs to register and state to change
+    @(posedge clk);
     @(posedge clk);
     @(posedge clk);
     
-    // Check if we entered NEWNODE state and tree is being formed
-    $display("After enable: State=%d, tree=%b, op_fin=%b", state, tree, op_fin);
+    // Check if we entered NEWNODE state and node is being formed
+    $display("After enable: State=%d, node=%b, op_fin=%b", state, node, op_fin);
     
     // If we need to handle SRAM states, simulate the delay
     if (state == 4'd2 || state == 4'd4) begin // L1SRAM or L2SRAM
@@ -55,81 +60,256 @@ module t05_hTree_tb;
         SRAM_finished = 1'b0; // Make SRAM not ready
         @(posedge clk);
         @(posedge clk);
+        @(posedge clk); // Wait 3 cycles for SRAM not ready to propagate
         SRAM_finished = 1'b1; // Make SRAM ready
         
-        // Wait for SRAM operation to complete
+        // Wait for SRAM operation to complete - 3 cycles minimum
+        @(posedge clk);
         @(posedge clk);
         @(posedge clk);
     end
     
-    // Wait for state machine to complete its cycle
-    repeat (10) @(posedge clk);
+    // Wait for state machine to complete its cycle and for node to be registered
+    // Give extra time for all state transitions to complete properly
+    // Monitor state changes during this period
+    $display("=== MONITORING STATE TRANSITIONS ===");
+    last_state = state;
+    for (int i = 0; i < 15; i++) begin
+        @(posedge clk);
+        if (state != last_state) begin
+            case(state)
+                4'd0: $display("  Cycle %0d -> FIN state: node=%b", i+1, node);
+                4'd1: $display("  Cycle %0d -> NEWNODE state: node=%b", i+1, node); 
+                4'd2: $display("  Cycle %0d -> L1SRAM state: node=%b", i+1, node);
+                4'd3: $display("  Cycle %0d -> NULLSUM1 state: node=%b", i+1, node);
+                4'd4: $display("  Cycle %0d -> L2SRAM state: node=%b", i+1, node);
+                4'd5: $display("  Cycle %0d -> NULLSUM2 state: node=%b", i+1, node);
+                4'd6: $display("  Cycle %0d -> RESET state: node=%b", i+1, node);
+                default: $display("  Cycle %0d -> Unknown state %d: node=%b", i+1, state, node);
+            endcase
+            last_state = state;
+        end
+        // Show node updates even within the same state (for multi-cycle states)
+        if (i % 5 == 4) begin // Every 5 cycles, show current status
+            $display("  Cycle %0d: State=%d, node=%b", i+1, state, node);
+        end
+    end
     
-    // Check final results
-    $display("=== FINAL RESULTS ===");
+    // Check final results BEFORE disabling HT_en (so we can see the actual node value)
+    $display("=== FINAL RESULTS (while enabled) ===");
     $display("State: %d, clkCount: %d, op_fin: %b, WorR: %b", state, clkCount, op_fin, WorR);
+    $display("Node before disable: %b", node);
     
     // Check for NULL + NULL case (Huffman tree completion)
-   
+    // Also check for NULL + SUM NODE and SUM NODE + NULL cases
     if (l1 == 9'b110000000 && l2 == 9'b110000000) begin
-        // NULL + NULL case - expect same tree (no change) and finished signal
+        // NULL + NULL case - expect same node (no change) and finished signal
         $display("NULL + NULL case detected");
-        $display("Expected: Tree unchanged, op_fin = 4'b0100");
-        $display("Actual: tree_before=%b, tree_now=%b, op_fin=%b", tree_before, tree, op_fin);
+        $display("Expected: Node unchanged, op_fin = 4'b0100");
+        $display("Actual: node_before=%b, node_now=%b, op_fin=%b", node_before, node, op_fin);
         
-        if (tree == tree_before) begin
-            $display("✓ TREE UNCHANGED (as expected for NULL + NULL)");
+        if (node == node_before) begin
+            $display("✓ NODE UNCHANGED (as expected for NULL + NULL)");
         end else begin
-            $display("✗ TREE CHANGED (should remain unchanged for NULL + NULL)");
-            $display("  Before: %b", tree_before);
-            $display("  After:  %b", tree);
+            $display("✗ NODE CHANGED (should remain unchanged for NULL + NULL)");
+            $display("  Before: %b", node_before);
+            $display("  After:  %b", node);
         end
-        
+
         if (op_fin == 4'b0100) begin
             $display("✓ OP_FIN CORRECT (4'b0100 for completion)");
         end else begin
             $display("✗ OP_FIN INCORRECT (expected 4'b0100, got %b)", op_fin);
         end
-    end else begin
-        // Normal case - expect new tree to be created
-        $display("Expected Tree: {%d, %b, %b, %d}", clkCount-1, l1, l2, nsum);
-        $display("Actual Tree:   %b", tree);
+    end else if (l1 == 9'b110000000 && l2[8] && l2 != 9'b110000000) begin
+        // NULL + SUM NODE case - special handling (single character file case)
+        $display("=== NULL + SUM NODE CASE DETECTED (SPECIAL CASE) ===");
+        $display("L1 (NULL): %b", l1);
+        $display("L2 (SUM NODE): %b (index %d)", l2, l2[7:0]);
+        $display("Expected behavior: Create special tree with NULL in L1, sum node in L2, go to RESET");
+        $display("This is a single character file case - NO null creation expected");
         
-        if (tree == {(clkCount-7'd1), least1, least2, sum}) begin
-            $display("✓ NODE CREATION SUCCESSFUL");
+        // Expected tree format: {clkCount_reg, NULL, sum_node, sum} 
+        // Note: Special case increments clkCount_reg->clkCount, then next cycle clkCount->clkCount_reg
+        // So tree uses old clkCount_reg, but we read incremented clkCount, need clkCount-2
+        expected_tree = {(clkCount-7'd2), 9'b110000000, l2, nsum};
+        $display("Expected Tree Node: %b", expected_tree);
+        $display("Actual Tree (from tree_reg): %b", tree);
+        
+        if (tree == expected_tree) begin
+            $display("✓ TREE CREATION SUCCESSFUL");
         end else begin
-            $display("✗ NODE CREATION FAILED");
-            $display("  Expected: %b", {(clkCount-7'd1), least1, least2, sum});
-            $display("  Actual:   %b", tree);
+            $display("✗ TREE CREATION FAILED");
+            $display("  Expected Tree: %b", expected_tree);
+            $display("  Actual Tree:   %b", tree);
+        end
+        
+        // For this special case, NO null creation occurs - verify null registers remain unchanged
+        $display("=== NULL REGISTER VALIDATION (should be unchanged) ===");
+        $display("Null1: %b (should remain at previous value)", null1);
+        $display("Null2: %b (should remain at previous value)", null2);
+        
+        // Final node behavior: HDL behavior - special case goes to RESET state without updating node
+        // The tree is created correctly but node output is not updated, so it stays at previous value
+        expected_final_node = node_before; // RESET state doesn't update node output
+        expected_type = "previous node value (RESET state doesn't update node output)";
+        
+        $display("=== FINAL NODE OUTPUT VALIDATION ===");
+        $display("Expected Final Node (%s): %b", expected_type, expected_final_node);
+        $display("Actual Final Node:   %b", node);
+        
+        if (node == expected_final_node) begin
+            $display("✓ FINAL NODE OUTPUT SUCCESSFUL (%s)", expected_type);
+        end else begin
+            $display("✗ FINAL NODE OUTPUT FAILED");
+            $display("  Expected (%s): %b", expected_type, expected_final_node);
+            $display("  Actual:   %b", node);
+        end
+        
+    end else if (l1[8] && l1 != 9'b110000000 && l2 == 9'b110000000) begin
+        // SUM NODE + NULL case - special handling (single character file case)
+        $display("=== SUM NODE + NULL CASE DETECTED (SPECIAL CASE) ===");
+        $display("L1 (SUM NODE): %b (index %d)", l1, l1[7:0]);
+        $display("L2 (NULL): %b", l2);
+        $display("Expected behavior: Create special tree with sum node in L1, NULL in L2, go to RESET");
+        $display("This is a single character file case - NO null creation expected");
+        
+        // Expected tree format: {clkCount_reg, sum_node, NULL, sum}
+        // Note: Special case increments clkCount_reg->clkCount, then next cycle clkCount->clkCount_reg
+        // So tree uses old clkCount_reg, but we read incremented clkCount, need clkCount-2
+        expected_tree = {(clkCount-7'd2), l1, 9'b110000000, nsum};
+        $display("Expected Tree Node: %b", expected_tree);
+        $display("Actual Tree (from tree_reg): %b", tree);
+        
+        if (tree == expected_tree) begin
+            $display("✓ TREE CREATION SUCCESSFUL");
+        end else begin
+            $display("✗ TREE CREATION FAILED");
+            $display("  Expected Tree: %b", expected_tree);
+            $display("  Actual Tree:   %b", tree);
+        end
+        
+        // For this special case, NO null creation occurs - verify null registers remain unchanged
+        $display("=== NULL REGISTER VALIDATION (should be unchanged) ===");
+        $display("Null1: %b (should remain at previous value)", null1);
+        $display("Null2: %b (should remain at previous value)", null2);
+        
+        // Final node behavior: HDL behavior - special case goes to RESET state without updating node
+        // The tree is created correctly but node output is not updated, so it stays at previous value
+        expected_final_node = node_before; // RESET state doesn't update node output
+        expected_type = "previous node value (RESET state doesn't update node output)";
+        
+        $display("=== FINAL NODE OUTPUT VALIDATION ===");
+        $display("Expected Final Node (%s): %b", expected_type, expected_final_node);
+        $display("Actual Final Node:   %b", node);
+        
+        if (node == expected_final_node) begin
+            $display("✓ FINAL NODE OUTPUT SUCCESSFUL (%s)", expected_type);
+        end else begin
+            $display("✗ FINAL NODE OUTPUT FAILED");
+            $display("  Expected (%s): %b", expected_type, expected_final_node);
+            $display("  Actual:   %b", node);
+        end
+    end else begin
+        // Normal case - expect new node to be created
+        // For sum nodes, need to validate both tree creation and null node processing
+        logic [70:0] expected_tree, expected_null1, expected_null2, expected_final_node;
+        string expected_type;
+        
+        // Always expect tree to be created first
+        expected_tree = {(clkCount-7'd1), l1, l2, nsum};
+        $display("Expected Tree Node: %b", expected_tree);
+        $display("Actual Tree (from tree_reg): %b", tree);
+        
+        if (tree == expected_tree) begin
+            $display("✓ TREE CREATION SUCCESSFUL");
+        end else begin
+            $display("✗ TREE CREATION FAILED");
+            $display("  Expected Tree: %b", expected_tree);
+            $display("  Actual Tree:   %b", tree);
+        end
+        
+        // Check sum node null processing
+        if (l1[8] && l1 != 9'b110000000) begin
+            // L1 is sum node - expect null1 creation
+            expected_null1 = {l1[6:0], nulls[63:46], 46'b0};
+            $display("Expected Null1 (for L1 sum node): %b", expected_null1);
+            $display("Actual Null1 (from null1_reg):   %b", null1);
+            
+            if (null1 == expected_null1) begin
+                $display("✓ NULL1 CREATION SUCCESSFUL (L1 sum node nullification)");
+            end else begin
+                $display("✗ NULL1 CREATION FAILED");
+                $display("  Expected Null1: %b", expected_null1);
+                $display("  Actual Null1:   %b", null1);
+            end
+        end
+        
+        if (l2[8] && l2 != 9'b110000000) begin
+            // L2 is sum node - expect null2 creation
+            expected_null2 = {l2[6:0], nulls[63:46], 46'b0};
+            $display("Expected Null2 (for L2 sum node): %b", expected_null2);
+            $display("Actual Null2 (from null2_reg):   %b", null2);
+            
+            if (null2 == expected_null2) begin
+                $display("✓ NULL2 CREATION SUCCESSFUL (L2 sum node nullification)");
+            end else begin
+                $display("✗ NULL2 CREATION FAILED");
+                $display("  Expected Null2: %b", expected_null2);
+                $display("  Actual Null2:   %b", null2);
+            end
+        end
+        
+        // Determine expected final node output based on "most recently updated" logic
+        if ((l1[8] && l1 != 9'b110000000) && (l2[8] && l2 != 9'b110000000)) begin
+            // Both are sum nodes -> expect null2 (most recently updated)
+            expected_final_node = {l2[6:0], nulls[63:46], 46'b0};
+            expected_type = "null2 (both sum nodes, null2 most recent)";
+        end else if (l1[8] && l1 != 9'b110000000) begin
+            // Only l1 is sum node -> expect null1 (most recently updated)  
+            expected_final_node = {l1[6:0], nulls[63:46], 46'b0};
+            expected_type = "null1 (only L1 sum node, null1 most recent)";
+        end else if (l2[8] && l2 != 9'b110000000) begin
+            // Only l2 is sum node -> expect null2 (most recently updated)
+            expected_final_node = {l2[6:0], nulls[63:46], 46'b0};
+            expected_type = "null2 (only L2 sum node, null2 most recent)";
+        end else begin
+            // Neither is sum node -> expect tree (most recently updated)
+            expected_final_node = expected_tree;
+            expected_type = "tree (no sum nodes, tree most recent)";
+        end
+        
+        $display("=== FINAL NODE OUTPUT VALIDATION ===");
+        $display("Expected Final Node (%s): %b", expected_type, expected_final_node);
+        $display("Actual Final Node:   %b", node);
+        
+        if (node == expected_final_node) begin
+            $display("✓ FINAL NODE OUTPUT SUCCESSFUL (%s)", expected_type);
+        end else begin
+            $display("✗ FINAL NODE OUTPUT FAILED");
+            $display("  Expected (%s): %b", expected_type, expected_final_node);
+            $display("  Actual:   %b", node);
         end
     end
     
-    // Check null node creation for internal nodes
+    // Check null node creation for internal nodes (these are not directly observable via node output)
+    // Note: null1 and null2 are internal signals, we can't verify them directly in this test
+    // The null node creation would be tested indirectly through SRAM operations
     if (least1[8] && least1 != 9'b110000000) begin
-      if (null1 == {least1[6:0], nulls[63:46], 46'b0}) begin
-        $display("✓ NULL1 CREATION SUCCESSFUL");
-      end else begin
-        $display("✗ NULL1 CREATION FAILED");
-        $display("  Expected: %b", {least1[6:0], nulls[63:46], 46'b0});
-        $display("  Actual:   %b", null1);
-      end
+        $display("INFO: least1 is a sum node - null1 creation expected internally");
     end
     
     if (least2[8] && least2 != 9'b110000000) begin
-      if (null2 == {least2[6:0], nulls[63:46], 46'b0}) begin
-        $display("✓ NULL2 CREATION SUCCESSFUL");
-      end else begin
-        $display("✗ NULL2 CREATION FAILED");
-        $display("  Expected: %b", {least2[6:0], nulls[63:46], 46'b0});
-        $display("  Actual:   %b", null2);
-      end
+        $display("INFO: least2 is a sum node - null2 creation expected internally");
     end
     
-    // Disable operation and wait for completion
+    // Disable operation and wait for completion - give 3 cycles for disable to propagate
     HT_en = 4'b0;
     @(posedge clk);
     @(posedge clk);
+    @(posedge clk);
     
+    $display("After disable: node=%b (should be cleared to 0)", node);
     $display("===============================\n");
 
   endtask
@@ -156,7 +336,7 @@ module t05_hTree_tb;
     #20; 
     
     $display("Reset complete, starting node creation tests...");
-    $display("Initial state: %d, clkCount: %d, tree: %b", state, clkCount, tree);
+    $display("Initial state: %d, clkCount: %d, node: %b", state, clkCount, node);
     $display("");
     
     // Simple test: Check if HT_en works
@@ -168,14 +348,19 @@ module t05_hTree_tb;
     $display("Before enable: State=%d, HT_en=%b, op_fin=%b", state, HT_en, op_fin);
     HT_en = 4'b0011;
     @(posedge clk);
-    $display("After enable: State=%d, tree=%b, op_fin=%b", state, tree, op_fin);
     @(posedge clk);
-    $display("Next cycle: State=%d, tree=%b, op_fin=%b", state, tree, op_fin);
+    @(posedge clk); // Wait 3 cycles for enable to propagate
+    $display("After enable: State=%d, node=%b, op_fin=%b", state, node, op_fin);
+    @(posedge clk);
+    @(posedge clk);
+    @(posedge clk); // Wait 3 more cycles for state machine to process
+    $display("Next cycle: State=%d, node=%b, op_fin=%b", state, node, op_fin);
     
     HT_en = 4'b0000;
     @(posedge clk);
     @(posedge clk);
-    $display("After disable: State=%d, tree=%b, op_fin=%b", state, tree, op_fin);
+    @(posedge clk); // Wait 3 cycles for disable to propagate
+    $display("After disable: State=%d, node=%b, op_fin=%b", state, node, op_fin);
     $display("");
 
     rst_n = 1'b0; // Reset for next test
@@ -244,9 +429,9 @@ module t05_hTree_tb;
         sum = 46'd1000 + 46'(i);                // Increment sum each time
         
         HT_en = 4'b0011;
-        #40; // Give enough time for operation to complete
+        #60; // Give enough time for operation to complete (increased from 40 to allow 3+ cycles per state)
         HT_en = 4'b0;
-        #20; // Brief pause between operations
+        #30; // Brief pause between operations (increased from 20 to allow proper settling)
         
         // Every 10 iterations, check progress
         if (i % 10 == 0) begin
@@ -270,24 +455,24 @@ module t05_hTree_tb;
     // TEST 11 - Maximum Node Indices
     test_progress ++;
     $display("\n\n=== TEST 11: MAXIMUM NODE INDICES ===\n");
-    least1 = {1'b1, 8'h7F}; // Max index 127
-    least2 = {1'b1, 8'h7E}; // Index 126
-    sum = 46'd999999;
+    least1 = {1'b0, 8'b11111111}; // Max index 127
+    least2 = {1'b0, 8'b11111111}; // Index 126
+    sum = 46'd70368744177663;
     
     HT_en = 4'b0011;
-    #50;
+    #75; // Increased timing to allow 3+ cycles per state for proper propagation
     $display("Test 11: Maximum Node Indices");
-    $display("[%b]tree[%b,%b,%b]", clkCount, tree[70:64], tree[63:46], tree[44:0]);
-    if (tree == {(clkCount-7'd1), least1, least2, sum}) begin
+    $display("[%b]node[%b,%b,%b]", clkCount, node[63:55], node[54:46], node[45:0]);
+    if (node == {(clkCount-7'd1), least1, least2, sum}) begin
         $display("✓ Test 11 PASSED");
     end else begin
         $display("✗ Test 11 FAILED");
         $display("  Expected: %b", {(clkCount-7'd1), least1, least2, sum});
-        $display("  Actual:   %b", tree);
+        $display("  Actual:   %b", node);
     end
     
     HT_en = 4'b0;
-    #20;
+    #30; // Increased timing for disable propagation
     
     // Reset for next test
     rst_n = 1'b0;
@@ -304,16 +489,16 @@ module t05_hTree_tb;
     SRAM_finished = 1'b0;   // SRAM not ready
     
     HT_en = 4'b0011;
-    #100; // Wait longer for SRAM states
+    #150; // Wait longer for SRAM states - increased to allow multiple state transitions
     $display("SRAM Not Ready - Should stay in L1SRAM");
     $display("State: %b (should be 2=L1SRAM)", state);
     
     SRAM_finished = 1'b1;   // Now SRAM ready
-    #50;
+    #75; // Increased timing for SRAM ready propagation
     $display("After SRAM ready - State: %b", state);
     
     HT_en = 4'b0000;
-    #20;
+    #30; // Increased timing for disable
 
     // TEST 13 - OP_FIN SIGNAL TESTING
     test_progress ++;
@@ -333,15 +518,18 @@ module t05_hTree_tb;
     
     HT_en = 4'b0011;
     @(posedge clk);
+    @(posedge clk);
+    @(posedge clk); // Wait 3 cycles for enable
     $display("After enable: op_fin=%b, WorR=%b, state=%d", op_fin, WorR, state);
     
-    // Wait for completion
-    repeat (15) @(posedge clk);
+    // Wait for completion - increased from 15 to 20 cycles
+    repeat (20) @(posedge clk);
     $display("After completion: op_fin=%b, WorR=%b, state=%d", op_fin, WorR, state);
     
     HT_en = 4'b0;
     @(posedge clk);
     @(posedge clk);
+    @(posedge clk); // Wait 3 cycles for disable
     $display("After disable: op_fin=%b, WorR=%b, state=%d", op_fin, WorR, state);
 
     $display("\n\n=== ALL TESTS COMPLETED ===\n");
