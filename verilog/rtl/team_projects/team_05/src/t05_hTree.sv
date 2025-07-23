@@ -14,14 +14,18 @@ module t05_hTree (
   // Control signals
   input logic [3:0] HT_en,                              // Enable signal for HTREE operation from controller
   // Output data to other modules
-  output logic [70:0] tree_reg, null1_reg, null2_reg,   // nodes to be written to SRAM
+  output logic [70:0] node_reg,   // nodes to be written to SRAM
   output logic [6:0] clkCount, nullSumIndex,            // to Sram (nullSumIndex for addressing), To Codebook (clkCount for indexing)
   output logic [3:0] op_fin,                            // to controller - operation completion status
   //TEMPORARY
     //  output logic [3:0] state_reg,//for testing
-  output logic WorR                                     // to SRAM - Write or Read control signal (1=Read, 0=Write)
+  output logic WriteorRead,                                     // to SRAM - Write or Read control signal (1=Read, 0=Write)
+  output logic [70:0] tree_reg, null1_reg, null2_reg, // testing outputs
+  output logic [3:0] state_reg // testing outputs
 );
     // Internal register declarations
+    // logic [70:0] tree_reg, null1_reg, null2_reg;
+    logic [70:0] node;
     logic [6:0] clkCount_reg, nullSumIndex_reg;         // Clock counter and SRAM address index
     logic [8:0] least1_reg, least2_reg;                 // Registered input node values
     logic [45:0] sum_reg;                               // Registered sum value
@@ -32,7 +36,9 @@ module t05_hTree (
     logic HT_finished;                                  // Huffman tree completely finished (both inputs null)
     logic err;                                          // Error detection flag
     logic HT_Finished,HT_fin_reg,ERROR;                 // Status and control flags
-    logic [3:0] state_reg;                              // State register for debugging
+    logic [2:0] nullsum_delay_counter, nullsum_delay_counter_reg; // Counter for NULLSUM state delays
+    logic WorR;
+    // logic [3:0] state_reg;                              // State register for debugging
 
     // logic [6:0] scounter;
     // logic [6:0] clkCount;
@@ -65,6 +71,7 @@ always_ff @(posedge clk or negedge rst_n) begin
         tree_reg <= 71'b0;
         clkCount_reg <= 0;
         HT_Finished <= 1'b0;   
+        nullsum_delay_counter_reg <= 3'b0;   
     end else begin
         // Clock all signals on positive edge
         state <= state_t'(next_state);
@@ -82,6 +89,9 @@ always_ff @(posedge clk or negedge rst_n) begin
         state_reg <= state;
         HT_Finished <= HT_finished;
         ERROR <= err;
+        node_reg <= node;
+        nullsum_delay_counter_reg <= nullsum_delay_counter;
+        WriteorRead <= WorR; // Write or Read control signal
 
     end
 end
@@ -100,13 +110,25 @@ end
         HT_fin = HT_fin_reg;
         HT_finished = 1'b0;
         WorR = 1'b0;                        // Default write operation
-        op_fin = 4'b0000;                   // Default operation finish signal
+        op_fin = 4'b0000; 
+        node = node_reg;                    // Default to current node value
+        nullsum_delay_counter = nullsum_delay_counter_reg; // Default to current counter value
+        // Default operation finish signal
 
         // Main state machine logic based on HT enable signal
         if (HT_en == 4'b0011) begin
             // Special case: single character file (one node with null)
             if (((least1[8] && least2 == 9'b110000000) || (least2[8] && least1 == 9'b110000000)) && least1 != least2) begin
-                tree = {clkCount_reg, least1, 9'b110000000, sum};
+                if((least1[8] && least2 == 9'b110000000) && least1 != 9'b110000000) begin
+                    // Create tree node with least1 and null2
+                    tree = {clkCount_reg, least1, 9'b110000000, sum};
+                end else if((least2[8] && least1 == 9'b110000000) && least2 != 9'b110000000) begin
+                    // Create tree node with least2 and null1
+                    tree = {clkCount_reg, 9'b110000000, least2, sum};
+                end else begin
+                    // Both are null nodes, create a special case tree node
+                    tree = {clkCount_reg, 9'b110000000, 9'b110000000, sum};
+                end
                 clkCount = clkCount_reg + 1;
                 HT_finished = 1'b0;                     // If both least are null nodes, finish immediately
                 next_state = RESET;                     // Go to reset state
@@ -117,7 +139,7 @@ end
             end else begin
                 // Regular Huffman tree construction state machine
                 case(state)
-                    NEWNODE: begin
+                    NEWNODE: begin //1
                         WorR = 1'b0; 
                         // Create new internal node from two least frequent nodes
                         // Tree format: {clkCount, least1, least2, sum}
@@ -134,8 +156,9 @@ end
                             next_state = FIN;
                         end
                         HT_finished = 1'b0;
+                        node = tree; // tree was most recently updated
                     end
-                    L1SRAM: begin
+                    L1SRAM: begin // 2
                         // Access SRAM for least1 node data
                         WorR = 1'b1;
                         nullSumIndex_reg = least1[6:0]; 
@@ -145,20 +168,32 @@ end
                         end else begin
                             next_state = L1SRAM;
                         end
+                        node = node_reg; // no update, keep previous value
                     end
-                    NULLSUM1: begin
+                    NULLSUM1: begin // 3
                         // Process SRAM data for least1 and prepare null1
                         WorR = 1'b0;
                         null1 = {least1[6:0], nulls[63:46], 46'b0};
                         nullSumIndex_reg = 7'b0;
-                        // Check if least2 also needs SRAM access
-                        if (least2[8]) begin
-                            next_state = L2SRAM;
+                        
+                        // Multi-cycle delay within NULLSUM1 state
+                        if (nullsum_delay_counter_reg < 3'd3) begin
+                            // Still counting delay cycles
+                            nullsum_delay_counter = nullsum_delay_counter_reg + 1;
+                            next_state = NULLSUM1; // Stay in this state
                         end else begin
-                            next_state = FIN;
+                            // Delay complete, reset counter and move to next state
+                            nullsum_delay_counter = 3'b0;
+                            // Check if least2 also needs SRAM access
+                            if (least2[8]) begin
+                                next_state = L2SRAM;
+                            end else begin
+                                next_state = FIN;
+                            end
                         end
+                        node = null1; // null1 was most recently updated
                     end
-                    L2SRAM: begin
+                    L2SRAM: begin // need internal delay // 4
                         // Access SRAM for least2 node data
                         WorR = 1'b1;
                         nullSumIndex_reg = least2[6:0];
@@ -167,24 +202,39 @@ end
                         end else begin
                             next_state = L2SRAM;
                         end
+                        node = node_reg; // no update, keep previous value
+                        
                     end
-                    NULLSUM2: begin
+                    NULLSUM2: begin // 5
                         // Process SRAM data for least2 and prepare null2
                         WorR = 1'b0;
                         null2 = {least2[6:0], nulls[63:46], 46'b0};
                         nullSumIndex_reg = 7'b0;
-                        next_state = FIN;
+                        
+                        // Multi-cycle delay within NULLSUM2 state
+                        if (nullsum_delay_counter_reg < 3'd3) begin
+                            // Still counting delay cycles
+                            nullsum_delay_counter = nullsum_delay_counter_reg + 1;
+                            next_state = NULLSUM2; // Stay in this state
+                        end else begin
+                            // Delay complete, reset counter and move to next state
+                            nullsum_delay_counter = 3'b0;
+                            next_state = FIN;
+                        end
+                        node = null2; // null2 was most recently updated
                     end
-                    FIN: begin
+                    FIN: begin // 6
                         // Final state - signal completion
                         HT_fin = 1'b1;
                         // Stay in FIN state while HT_en is high
                         // Module is ready for next operation when HT_en goes low
                         next_state = FIN;
+                        node = node_reg; // no update, keep previous value
                     end
                     default: begin
                         // Error handling - return to initial state
                         next_state = NEWNODE;
+                        node = node_reg; // no update, keep previous value
                     end
                 endcase
             end
@@ -195,6 +245,8 @@ end
             nullSumIndex_reg = 7'b0;
             HT_fin = 1'b0;
             WorR = 1'b0;
+            node = 71'b0; // no update, keep previous value
+            nullsum_delay_counter = 3'b0; // Reset delay counter when disabled
         end
 
         // Error detection logic
