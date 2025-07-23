@@ -23,9 +23,14 @@ typedef enum logic [3:0] {  //states of wither read or write for the histogram t
 logic [1:0] wait_cnt;
 logic [7:0] end_file = 8'h1A;
 
-always_ff @( posedge clk, posedge rst ) begin
-    if (rst) begin
-        state <= IDLE;
+
+always_ff @( posedge clk, posedge rst) begin
+    if (rst || eof) begin
+        sram_out <= 0;
+        hist_addr <= 0;
+        shift <= shift;
+        total <= total;
+        complete <= 0;
     end else begin
         next_state <= state;
     end 

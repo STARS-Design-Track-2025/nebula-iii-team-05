@@ -566,17 +566,16 @@ cram_%:
 	export SRAM_WRAPPER="$$USER_PROJECT_VERILOG/rtl/sram/sram_WB_Wrapper.sv" &&\
 	export FPGA_TOP=$*_fpga_top &&\
 	mkdir -p $$BUILD &&\
-	if [ -f "$$SRAM_WRAPPER.bak" ]; then \
-		mv $$SRAM_WRAPPER.bak $$SRAM_WRAPPER; \
-	fi &&\
-	cp $$SRAM_WRAPPER $$SRAM_WRAPPER.bak &&\
+	sed -i 's/sram_for_FPGA/sky130_sram_8kbyte_1r1w_32x2048_8/' $$SRAM_WRAPPER &&\
 	sed -i 's/sky130_sram_8kbyte_1r1w_32x2048_8/sram_for_FPGA/' $$SRAM_WRAPPER &&\
-	yosys -p "$$(bash scripts/yosys_ice40_cmd.sh)" &&\
+	yosys -p "read_verilog -sv -noblackbox $$ICE $$UART $$TEAM_DIR/*.sv $$SRC_DIR/*.sv \
+		$$USER_PROJECT_VERILOG/rtl/wishbone_manager/wishbone_manager.sv $$SRAM_WRAPPER \
+		$$USER_PROJECT_VERILOG/rtl/sram/sram_for_FPGA.v; \
+		synth_ice40 -top ice40hx8k -json $$BUILD/$$FPGA_TOP.json" &&\
 	nextpnr-ice40 --hx8k --package ct256 --pcf $$PINMAP --asc $$BUILD/$$FPGA_TOP.asc --json $$BUILD/$$FPGA_TOP.json &&\
 	icepack $$BUILD/$$FPGA_TOP.asc $$BUILD/$$FPGA_TOP.bin &&\
 	iceprog -S $$BUILD/$$FPGA_TOP.bin &&\
-	mv $$SRAM_WRAPPER.bak $$SRAM_WRAPPER
-
+	sed -i 's/sram_for_FPGA/sky130_sram_8kbyte_1r1w_32x2048_8/' $$SRAM_WRAPPER
 
 # KLayout Command
 klayout_cmd = \

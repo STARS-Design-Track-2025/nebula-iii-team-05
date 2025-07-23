@@ -6,11 +6,13 @@ typedef enum logic [2:0] {
     TRACK,
     BACKTRACK,
     FINISH,
-    INIT
+    INIT,
+    SEND
 } state_cb;
 
 module t05_cb_synthesis_tb;
-    logic clk, reset, finished, char_found;
+    logic clk, reset, char_found;
+    logic [3:0] finished;
     logic [6:0] max_index;
     logic [70:0] h_element;
     //logic [2:0] curr_process;
@@ -22,11 +24,19 @@ module t05_cb_synthesis_tb;
     logic [127:0] curr_path;
     logic [8:0] least1;
     logic [8:0] least2;
-    logic [9:0] header;
+    logic [8:0] header;
+    logic [6:0] track_length;
+    logic [6:0] pos;
+    logic mid_reset;
+    logic [7:0] count;
+    logic enable;
+    logic bit1;
+    logic write_finish;
+    logic wait_cycle;
 
     always #5 clk = ~clk;
-    t05_cb_synthesis cb1(.clk(clk), .least1(least1), .least2(least2), .rst(reset), .max_index(max_index), .curr_path(curr_path), .curr_index(curr_index), .h_element(h_element), .curr_state(state), .char_path(char_path), .char_index(char_index), .char_found(char_found), .finished(finished));
-    t05_header_synthesis hd1 (.clk(clk), .rst(reset), .char_index(char_index), .char_path(char_path), .char_found(char_found), .least1(least1), .least2(least2), .header(header));
+    t05_cb_synthesis cb1(.clk(clk), .write_finish(write_finish), .track_length(track_length), .pos(pos), .least1(least1), .least2(least2), .rst(reset), .max_index(max_index), .curr_path(curr_path), .curr_index(curr_index), .h_element(h_element), .curr_state(state), .char_path(char_path), .char_index(char_index), .char_found(char_found), .finished(finished), .wait_cycle(wait_cycle));
+    t05_header_synthesis hd1 (.clk(clk), .write_finish(write_finish), .rst(reset), .bit1(bit1), .enable(enable), .char_index(char_index), .char_path(char_path), .char_found(char_found), .least1(least1), .least2(least2), .header(header));
     task reset_fsm();
       begin
         reset = 1;
@@ -404,7 +414,11 @@ module t05_cb_synthesis_tb;
       set_inputs(8, htree[curr_index]);
       $display("STATE: %d", state); 
 
+<<<<<<< HEAD
       #100;
+=======
+      #10;
+>>>>>>> 525f19a4ec53aced7ce30e64d86a4cbac77f2e95
 
       #1 $finish;
 
