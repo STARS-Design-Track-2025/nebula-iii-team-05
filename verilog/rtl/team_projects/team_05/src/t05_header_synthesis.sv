@@ -1,4 +1,4 @@
-module t05_header_synthesis (
+module header_synthesis (
     input logic clk,
     input logic rst,
     input logic [7:0] char_index,
@@ -68,34 +68,13 @@ always_comb begin
         next_char_added = 1;
         next_zeroes = 0;
         next_start = 0;
-        next_enable = 1;
+        next_enable = 0;
         next_start = 1;
         next_write_finish = 0;
-        //if (track_length == 1) begin // if there is a character found at the top of the tree
-            next_zeroes = zeroes + 1;
-        //end
+        next_zeroes = zeroes + 1;
     end
-    // else if (char_added == 1'b1) begin
-    //     // if (least1[8] == 1'b0 && least2[8] == 1'b0 && header[7:0] == least2[7:0]) begin // if both least1 and least2 are characters and state is backtrack (both chars have been found)
-    //     //     next_zeroes = 4'b0010;
-    //     // end
-    //     // else if ((least1[8] == 1'b1 && least2[8] == 1'b0) || (least2[8] == 1'b1 && least1[8] == 1'b0)) begin  // if only either least 1 or least 2 is a sum and the other is a character
-    //     //     //next_header = {header[9:0], 1'b0}; // add one ending 0 for one character
-    //     // else begin
-    //     //     next_zeroes = 4'b0;
-    //     // end
-    //     //next_char_added = 1'b0;
-    //     next_start = 1;
-    // end
-    // else begin
-    //     next_start = 0;
-    //     //next_char_added = 1'b0;
-    // end
-    // if ((char_path[0] == 1'b1) && (track_length > 7'b1)) begin // already explore both left and right and a character was already found and added to the header
-    //         next_zeroes = zeroes + 8'b1;
-    //         next_write_zeroes = 0;
-    // end
-    if ((track_length == 1)) begin
+
+    if ((track_length == 1 && write_zeroes > 0)) begin
         next_write_zeroes = 1;
         next_enable = 1;
         next_write_finish = 0;
@@ -110,7 +89,7 @@ always_comb begin
         next_char_added = 1;
     end
 
-    if (enable && char_added) begin
+    else if (enable && char_added) begin
         if (count < 9) begin
             next_bit1 = header[8];
             next_header = {header[7:0], 1'b0};
@@ -118,13 +97,11 @@ always_comb begin
         end
         else begin
             next_count = 0;
-            //if (!write_zeroes) begin
-                next_enable = 0;
-                next_write_finish = 1;
-                next_bit1 = 0;
-                next_count = 0;
-                next_char_added = 0;
-            //end
+            next_enable = 0;
+            next_write_finish = 1;
+            next_bit1 = 0;
+            next_count = 0;
+            next_char_added = 0;
         end
     end
     else if (enable && write_zeroes) begin
@@ -144,11 +121,7 @@ always_comb begin
     end
     else begin
         next_bit1 = 1'b0;
-        //next_enable = 0;
         next_count = 0;
-        //next_write_finish = 1;
-        //next_write_zeroes = 0;
-        //next_char_added = 0;
     end
 
 end

@@ -15,7 +15,7 @@ module t05_cb_synthesis (
     input logic [6:0] max_index,
     input logic [70:0] h_element,
     input logic write_finish,
-    input logic SRAM_read_finished,
+    //input logic SRAM_read_finished,
     input logic [2:0] curr_process,
     output logic char_found,
     output logic [127:0] char_path,
