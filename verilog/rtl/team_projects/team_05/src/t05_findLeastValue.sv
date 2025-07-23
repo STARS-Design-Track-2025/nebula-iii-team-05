@@ -5,7 +5,7 @@ module t05_findLeastValue (
     output logic [63:0] sum,                            //Sum of two values
     output logic [7:0] charWipe1, charWipe2,            //Characters to be wiped from SRAM
     output logic [8:0] least1, least2, histo_index,     //Least values and the index for the next value from SRAM
-    output logic [2:0] fin_state                        //Finish Enable
+    output logic [3:0] fin_state                        //Finish Enable
 );
 logic [8:0] least1_n, least2_n, count_n, sumCount;
 logic [63:0] val1, val2, val1_n, val2_n, sum_n;

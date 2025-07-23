@@ -45,8 +45,44 @@ module team_05 (
 
     // You can also have input registers controlled by the Caravel Harness's on chip processor
 );
-
     assign gpio_out = '0;
     assign gpio_oeb = '0;
+
+    logic serial_clk;
+    logic sclk;
+    logic flag;
+    logic [7:0] read_out;
+    logic [8:0] least1, least2;
+    logic [45:0] sum;
+    logic [7:0] index_of_root;
+    
+    //CONTROLLER
+    logic [3:0] en_state, fin_state;
+
+    //HISTO SRAM
+    logic [31:0] sram_in, sram_out;
+
+    //Histo to TRN
+    logic [31:0] totChar;
+
+    //CB To Header Syn
+    logic char_found;
+    logic [7:0] char;
+    logic [2:0] CB_state;
+    logic nextCharEn;
+
+    //FLV SRAM
+    logic [7:0] count;
+    logic [63:0] compVal;
+    logic [7:0] cw1, cw2;
+
+    //To SPI
+    logic writeBit;
+
+    t05_histogram histogram (.clk(clk), .rst(nrst), .addr_i(read_out), .sram_in(sram_in), .eof(fin_state), .complete(),
+    .total(totChar), .sram_out(sram_out), .hist_addr());
+
+    t05_findLeastValue findLeastValue (.clk(clk), .rst(nrst), .compVal(compVal), .state(en_state), .sum(sum), .charWipe1(cw1), .charWipe2(cw2), 
+    .least1(least1), .least2(least2), .count(count), .fin(fin_state), .nextCharEn(nextCharEn));
 
 endmodule

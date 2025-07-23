@@ -5,7 +5,7 @@ module t05_translation (
     input logic [7:0] charIn,                       //Character coming in from the SPI
     input logic [127:0] path,                       //Path obtained from SRAM
     output logic writeBin, nextCharEn, writeEn,     //writeBin == bit being written into file, nextCharEn calls for the next character, writeEn means to write to file 
-    output logic [2:0] fin_state                    //Finish State
+    output logic [3:0] fin_state                    //Finish State
 );
     logic [6:0] index, index_n;
     logic resEn, resEn_n;

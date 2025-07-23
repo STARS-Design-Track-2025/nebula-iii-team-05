@@ -30,7 +30,8 @@ module t05_SPI (
     input logic [31:0] read_address, write_address,
     output logic slave_select,
     output logic [7:0] read_output,
-    output logic finish, freq_flag,
+    output logic [3:0] finish, 
+    output logic freq_flag, cmd_en,
     output logic mosi // Write
 );
 
@@ -59,7 +60,7 @@ logic [5:0] timer_50, timer_50_n;
 logic [6:0] read_in_timer, read_in_timer_n;
 logic read_in_40, read_in_40_n;
 logic read_cmd_en, read_cmd_en_n, write_cmd_en, write_cmd_en_n, warmup_enable, warmup_enable_n, freq_flag_n; // Used to enable the read command
-logic cmd_en, cmd_en_n; // Used to enable the command
+logic cmd_en_n; // Used to enable the command
 logic redo, redo_n; // Used to redo the command if the response is not valid
 logic read_stop_en, read_stop_en_n; // Used to enable the read stop
 
@@ -280,24 +281,25 @@ always_comb begin
         end
         READ_SPI: begin  // Logic for reading data from MISO
             freq_flag_n = 1;
-            if(read_en || nextCharEn) begin
+            if(cmd_en) begin
+                slave_select = 0;
+                if (index_counter == 47) begin
+                    index_counter_n = 0; // Reset the index counter after sending the command
+                    cmd_en_n = 0;
+                    read_cmd_en_n = 0;
+                end
+                else if (index_counter < 47) begin
+                    index_counter_n = index_counter + 1; // Increment the index counter for each bit
+                end
+                mosi = cmd_line[47 - index_counter]; // Shift out the command bit
+            end
+            else if(read_en || nextCharEn) begin
                 read_output = read_byte; 
                 read_in_timer_n = 0;
                 if(read_cmd_en) begin
                     cmd_line_n = cmd18;
                     cmd_en_n = 1;
                     read_stop_en_n = 1;
-                    if(cmd_en) begin
-                        if (index_counter == 47) begin
-                            index_counter_n = 0; // Reset the index counter after sending the command
-                            cmd_en_n = 0;
-                            read_cmd_en_n = 0;
-                        end
-                        else if (index_counter < 47) begin
-                            index_counter_n = index_counter + 1; // Increment the index counter for each bit
-                        end
-                        mosi = cmd_line[47 - index_counter]; // Shift out the command bit
-                    end
                 end
             end
             else if(write_en == 1 && read_stop == 1) begin
@@ -364,7 +366,7 @@ always_comb begin
                 warmup_counter_n = warmup_counter + 1; // Warmup counter variable is just used to stabilize the SD
             end 
             else if (warmup_counter == 8) begin
-                finish = 1; // Enable the first bit of the command
+                finish = 7; // Enable the first bit of the command
             end
         end
         default: state_n = INIT; // Reset to INIT on unexpected state

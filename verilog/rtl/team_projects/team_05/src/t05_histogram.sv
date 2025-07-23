@@ -2,7 +2,7 @@ module t05_histogram(
     input logic clk, rst,
     input logic [7:0] addr_i, //sram_addr_in,// SPI and sram address input
     input logic [31:0] sram_in, //character index from the sram
-    output logic eof,  //end of file enable going to the controller
+    output logic [3:0] eof,  //end of file enable going to the controller
     output logic complete,  //end of byte going to the controller (might not need)
     output logic [31:0] total, sram_out, //total number of 8 bit inputs that have came through and the sram output with the new "+ 1" value to the sram_in
     output logic [7:0] hist_addr // the address given to the sram
@@ -14,10 +14,8 @@ logic clear;
 logic [7:0] shift; //assign end_file to what the end of the file would be
 logic [7:0] end_file = 8'b00011010;
 
-
-
 always_ff @( posedge clk, posedge rst) begin
-    if (rst || eof) begin
+    if (rst || eof == 1) begin
         sram_out <= 0;
         hist_addr <= 0;
         shift <= shift;
@@ -36,7 +34,7 @@ always_ff @( posedge clk, posedge rst) begin
         eof <= 0;
     end
 
-    if (eof && !rst) begin
+    if (eof == 1 && !rst) begin
         complete <= 1;
     end
 end

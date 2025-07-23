@@ -1,32 +1,13 @@
-`default_nettype none
-
-// FPGA top module for Team 05
-
-module top (
-  // I/O ports
-  input  logic hwclk, reset,
-  input  logic [20:0] pb,
-  output logic [7:0] left, right,
-         ss7, ss6, ss5, ss4, ss3, ss2, ss1, ss0,
-  output logic red, green, blue,
-
-  // UART ports
-  output logic [7:0] txdata,
-  input  logic [7:0] rxdata,
-  output logic txclk, rxclk,
-  input  logic txready, rxready
+module t05_top (
+    input logic hwclk, reset, miso, 
+    output logic mosi
 );
-
-  // GPIOs
-  // Don't forget to assign these to the ports above as needed
-  logic [33:0] gpio_in, gpio_out;
-  
   logic serial_clk;
   logic sclk;
 
   //FLV hTREE
   logic [8:0] least1, least2;
-  logic [45:0] sum;
+  logic [63:0] sum;
 
   //Controller
   logic [3:0] en_state;
@@ -48,6 +29,9 @@ module top (
   logic [6:0] nullSumIndex;
   logic WorR;
 
+  //SRAM CB
+  logic [70:0] h_element;
+
   //CB To Header Syn
   logic char_found;
   logic [7:0] char;
@@ -67,7 +51,7 @@ module top (
   logic readEn;
 
   //CB SRAM
-  logic [6:0] curr_index;
+  logic [7:0] curr_index;
 
   //SPI
   logic writeBit;
@@ -75,8 +59,7 @@ module top (
   logic [7:0] read_out;
   logic nextCharEn;
   logic writeEn;
-  
-  // Team 05 Design Instance
+
   t05_controller controller (
     .clk(hwclk), 
     .rst_n(reset), 
@@ -104,15 +87,14 @@ module top (
     .clk(hwclk), 
     .rst(reset), 
     .compVal(compVal), 
-    .state(en_state), 
+    .en_state(en_state), 
     .sum(sum), 
     .charWipe1(cw1), 
     .charWipe2(cw2), 
     .least1(least1), 
     .least2(least2), 
     .histo_index(histo_index), 
-    .fin(fin_state), 
-    .nextCharEn(nextCharEn)
+    .fin_state(fin_state)
     );
 
   t05_hTree hTree (
@@ -120,7 +102,7 @@ module top (
     .rst_n(reset), 
     .least1(least1), 
     .least2(least2), 
-    .sum(sum), 
+    .sum(sum),
     .nulls(nulls), 
     .HT_en(en_state), 
     .SRAM_finished(SRAM_finished),
@@ -133,10 +115,10 @@ module top (
 
   //Curr_state should be changed to logic can not pass typedefs through instantiation
   t05_cb_synthesis cb_syn (
-    .clk(hwclk), 
-    .rst(reset), 
+    .clk(hwclk),
+    .rst(reset),
     .max_index(index_of_root), 
-    .h_element(), 
+    .h_element(h_element), 
     .write_finish(write_finish), 
     .char_found(char_found),
     .char_path(char_path), 
@@ -144,7 +126,7 @@ module top (
     .curr_index(curr_index), 
     .least1(least1), 
     .least2(least2), 
-    .finished(fin_state), 
+    .finished(fin_state),
     .track_length(track_length)
     );
 
@@ -156,9 +138,8 @@ module top (
     .least1(least1),
     .least2(least2), 
     .char_path(char_path), 
-    .header(writeBit), 
     .enable(writeEn), 
-    .bit1(writeBit), 
+    .bit1(writeBit),
     .write_finish(write_finish), 
     .track_length(track_length)
     );
@@ -166,68 +147,16 @@ module top (
   t05_translation translation (
     .clk(hwclk), 
     .rst(reset), 
-    .totChar(totChar), 
+    .totChar(totChar),
     .charIn(read_out), 
     .path(path), 
     .writeBin(writeBit), 
     .writeEn(writeEn),
-    .nextCharEn(nextCharEn)
+    .nextCharEn(nextCharEn),
+    .en_state(en_state),
+    .fin_state(fin_state)
     );
 
-  t05_spiClockDivider spiClockDivider (
-    .current_clock_signal(hwclk), 
-    .reset(reset), 
-    .divided_clock_signal(serial_clk), 
-    .sclk(sclk), 
-    .freq_flag(flag)
-    );
 
-  t05_SPI SPI (
-    .mosi(right[6]), 
-    .miso(pb[18]), 
-    .rst(reset), 
-    .serial_clk(serial_clk), 
-    .clk(hwclk), 
-    .slave_select(green), 
-    .read_output(read_out), 
-    .writebit(writeBit), 
-    .read_en(readEn), 
-    .write_en(writeEn), 
-    .read_stop(pb[1]), 
-    .read_address(32'd0), 
-    .write_address(32'd0), 
-    .finish(fin_state), 
-    .freq_flag(flag), 
-    .nextCharEn(nextCharEn)
-    );
-
-  assign ss1[6] = sclk; // Connect the serial clock to one of the slave select lines for debugging
-  team_05 team_05_inst (
-    .clk(hwclk),
-    .nrst(~reset),
-    .en(1'b1),
-
-    .gpio_in(gpio_in),
-    .gpio_out(gpio_out),
-    .gpio_oeb()  // don't really need it here since it is an output
-
-    // Uncomment only if using LA
-    // .la_data_in(),
-    // .la_data_out(),
-    // .la_oenb(),
-
-    // Uncomment only if using WB Master Ports (i.e., CPU teams)
-    // You could also instantiate RAM in this module for testing
-    // .ADR_O(ADR_O),
-    // .DAT_O(DAT_O),
-    // .SEL_O(SEL_O),
-    // .WE_O(WE_O),
-    // .STB_O(STB_O),
-    // .CYC_O(CYC_O),
-    // .ACK_I(ACK_I),
-    // .DAT_I(DAT_I),
-
-    // Add other I/O connections to WB bus here
-  );
 
 endmodule

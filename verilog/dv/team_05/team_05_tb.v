@@ -170,6 +170,10 @@ module team_05_tb;
 		// Wait for design to be enabled
 		// before doing any checks
 		// *******************************
+
+		
+
+
 		
 		$display("%c[1;32m",27);
 		`ifdef GL
