@@ -1,11 +1,12 @@
 `timescale 1ms/10ns
 module t05_findLeastValue_tb;
-    logic clk, rst, state, fin;
+    logic clk, rst;
+    logic [3:0] en_state, fin_state;
     logic [7:0] charWipe1, charWipe2;
-    logic [8:0] least1, least2, count;
+    logic [8:0] least1, least2, histo_index;
     logic [63:0] compVal, sum;
 
-    t05_findLeastValue test (.clk(clk), .rst(rst), .state(state), .fin(fin), .charWipe1(charWipe1), .charWipe2(charWipe2), .least1(least1), .least2(least2), .count(count), .compVal(compVal), .sum(sum));
+    t05_findLeastValue test (.clk(clk), .rst(rst), .en_state(en_state), .fin_state(fin_state), .charWipe1(charWipe1), .charWipe2(charWipe2), .least1(least1), .least2(least2), .histo_index(histo_index), .compVal(compVal), .sum(sum));
 
     always begin
         #1
@@ -18,7 +19,7 @@ module t05_findLeastValue_tb;
 
         clk = 0;
         rst = 0;
-        state = 0;
+        en_state = 0;
         compVal = 0;
         #8
 
@@ -27,7 +28,7 @@ module t05_findLeastValue_tb;
         rst = 0;
         #8
         
-        state = 1;
+        en_state = 2;
         compVal = 500;
         #2
         compVal = 800;
