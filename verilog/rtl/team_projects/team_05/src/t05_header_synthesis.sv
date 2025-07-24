@@ -7,12 +7,13 @@ module t05_header_synthesis (
     input logic [8:0] least2,
     input logic [127:0] char_path,
     input logic [6:0] track_length,
+    output logic [8:0] header,
     output logic enable,
     output logic bit1,
     output logic write_finish
 );
 logic char_added;
-logic [8:0] next_header, header;
+logic [8:0] next_header;
 logic [7:0] zeroes;
 logic [7:0] next_zeroes;
 logic next_enable;
@@ -65,15 +66,37 @@ always_comb begin
     if ((char_found == 1'b1)) begin
         next_header = {1'b1, char_index}; // add control bit, beginning 1, and character index for header
         next_char_added = 1;
-        next_zeroes = 0;
         next_start = 0;
         next_enable = 0;
         next_start = 1;
         next_write_finish = 0;
-        next_zeroes = zeroes + 1;
+        //if (track_length == 1) begin // if there is a character found at the top of the tree
+        if (char_path[0] == 1) begin
+            next_zeroes = zeroes + 1;
+        end
+        //end
     end
-
-    if ((track_length == 1 && write_zeroes > 0)) begin
+    // else if (char_added == 1'b1) begin
+    //     // if (least1[8] == 1'b0 && least2[8] == 1'b0 && header[7:0] == least2[7:0]) begin // if both least1 and least2 are characters and state is backtrack (both chars have been found)
+    //     //     next_zeroes = 4'b0010;
+    //     // end
+    //     // else if ((least1[8] == 1'b1 && least2[8] == 1'b0) || (least2[8] == 1'b1 && least1[8] == 1'b0)) begin  // if only either least 1 or least 2 is a sum and the other is a character
+    //     //     //next_header = {header[9:0], 1'b0}; // add one ending 0 for one character
+    //     // else begin
+    //     //     next_zeroes = 4'b0;
+    //     // end
+    //     //next_char_added = 1'b0;
+    //     next_start = 1;
+    // end
+    // else begin
+    //     next_start = 0;
+    //     //next_char_added = 1'b0;
+    // end
+    // if ((char_path[0] == 1'b1) && (track_length > 7'b1)) begin // already explore both left and right and a character was already found and added to the header
+    //         next_zeroes = zeroes + 8'b1;
+    //         next_write_zeroes = 0;
+    // end
+    if ((track_length == 1 && zeroes > 0)) begin
         next_write_zeroes = 1;
         next_enable = 1;
         next_write_finish = 0;
@@ -96,11 +119,13 @@ always_comb begin
         end
         else begin
             next_count = 0;
-            next_enable = 0;
-            next_write_finish = 1;
-            next_bit1 = 0;
-            next_count = 0;
-            next_char_added = 0;
+            //if (!write_zeroes) begin
+                next_enable = 0;
+                next_write_finish = 1;
+                next_bit1 = 0;
+                next_count = 0;
+                next_char_added = 0;
+            //end
         end
     end
     else if (enable && write_zeroes) begin
@@ -120,7 +145,11 @@ always_comb begin
     end
     else begin
         next_bit1 = 1'b0;
+        //next_enable = 0;
         next_count = 0;
+        //next_write_finish = 1;
+        //next_write_zeroes = 0;
+        //next_char_added = 0;
     end
 
 end

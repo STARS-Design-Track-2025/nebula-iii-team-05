@@ -63,38 +63,38 @@ module t05_cb_synthesis_tb;
       reset = 0;
       max_index = 0;
       mid_reset = 0;
-      SRAM_enable = 1;
+      SRAM_enable = 0;
       //h_element = {{7'd0}, {1'b0, 8'd67}, {2'b11, 7'd0}, {46'd0}};
       
       //ONE ELEMENT ARRAY:
       htree[0] = {{7'd0}, {1'b0, 8'd67}, {2'b11, 7'd0}, {46'd0}};
       //htree[1] = {{7'd0}, {1'b0, 8'd67}, {2'b11, 7'd0}, {46'd0}};
-      // reset_fsm();
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state);
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state); 
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state);
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state);
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state);
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state); 
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state);
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state);
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state);
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state); 
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state);
-      // set_inputs(0, htree[curr_index]);
-      // $display("STATE: %d", state);
-      // #10
+      reset_fsm();
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state);
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state); 
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state);
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state);
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state);
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state); 
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state);
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state);
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state);
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state); 
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state);
+      set_inputs(0, htree[curr_index]);
+      $display("STATE: %d", state);
+      #10
 
       // NORMAL ARRAY
       max_index = 8;
