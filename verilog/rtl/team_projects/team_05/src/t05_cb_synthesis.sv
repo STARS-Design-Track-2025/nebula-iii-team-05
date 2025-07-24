@@ -23,7 +23,7 @@ module t05_cb_synthesis (
     output logic [7:0] curr_index,
     output logic [8:0] least1,
     output logic [8:0] least2,
-    output logic [3:0] finished,
+    output logic finished,
     output logic [6:0] track_length
 );
 
@@ -66,7 +66,7 @@ always @(*) begin
         char_found = 1'b0;
         char_path = 128'b0;
         char_index = 8'b0;
-        finished = 4'b0;
+        finished = 0;
         next_state = curr_state;
         next_path = curr_path;
         next_index = curr_index;
@@ -90,16 +90,21 @@ always @(*) begin
             LEFT: begin // move left (add 0 to path)
               if (wait_cycle == 0) begin
                   next_track_length = track_length + 1; // update total path length
-                  next_state = state_cb'((least1[8] == 1'b0) ? SEND : LEFT);
-                  if (least1[8] == 1'b0 || least1 == 9'b110000000) begin // if LSE is a char (or there is no element)
+                //   if(least1[8] == 1'b0) begin
+                //       next_state = SEND;
+                //   end
+                  if (least1 == 9'b110000000) begin
+                        next_state = FINISH;
+                  end
+                  else if (least1[8]) begin
+                      next_state = LEFT;
+                  end
+                  else if (least1[8] == 1'b0) begin // if LSE is a char (or there is no element)
                       if (least1 != 9'b110000000) begin // if there is a char (not no element)
                           char_index = least1[7:0]; // set output character (index) to LSE, NOT to tracking index
                           char_found = 1'b1;
                           next_state = SEND;
                           next_wait_cycle = 1;
-                      end
-                      else begin  // case for only one element in htree (if character is a null character)
-                          next_state = FINISH;
                       end
                       next_path = {curr_path[126:0], 1'b0}; // left shift and add 0 (left) to next path
                       char_path = next_path;
@@ -208,7 +213,7 @@ always @(*) begin
               end
             end
             FINISH: begin
-                finished = 4'b0101; // FIN state sent to (CONTROLLER)
+                finished = 1; // FIN state sent to (CONTROLLER)
             end
             default: begin
                 next_state = curr_state;

@@ -3,7 +3,7 @@ module t05_histogram(
     input logic [3:0] en_state,
     input logic [7:0] spi_in,        // input byte from SPI
     input logic [31:0] sram_in,       // value from SRAM
-    output logic [3:0] eof,
+    output logic eof,
     output logic complete, // eof = end of file; complete = done with byte
     output logic [31:0] total, sram_out,  //total number of characters within the file,  the updated data going to the sram 
     output logic [7:0]  hist_addr,     // address to SRAM
@@ -75,7 +75,7 @@ always_ff @( posedge clk, posedge rst ) begin
                 sram_out <= 0;
             end
             READ:  begin  //giving the sram the character that it wants to pull
-                next_state <= WAIT;
+                next_state <= READ2;
                 wr_r_en   <= 2'd0;
                 hist_addr <= new_spi;
                 char_total <= char_total + 1;
@@ -88,9 +88,9 @@ always_ff @( posedge clk, posedge rst ) begin
                 wr_r_en <= 2'd3;
                 if (wait_cnt == 2) begin
                     wait_cnt <= 0;
-                    next_state <= DONE;
-                end else begin
                     next_state <= WRITE;
+                end else begin
+                    next_state <= WAIT;
                 end
             end
             WRITE: begin  //pulling the data from the sram and adding 1
@@ -101,22 +101,25 @@ always_ff @( posedge clk, posedge rst ) begin
                     eof <= 1;
                     wr_r_en <= 2'd3;
                 end else begin
-                    next_state <= READ2;
+                    next_state <= READ;
                 end
             end
             DONE: begin  //done with that 1 cycle
-                next_state <= IDLE;
+                next_state <= DONE;
                 complete <= 1;
                 wr_r_en <= 2'd3;
             end
             HALT:   begin  //the end of file has been enabled and histogram will stop
                 next_state <= DONE;
-                eof <= 1;
+                //eof <= 1;
                 total <= char_total + 1;
                 wr_r_en <= 2'd3;
             end
             default: next_state <= IDLE;
         endcase
-    end
+        end
+        // else if (en_state != 1) begin
+        //     eof <= 0;
+        // end
     end
 endmodule

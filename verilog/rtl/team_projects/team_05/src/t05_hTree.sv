@@ -16,11 +16,12 @@ module t05_hTree (
   // Output data to other modules
   output logic [70:0] node_reg,   // nodes to be written to SRAM
   output logic [6:0] clkCount, nullSumIndex,            // to Sram (nullSumIndex for addressing), To Codebook (clkCount for indexing)
-  output logic [3:0] op_fin,                            // to controller - operation completion status
+  //output logic [3:0] op_fin,                            // to controller - operation completion status
+  output logic HT_fin_reg, HT_Finished,
   //TEMPORARY
     //  output logic [3:0] state_reg,//for testing
    // output logic [70:0] tree_reg, null1_reg, null2_reg,
-  output logic WriteorRead                                     // to SRAM - Write or Read control signal (1=Read, 0=Write)
+  output logic WriteorRead, error                                     // to SRAM - Write or Read control signal (1=Read, 0=Write)
 );
     // Internal register declarations
     // logic [70:0] tree_reg, null1_reg, null2_reg;
@@ -34,9 +35,11 @@ module t05_hTree (
     logic HT_fin;                                       // Huffman tree operation finished flag
     logic HT_finished;                                  // Huffman tree completely finished (both inputs null)
     logic err_n;                                          // Error detection flag
-    logic HT_Finished,HT_fin_reg, err;                 // Status and control flags
+    logic /*HT_Finished,  HT_fin_reg, */err;                 // Status and control flags
     logic [2:0] nullsum_delay_counter, nullsum_delay_counter_reg; // Counter for NULLSUM state delays
     logic WorR;
+
+    assign error = err;
     // logic [3:0] state_reg;                              // State register for debugging
 
     // logic [6:0] scounter;
@@ -59,8 +62,8 @@ module t05_hTree (
     logic [3:0] next_state; // Next state combinational logic
 
 // Sequential logic block - handles state and register updates
-always_ff @(posedge clk or negedge rst_n) begin
-    if (~rst_n) begin
+always_ff @(posedge clk, posedge rst_n) begin
+    if (rst_n) begin
         // Reset all state machine and registers to initial values
         state <= NEWNODE;
         //reset all registers
@@ -73,6 +76,7 @@ always_ff @(posedge clk or negedge rst_n) begin
         HT_Finished <= 1'b0;   
         nullsum_delay_counter_reg <= 3'b0;   
         WriteorRead <= '0;
+        err <= 0;
     end else if (HT_en == 4'b0011) begin
         // Clock all signals on positive edge
         state <= next_state;
@@ -109,7 +113,7 @@ end
         HT_fin = HT_fin_reg;
         HT_finished = 1'b0;
         WorR = 1'b0;                        // Default write operation
-        op_fin = 4'b0000; 
+        //op_fin = 4'b0000; 
         node = node_reg;                    // Default to current node value
         nullsum_delay_counter = nullsum_delay_counter_reg; // Default to current counter value
         // Default operation finish signal
@@ -134,7 +138,7 @@ end
             // Special case: both nodes are null (NULL + NULL case)
             end else if (least1 == 9'b110000000 && least2 == 9'b110000000) begin
                 HT_finished = 1'b1;
-                op_fin = 4'b0100; // Signal completion with op_fin
+                //op_fin = 4'b0100; // Signal completion with op_fin
             end else begin
                 // Regular Huffman tree construction state machine
                 case(state)
@@ -256,16 +260,16 @@ end
             err_n = 1'b0;
         end
 
-        // op fin sent to controller
-        if (err) begin
-            op_fin = 4'b1000; // Indicate error operation finish
-        end else if (HT_Finished) begin
-            op_fin = 4'b0100;
-        end else if (HT_fin_reg) begin
-            op_fin = 4'b0011;
-        end else begin
-            op_fin = 4'b0000; // Default operation finish signal
-        end
+        // // op fin sent to controller
+        // if (err) begin
+        //     //op_fin = 4'b1000; // Indicate error operation finish
+        // end else if (HT_Finished) begin
+        //     //op_fin = 4'b0100;
+        // end else if (HT_fin_reg) begin
+        //     op_fin = 4'b0011;
+        // end else begin
+        //     op_fin = 4'b0000; // Default operation finish signal
+        // end
     end
 
 endmodule

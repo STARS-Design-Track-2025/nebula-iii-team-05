@@ -1,11 +1,25 @@
+`timescale 10ms/10ns
 module t05_top (
-    input logic hwclk, reset, miso, SRAM_finished,
-    input logic [3:0] en_state,
+    input logic hwclk, reset, miso, SRAM_finished, cont_en,
     input logic [7:0] read_out,
     input logic [63:0] compVal, nulls,
-    output logic mosi,
-    output logic [3:0] fin_state_HG, fin_state_FLV, fin_state_HT, fin_state_CB, fin_state_TL
+    input logic [5:0] op_fin,
+    input logic [31:0] sram_in,
+    // output logic HT_fin_reg,
+    // output logic fin_state_HG, fin_state_FLV, fin_state_HT, fin_state_CB, fin_state_TL, fin_state_SPI,
+    // output logic error_FIN_HG, error_FIN_FLV, error_FIN_HT, error_FIN_FINISHED, error_FIN_CBS, error_FIN_TRN, error_FIN_SPI,
+    output logic finished_signal,
+    output logic [3:0] en_state,
+    output logic [8:0] fin_State,
+    output logic [31:0] sram_out,
+    input logic [70:0] h_element,
+    output logic [7:0] hist_addr,
+    output logic mosi, 
+    output logic [1:0] wr,
+    output logic [8:0] histo_index
+    //output logic [3:0] fin_state_HG, fin_state_FLV, fin_state_HT, fin_state_CB, fin_state_TL
 );
+  
   logic serial_clk;
   logic sclk;
 
@@ -14,17 +28,21 @@ module t05_top (
   logic [63:0] sum;
 
   //Controller
-  //logic [3:0] en_state;
+  // logic [3:0] en_state;
   //logic [3:0] fin_state;
+  // input logic HT_fin_reg;
+  // input logic fin_state_HG, fin_state_FLV, fin_state_HT, fin_state_CB, fin_state_TL;
+  // output logic finished_signal;
   
   //HISTO SRAM
-  logic [31:0] sram_in, sram_out;
+  //logic [31:0] sram_in, sram_out;
 
   //Histo to TRN
   logic [31:0] totChar;
 
   //HTREE CB
   logic [6:0] max_index;
+
 
   //HTREE SRAM
   //logic [63:0] nulls;
@@ -34,7 +52,7 @@ module t05_top (
   logic WorR;
 
   //SRAM CB
-  logic [70:0] h_element;
+  //logic [70:0] h_element;
 
   //CB To Header Syn
   logic char_found;
@@ -46,10 +64,9 @@ module t05_top (
   logic [6:0] track_length;
   logic [8:0] least1_CB, least2_CB;
 
-
   //FLV SRAM
   logic [7:0] cw1, cw2;
-  logic [8:0] histo_index;
+  //logic [8:0] histo_index;
   //logic [63:0] compVal;
 
   //SRAM TRN
@@ -62,19 +79,48 @@ module t05_top (
   //SPI
   logic writeBit_HS, writeBit_TL;
   logic flag;
+
+  //SOMETHING
+  logic HT_fin_reg;
+  logic fin_state_idle, fin_state_HG, fin_state_FLV, fin_state_HT, fin_state_CB, fin_state_TL, fin_state_SPI;
+  assign fin_state_idle = 1;
+  logic error_FIN_HG, error_FIN_FLV, error_FIN_HT, error_FIN_FINISHED, error_FIN_CBS, error_FIN_TRN, error_FIN_SPI;
+
+
+  logic temp;
+  assign temp = /* error_FIN_HG || error_FIN_FLV || */ error_FIN_HT; //|| error_FIN_FINISHED; //|| error_FIN_CBS || error_FIN_TRN;// || error_FIN_SPI;
+
+
   //logic [7:0] read_out;
   logic nextCharEn;
   logic writeEn_HS, writeEn_TL;
-//   t05_controller controller (
-//     .clk(hwclk), 
-//     .rst_n(reset), 
-//     .cont_en(), 
-//     .restart_en(), 
-//     .finState(fin_state), 
-//     .op_fin(), 
-//     .state_reg(en_state), 
-//     .finished_signal()
-//     );
+  assign fin_State = {fin_state_idle, fin_state_HG, fin_state_FLV, HT_fin_reg, fin_state_HT, fin_state_CB, fin_state_TL, '0, temp};//fin_state_SPI,temp };
+  
+  t05_controller controller (
+    .clk(hwclk), 
+    .rst(reset), 
+    .cont_en(cont_en), 
+    .restart_en('0), 
+    .finState(fin_State), 
+    .op_fin(op_fin), 
+    .error_FIN_HG(error_FIN_HG), 
+    .error_FIN_FLV(error_FIN_FLV), 
+    .error_FIN_HT(error_FIN_HT),
+    .error_FIN_FINISHED(error_FIN_FINISHED),
+    .error_FIN_CBS(error_FIN_CBS),
+    .error_FIN_TRN(error_FIN_TRN),
+    .error_FIN_SPI(error_FIN_SPI),
+    .fin_idle(fin_state_idle),
+    .fin_HG(fin_state_HG),
+    .fin_FLV(fin_state_FLV),
+    .fin_HT(HT_fin_reg),
+    .fin_FINISHED(fin_state_HT),
+    .fin_CBS(fin_state_CB),
+    .fin_TRN(fin_state_TL),
+    .fin_SPI(fin_state_SPI),
+    .state_reg(en_state), 
+    .finished_signal(finished_signal)
+    );
 
   t05_histogram histogram (
     .clk(hwclk), 
@@ -86,8 +132,8 @@ module t05_top (
     .complete(readEn),
     .total(totChar), 
     .sram_out(sram_out), 
-    .hist_addr(),
-    .wr_r_en()
+    .hist_addr(hist_addr),
+    .wr_r_en(wr)
     );
 
   t05_findLeastValue findLeastValue (
@@ -99,25 +145,28 @@ module t05_top (
     .charWipe1(cw1), 
     .charWipe2(cw2), 
     .least1(least1_FLV), 
-    .least2(least2_FLV), 
+    .least2(least2_FLV) /*,task readA ()*/,
     .histo_index(histo_index), 
     .fin_state(fin_state_FLV)
     );
 
   t05_hTree hTree (
     .clk(hwclk), 
-    .rst_n(!reset), 
+    .rst_n(reset), 
     .least1(least1_FLV), 
     .least2(least2_FLV), 
     .sum(sum),
     .nulls(nulls), 
     .HT_en(en_state), 
+    .error(error_FIN_HT),
     .SRAM_finished(SRAM_finished),
     .node_reg(node_reg),
     .clkCount(max_index), 
     .nullSumIndex(nullSumIndex), 
-    .op_fin(fin_state_HT), 
-    .WriteorRead(WorR)
+    //.op_fin(fin_state_HT), 
+    .WriteorRead(WorR),
+    .HT_Finished(fin_state_HT),
+    .HT_fin_reg(HT_fin_reg)
     );
 
   //Curr_state should be changed to logic can not pass typedefs through instantiation
