@@ -38,29 +38,21 @@ module t05_sram_interface(  //send enable to htree and codebook for when it is d
     input  logic [7:0] translation,
 //controller input
     input  logic [2:0] state,
-//inputs from sram
-    input  logic [31:0] sram_data_out_his,
-    input  logic [63:0] sram_data_out_flv,
-    input  logic [127:0] sram_data_out_trn,
-    input  logic [70:0] sram_data_out_cb,
-    input  logic [70:0] sram_data_out_ht,
-
+//wishbone connects
     output logic wr_en,
     output logic r_en,
-    output logic busy_o,  
+    input logic busy_o,  
     output logic [3:0] select,
-
     output logic [31:0] addr,
+    output logic [31:0] data_i,
+    input logic [31:0] data_o,
     //htree outputs
-    output logic [63:0] sram_data_in_ht,  //stored to sram
     output logic [63:0] nulls, //data going to htree
     output logic ht_done,
     // histogram output
-    output logic [31:0] sram_data_in_hist, //stored to sram
     output logic [31:0] old_char, //data going to histogram
 //flv outputs
     output logic [63:0] comp_val, //going to find least value
-    output logic [63:0] sram_data_in_flv, //stored to sram
     //codebook outputs
     output logic [70:0] h_element, //from the htree going to codebook
     output logic [127:0] cb_path_sram, //going to sram
@@ -82,7 +74,115 @@ module t05_sram_interface(  //send enable to htree and codebook for when it is d
     logic cb;
     logic [2:0] done;
 
+    logic [63:0] sram_data_in_flv;
+    logic [31:0] sram_data_in_hist;
+    logic [63:0] sram_data_in_ht;
+    logic [31:0] sram_data_out_his;
+    logic [63:0] sram_data_out_flv;
+    logic [127:0] sram_data_out_trn;
+    logic [70:0] sram_data_out_cb;
+    logic [70:0] sram_data_out_ht;
+    logic word_cnt;
+    logic cb_path_buff;
+    logic node_buffer;
+    logic temp_path;
+    logic find_it;
+
 always_ff @( posedge clk, posedge rst ) begin : blockName
+    if (rst) begin
+        word_cnt <= 0;
+        cb_path_buff <= 0;
+        node_buffer <= 0;
+        temp_path <= 0;
+        find_it <= 0;
+    end else if (state == CODEBOOK && do_write) begin
+        case (word_cnt)
+            0: begin
+                data_i <= cb_path_buff[31:0];
+            end 
+            1: begin
+                data_i <= cb_path_buff[63:32];
+            end
+            2: begin
+                data_i <= cb_path_buff[95:64];
+            end
+            3: begin
+                data_i <= cb_path_buff[127:96];
+            end
+        endcase
+        addr <= base_addr + (char_index * 4) + (word_cnt + 4);
+        word_cnt <= word_cnt + 1;
+        if (word_cnt == 3) begin
+            cb_path_buff <= codebook_path;
+            cb_done <= 1;
+            word_cnt <= 0;
+        end
+    end else if (state == HTREE && do_read) begin
+        addr <= base_addr + (htreeindex << 2) + word_cnt;
+        case (word_cnt)
+            0: begin
+                node_buffer[31:0] <= data_o;
+           end
+            1: begin 
+                node_buffer[63:32] <= data_o;
+            end
+            2: begin 
+                node_buffer[70:64] <= data_o[6:0];
+            end
+        endcase
+        word_cnt <= word_cnt + 1;
+        if (word_cnt == 2) begin
+            sram_data_out_ht <= node_buffer;
+            ht_done <= 1;
+            word_cnt <= 0;
+        end
+    end else if (state == TRANSLATION && do_read) begin
+        case (trn_read_count)
+            0: begin
+                addr <= base_addr + (4 * translation) + 0;
+                temp_path[31:0]   <= data_o;
+            end
+            1: begin
+                addr <= base_addr + (4 * translation) + 4;
+                temp_path[63:32]  <= data_o;
+            end
+            2: begin
+                addr <= base_addr + (4 * translation) + 8;
+                temp_path[95:64]  <= data_o;
+            end
+            3: begin
+                addr <= base_addr + (4 * translation) + 12;
+                temp_path[127:96] <= data_o;
+            end
+        endcase
+            word_cnt <= word_cnt + 1;
+            if (word_cnt == 3) begin
+                sram_data_out_trn <= temp_path;
+                word_cnt <= 0;
+            
+            end
+    end else if (state == FLV && do_read) begin
+        case (word_cnt)
+            0: begin
+                addr <= base_addr + (4 * find_least);
+                find_it[31:0] <= data_o;
+            end
+            1: begin
+                addr <= base_addr + (4 * find_least);
+                find_it[63:32] <= data_o;
+            end
+        endcase
+        word_cnt <= word_cnt + 1;
+        if (word_cnt == 2) begin
+            sram_data_out_flv <= find_it;
+            word_cnt <= 0;
+        end
+    end
+
+
+end
+
+always_ff @( posedge clk, posedge rst ) begin
     if (rst) begin
         ctrl_done <= 3'b0;
     end else begin
@@ -117,18 +217,15 @@ end
             ctrl_state <= S_IDLE;
             r_en <= 0;
             wr_en <= 0;
-            busy_o <= 0;
         end else begin
             ctrl_state <= next_ctrl;
             case (ctrl_state)
                 S_IDLE: begin
                     if (do_read) begin
                         r_en <= 1;
-                        busy_o <= 1;
                         next_ctrl <= S_WAIT1;
                     end else if (do_write) begin
                         wr_en <= 1;
-                        busy_o <= 1;
                         next_ctrl <= S_WAIT1;
                     end
                 end
@@ -138,7 +235,6 @@ end
                 S_WAIT2: begin
                     r_en <= 0;
                     wr_en <= 0;
-                    busy_o <= 0;
                     next_ctrl <= S_IDLE;
                 end
             endcase
@@ -179,8 +275,11 @@ end
             end
             CODEBOOK: begin
                 base_addr = 32'd2048;
-                do_write = 1;
-                do_read = 1;  //still need to find an enable for this
+                if (char_index == 0) begin
+                    do_read = 1;
+                end else begin
+                    do_write = 1;
+                end
             end
             TRANSLATION: begin
                 base_addr = 32'd0;
@@ -256,19 +355,19 @@ end
                     if (do_write) begin
                         addr <= base_addr + (4 * char_index);
                         cb_path_sram <= codebook_path;
-                        done <= 3'd4;
+                        done <= 3'd5;
                     end else if (do_read) begin
                         addr <= base_addr + (4 * curr_index);  //data comming from the htree so make the base addr the same as htree written data
                         h_element <= sram_data_out_cb;
                         cb <= 1;  //enable going to the codebook letting it know that it is finished 
-                        done <= 3'd4;
+                        done <= 3'd5;
                     end 
                 end
                
                 TRANSLATION: begin
                         addr <= base_addr + (4 * translation);
                         path <= sram_data_out_trn;
-                        done <= 3'd5;
+                        done <= 3'd6;
                 end
             endcase
         end
