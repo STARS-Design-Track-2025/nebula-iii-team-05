@@ -35,7 +35,7 @@ module t05_cb_synthesis_tb;
     logic wait_cycle;
 
     always #5 clk = ~clk;
-    t05_cb_synthesis cb1(.clk(clk), .write_finish(write_finish), .track_length(track_length), .pos(pos), .least1(least1), .least2(least2), .rst(reset), .max_index(max_index), .curr_path(curr_path), .curr_index(curr_index), .h_element(h_element), .curr_state(state), .char_path(char_path), .char_index(char_index), .char_found(char_found), .finished(finished), .wait_cycle(wait_cycle));
+    t05_cb_synthesis cb1(.clk(clk), .SRAM_enable(SRAM_enable), .write_finish(write_finish), .track_length(track_length), .pos(pos), .least1(least1), .least2(least2), .rst(reset), .max_index(max_index), .curr_path(curr_path), .curr_index(curr_index), .h_element(h_element), .curr_state(state), .char_path(char_path), .char_index(char_index), .char_found(char_found), .finished(finished), .wait_cycle(wait_cycle));
     t05_header_synthesis hd1 (.clk(clk), .track_length(track_length), .write_finish(write_finish), .rst(reset), .bit1(bit1), .enable(enable), .char_index(char_index), .char_path(char_path), .char_found(char_found), .least1(least1), .least2(least2), .header(header));
     task reset_fsm();
       begin
@@ -95,16 +95,16 @@ module t05_cb_synthesis_tb;
       // #10
 
       // NORMAL ARRAY
-      // max_index = 8;
-      // htree[0] = {{7'd8}, {1'b0, 8'd67}, {1'b0, 8'd66}, {46'd5}}; // max_index=8, C=2, B=3, sum=5
-      // htree[1] = {{7'd8}, {1'b0, 8'd68}, {1'b0, 8'd69}, {46'd7}}; // max_index=8, D=3, E=4, sum=7
-      // htree[2] = {{7'd8}, {1'b0, 8'd72}, {1'b0, 8'd73}, {46'd8}}; // max_index=8, H=4, I=4, sum=8
-      // htree[3] = {{7'd8}, {1'b1, 8'd0}, {1'b0, 8'd65}, {46'd10}}; // max_index=8, A=5, index0=5, sum=10
-      // htree[4] = {{7'd8}, {1'b0, 8'd70}, {1'b1, 8'd1}, {46'd13}}; // max_index=8, F=6, index1=7, sum=13
-      // htree[5] = {{7'd8}, {1'b0, 8'd71}, {1'b1, 8'd2}, {46'd15}}; // max_index=8, G=7, index2=8, sum=15
-      // htree[6] = {{7'd8}, {1'b1, 8'd3}, {1'b1, 8'd4}, {46'd23}}; // max_index=8, index3=10, index4=13, sum=23
-      // htree[7] = {{7'd8}, {1'b0, 8'd74}, {1'b1, 8'd5}, {46'd29}}; // max_index=8, J=14, index5=15, sum=29
-      // htree[8] = {{7'd8}, {1'b1, 8'd6}, {1'b1, 8'd7}, {46'd52}}; // max_index=8, index6=23, index7=29, sum=52
+      max_index = 8;
+      htree[0] = {{7'd8}, {1'b0, 8'd67}, {1'b0, 8'd66}, {46'd5}}; // max_index=8, C=2, B=3, sum=5
+      htree[1] = {{7'd8}, {1'b0, 8'd68}, {1'b0, 8'd69}, {46'd7}}; // max_index=8, D=3, E=4, sum=7
+      htree[2] = {{7'd8}, {1'b0, 8'd72}, {1'b0, 8'd73}, {46'd8}}; // max_index=8, H=4, I=4, sum=8
+      htree[3] = {{7'd8}, {1'b1, 8'd0}, {1'b0, 8'd65}, {46'd10}}; // max_index=8, A=5, index0=5, sum=10
+      htree[4] = {{7'd8}, {1'b0, 8'd70}, {1'b1, 8'd1}, {46'd13}}; // max_index=8, F=6, index1=7, sum=13
+      htree[5] = {{7'd8}, {1'b0, 8'd71}, {1'b1, 8'd2}, {46'd15}}; // max_index=8, G=7, index2=8, sum=15
+      htree[6] = {{7'd8}, {1'b1, 8'd3}, {1'b1, 8'd4}, {46'd23}}; // max_index=8, index3=10, index4=13, sum=23
+      htree[7] = {{7'd8}, {1'b0, 8'd74}, {1'b1, 8'd5}, {46'd29}}; // max_index=8, J=14, index5=15, sum=29
+      htree[8] = {{7'd8}, {1'b1, 8'd6}, {1'b1, 8'd7}, {46'd52}}; // max_index=8, index6=23, index7=29, sum=52
 
       //LONG HTREE: long paths
 //       max_index = 30;
