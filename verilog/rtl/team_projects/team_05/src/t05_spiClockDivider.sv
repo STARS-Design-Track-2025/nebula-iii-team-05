@@ -1,13 +1,14 @@
 module t05_spiClockDivider (
-    input  logic current_clock_signal,
-    input  logic reset, freq_flag,
+    input logic sclk_flag,
+    input logic current_clock_signal,
+    input logic reset, freq_flag,
     output logic divided_clock_signal,
     output logic sclk
 );
     logic [9:0] counter, counter_n; 
     logic divided_clock_signal_n; 
 
-        // Regsiters
+    // Regsiters
     always_ff @(posedge current_clock_signal or posedge reset) begin 
         if (reset) begin
             counter <= 0;
@@ -21,7 +22,7 @@ module t05_spiClockDivider (
         counter_n = counter;
         divided_clock_signal_n = divided_clock_signal;
         sclk = 0;
-
+        
         if(freq_flag) begin
             counter_n = counter;
             divided_clock_signal_n = divided_clock_signal;
