@@ -1,17 +1,10 @@
 module t05_histogram(
-<<<<<<< HEAD
-    input  logic       clk, rst,
-    input  logic [7:0] spi_in,        // input byte from SPI
-    input  logic [31:0] sram_in,       // value from SRAM
-    output logic       eof, complete, // eof = end of file; complete = done with byte
-=======
     input logic clk, rst,
     input logic [3:0] en_state,
     input logic [7:0] spi_in,        // input byte from SPI
     input logic [31:0] sram_in,       // value from SRAM
     output logic eof,
     output logic complete, // eof = end of file; complete = done with byte
->>>>>>> 93c89207a86f7d90771c1bfd8e81072026bccc93
     output logic [31:0] total, sram_out,  //total number of characters within the file,  the updated data going to the sram 
     output logic [7:0]  hist_addr,     // address to SRAM
     output logic [1:0] wr_r_en        // enable going to sram to tell it to read or write
