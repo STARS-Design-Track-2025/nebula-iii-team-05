@@ -1,25 +1,52 @@
 `timescale 10ms/10ns
 module t05_top (
-    input logic hwclk, reset, miso, SRAM_finished, cont_en,
-    input logic [7:0] read_out,
-    input logic [63:0] compVal, nulls,
-    input logic [5:0] op_fin,
-    input logic [31:0] sram_in,
     // output logic HT_fin_reg,
     // output logic fin_state_HG, fin_state_FLV, fin_state_HT, fin_state_CB, fin_state_TL, fin_state_SPI,
     // output logic error_FIN_HG, error_FIN_FLV, error_FIN_HT, error_FIN_FINISHED, error_FIN_CBS, error_FIN_TRN, error_FIN_SPI,
+    //output logic [3:0] fin_state_HG, fin_state_FLV, fin_state_HT, fin_state_CB, fin_state_TL
+    input logic hwclk, reset,
+
+    //CONTROLLER
+    input logic cont_en,
+    input logic [5:0] op_fin,
     output logic finished_signal,
+
+    //HISTOGRAM
+    input logic [31:0] sram_in,
+    output logic [31:0] sram_out,
+    output logic [7:0] hist_addr,
+    output logic [1:0] wr,
+
+    //FLV
+    input logic [63:0] compVal,
+    //output logic [8:0] histo_index,
+
+    //HTREE
+    input logic SRAM_finished,
+    input logic [63:0] nulls,
+
+    //CB
+    //input logic [70:0] h_element,
+
+    //SPI
+    output logic mosi, 
+    input logic miso,
+    input logic [7:0] read_out,
+
+    //Starting states
     output logic [3:0] en_state,
     output logic [8:0] fin_State,
-    output logic [31:0] sram_out,
-    input logic [70:0] h_element,
-    output logic [7:0] hist_addr,
-    output logic mosi, 
-    output logic [1:0] wr,
-    output logic [8:0] histo_index
-    //output logic [3:0] fin_state_HG, fin_state_FLV, fin_state_HT, fin_state_CB, fin_state_TL
+
+    //WRAPPER
+    output logic wbs_stb_o,
+    output logic wbs_cyc_o,
+    output logic wbs_we_o,
+    output logic [3:0] wbs_sel_o,
+    output logic [31:0] wbs_dat_o,
+    output logic [31:0] wbs_adr_o,
+    input logic wbs_ack_i,
+    input logic [31:0] wbs_dat_i
 );
-  
   logic serial_clk;
   logic sclk;
 
@@ -52,7 +79,7 @@ module t05_top (
   logic WorR;
 
   //SRAM CB
-  //logic [70:0] h_element;
+  logic [70:0] h_element;
 
   //CB To Header Syn
   logic char_found;
@@ -66,7 +93,7 @@ module t05_top (
 
   //FLV SRAM
   logic [7:0] cw1, cw2;
-  //logic [8:0] histo_index;
+  logic [8:0] histo_index;
   //logic [63:0] compVal;
 
   //SRAM TRN
@@ -86,16 +113,94 @@ module t05_top (
   assign fin_state_idle = 1;
   logic error_FIN_HG, error_FIN_FLV, error_FIN_HT, error_FIN_FINISHED, error_FIN_CBS, error_FIN_TRN, error_FIN_SPI;
 
-
   logic temp;
   assign temp = /* error_FIN_HG || error_FIN_FLV || */ error_FIN_HT; //|| error_FIN_FINISHED; //|| error_FIN_CBS || error_FIN_TRN;// || error_FIN_SPI;
-
 
   //logic [7:0] read_out;
   logic nextCharEn;
   logic writeEn_HS, writeEn_TL;
   assign fin_State = {fin_state_idle, fin_state_HG, fin_state_FLV, HT_fin_reg, fin_state_HT, fin_state_CB, fin_state_TL, '0, temp};//fin_state_SPI,temp };
-  
+
+  //WB & SRAM INTERFACE
+  logic write_i, read_i, addr_i, sel_i;
+
+  wishbone_mananger WB (
+    .nRST(!reset),
+    .CLK(hwclk),
+    .DAT_I(wbs_dat_i),
+    .ACK_I(wbs_ack_i),
+    .CPU_DAT_I(),
+    .ADR_I(addr_i),
+    .SEL_I(sel_i),
+    .WRITE_I(write_i),
+    .READ_I(read_i),
+    .ADR_O(wbs_adr_o),
+    .DAT_O(wbs_dat_o),
+    .SEL_O(wbs_sel_o),
+    .WE_O(wbs_we_o),
+    .STB_O(wbs_stb_o),
+    .CYC_O(wbs_cyc_o),
+    .CPU_DAT_O(),
+    .BUSY_O()
+  );
+
+  t05_sram_interface sram_interface (
+    .clk(hwclk),
+    .rst(reset),
+    //HISTOGRAM INPUTS
+    .histogram(sram_out),
+    .histogram_addr(hist_addr),
+    .hist_r_wr(wr),
+    //FLV INPUTS
+    .fin_least(histo_index),
+    .charWipe1(cw1),
+    .charWipe2(cw2),
+    .flv_r_wr(),
+    //HTREE INPUTS
+    .new_node(node_reg),
+    .htreeindex(nullSumIndex),
+    .htree_r_wr(),
+    //CB INPUTS
+    .curr_index(curr_index),
+    .char_index(char_index),
+    .codebook_path(char_path),
+    //TLN INPUT
+    .translation(read_out),
+    //CONTROLLER INPUT
+    .state(state),
+    //INPUTS FROM SRAM
+    .sram_data_out_his(),
+    .sram_data_out_flv(),
+    .sram_data_out_trn(),
+    .sram_data_out_cb(),
+    .sram_data_out_ht(),
+    
+    //OUTPUTS to SRAM
+    .wr_en(write_i),
+    .r_en(read_i),
+    .busy_o(),
+    .select(sel_i),
+    .addr(addr_i),
+    //HTREE OUTPUTS
+    .sram_data_in_ht(),        //Goes to SRAM
+    .nulls(nulls),             //data going to hTree
+    .ht_done(SRAM_finished),
+    //HISTOGRAM OUTPUTS
+    .sram_data_in_hist(),     //Stored to SRAM
+    .old_char(sram_in),       //data going to histogram
+    //FLV OUTPUTS
+    .compVal(compVal),        //Data going to FLV 
+    .sram_data_in_flv(),      //Going to SRAM
+    //CB OUTPUTS
+    .h_element(h_element),    //data going to CB
+    .cb_path_sram(),          //Going to SRAM
+    .cb_done(),
+    //TLN OUTPUTS
+    .path(path),
+    //Controller Output
+    .ctrl_done()
+  );
+
   t05_controller controller (
     .clk(hwclk), 
     .rst(reset), 
@@ -145,7 +250,7 @@ module t05_top (
     .charWipe1(cw1), 
     .charWipe2(cw2), 
     .least1(least1_FLV), 
-    .least2(least2_FLV) /*,task readA ()*/,
+    .least2(least2_FLV),
     .histo_index(histo_index), 
     .fin_state(fin_state_FLV)
     );
@@ -163,7 +268,6 @@ module t05_top (
     .node_reg(node_reg),
     .clkCount(max_index), 
     .nullSumIndex(nullSumIndex), 
-    //.op_fin(fin_state_HT), 
     .WriteorRead(WorR),
     .HT_Finished(fin_state_HT),
     .HT_fin_reg(HT_fin_reg)
@@ -184,7 +288,8 @@ module t05_top (
     .least1(least1_CB), 
     .least2(least2_CB), 
     .finished(fin_state_CB),
-    .track_length(track_length)
+    .track_length(track_length),
+    .SRAM_enable()
     );
 
   t05_header_synthesis header_synthesis (
@@ -213,7 +318,5 @@ module t05_top (
     .en_state(en_state),
     .fin_state(fin_state_TL)
     );
-
-
 
 endmodule

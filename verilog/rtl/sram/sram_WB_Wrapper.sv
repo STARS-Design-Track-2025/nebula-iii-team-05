@@ -75,7 +75,7 @@ module sram_WB_Wrapper #(
     end
 
 	// SRAM Instance
-	sram_for_FPGA sram_inst (
+	sky130_sram_8kbyte_1r1w_32x2048_8 sram_inst (
         `ifdef USE_POWER_PINS
             .vccd1(vccd1),	// User area 1 1.8V power
             .vssd1(vssd1),	// User area 1 digital ground

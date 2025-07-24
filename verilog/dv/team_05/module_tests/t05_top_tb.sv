@@ -13,10 +13,19 @@ module t05_top_tb;
     logic fin_state_HG, fin_state_FLV, fin_state_HT, fin_state_CB, fin_state_TL, fin_state_SPI;
     logic finished_signal;
     logic [3:0] en_state;
-    logic [70:0] h_element;
+    // logic [70:0] h_element;
     int total_tests;
     int passed_tests;
-  
+
+    //WRAPPER
+    logic wbs_stb_i;
+    logic wbs_cyc_i;
+    logic wbs_we_i;
+    logic [3:0] wbs_sel_i;
+    logic [31:0] wbs_dat_i;
+    logic [31:0] wbs_adr_i;
+    logic wbs_ack_o;
+    logic [31:0] wbs_dat_o;
 
     t05_top top (.hwclk(hwclk),
     .reset(reset),
@@ -26,19 +35,25 @@ module t05_top_tb;
     .read_out(read_out),
     .compVal(compVal),
     .nulls(nulls),
-    .h_element(h_element),
-    // .HT_fin_reg(HT_fin_reg),
-    // .fin_state_FLV(fin_state_FLV),
-    // .fin_state_HG(fin_state_HG),
-    // .fin_state_HT(fin_state_HT),
-    // .fin_state_CB(fin_state_CB),
-    // .fin_state_TL(fin_state_TL),
-    // .fin_state_SPI(fin_state_SPI),
+    //.h_element(h_element),
     .SRAM_finished(SRAM_finished),
     .finished_signal(finished_signal),
     .en_state(en_state),
     .cont_en(cont_en),
     .fin_State(fin_State)
+    );
+
+    sram_WB_Wrapper sram (
+        .wb_clk_i(hwclk),
+        .wb_rst_i(reset),
+        .wbs_stb_i(wbs_stb_i),
+        .wbs_cyc_i(wbs_cyc_i),
+        .wbs_we_i(wbs_we_i),
+        .wbs_sel_i(wbs_sel_i),
+        .wbs_dat_i(wbs_dat_i),
+        .wbs_adr_i(wbs_adr_i),
+        .wbs_ack_o(wbs_ack_o),
+        .wbs_dat_o(wbs_dat_o)
     );
  
   
@@ -514,11 +529,6 @@ module t05_top_tb;
         hwclk = ~hwclk;
     end
 
-    // always begin
-    //     #10000
-    //     $finish;
-    // end
-
     initial begin
         $dumpfile("t05_top.vcd");
         $dumpvars(0, t05_top_tb);
@@ -553,7 +563,7 @@ module t05_top_tb;
         nulls = 64'd500;   // Add nulls data for HTREE
         auto_advance("HTREE to CBS", 0, 0);
         #5;
-        h_element = {7'b1000000, 9'b110000000, 9'b110000000, 46'd0};
+        //h_element = {7'b1000000, 9'b110000000, 9'b110000000, 46'd0};
         auto_advance("CBS to TRN", 0, 0);
         #5;
         auto_advance("TRN to SPI", 0, 0);
