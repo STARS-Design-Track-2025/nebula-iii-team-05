@@ -5,12 +5,8 @@ module t05_histogram_tb;
   logic clk, rst;
   logic [7:0] spi_in;
   logic [31:0] sram_in;
-<<<<<<< HEAD
+  logic [3:0] en_state, state;
   logic eof, complete;
-=======
-  logic [3:0] eof, en_state, state;
-  logic complete;
->>>>>>> 93c89207a86f7d90771c1bfd8e81072026bccc93
   logic [31:0] total, sram_out;
   logic [7:0] hist_addr;
   logic [1:0] wr_r_en;
@@ -22,11 +18,7 @@ module t05_histogram_tb;
     .spi_in(spi_in),
     .sram_in(sram_in),
     .eof(eof),
-<<<<<<< HEAD
-=======
-    .state(state),
     .en_state(en_state),
->>>>>>> 93c89207a86f7d90771c1bfd8e81072026bccc93
     .complete(complete),
     .total(total),
     .sram_out(sram_out),

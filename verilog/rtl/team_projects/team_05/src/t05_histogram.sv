@@ -31,11 +31,7 @@ logic [7:0] end_file = 8'h1A;
 always_ff @( posedge clk, posedge rst ) begin
     if (rst) begin
         state <= IDLE;
-<<<<<<< HEAD
-    end else begin
-=======
     end else if (en_state == 1) begin
->>>>>>> 93c89207a86f7d90771c1bfd8e81072026bccc93
         state <= next_state;
     end 
 end
@@ -51,11 +47,7 @@ end
 always_ff @( posedge clk, posedge rst ) begin : blockName
     if (rst) begin
         new_spi <= 0;
-<<<<<<< HEAD
-    end else begin
-=======
     end else if (en_state == 1) begin
->>>>>>> 93c89207a86f7d90771c1bfd8e81072026bccc93
         new_spi <= spi_in;
     end
 end
