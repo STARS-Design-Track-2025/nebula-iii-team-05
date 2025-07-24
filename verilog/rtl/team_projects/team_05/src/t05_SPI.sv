@@ -1,5 +1,5 @@
 typedef enum logic [5:0] {
-    INIT = 0,
+    INITIAL = 0,
     READ_SPI = 1,
     WRITE_SPI = 2,
     DONE = 3,
@@ -67,7 +67,7 @@ logic read_stop_en, read_stop_en_n; // Used to enable the read stop
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
         cmd_line <= CMD0; // Reset with CMD0
-        state <= INIT;
+        state <= INITIAL;
         enables <= IDLE_SPI;
         command <= CIDLE; // Initialize the command to IDLE
         read_byte <= '0;
@@ -131,7 +131,7 @@ always_comb begin
     freq_flag_n = freq_flag;
 
     case (state)
-        INIT: begin
+        INITIAL: begin
             freq_flag_n = 0;
             if(warmup_enable) begin 
                 if (warmup_counter < 75) begin
@@ -369,7 +369,7 @@ always_comb begin
                 finish = 7; // Enable the first bit of the command
             end
         end
-        default: state_n = INIT; // Reset to INIT on unexpected state
+        default: state_n = INITIAL; // Reset to INIT on unexpected state
     endcase
 end
 endmodule

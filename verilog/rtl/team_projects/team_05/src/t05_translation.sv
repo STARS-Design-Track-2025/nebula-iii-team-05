@@ -27,7 +27,7 @@ module t05_translation (
         end
     end
 
-    always_comb begin
+    always @(*) begin
         index_n = index;
         nextCharEn_n = nextCharEn;
         writeEn_n = writeEn;

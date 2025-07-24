@@ -15,6 +15,7 @@ module t05_cb_synthesis (
     input logic [7:0] max_index,
     input logic [70:0] h_element,
     input logic write_finish,
+    input logic [3:0] en_state,
     //input logic [2:0] curr_process,
     output logic char_found,
     output logic [127:0] char_path,
@@ -47,7 +48,7 @@ always_ff @(posedge clk, posedge rst) begin
         wait_cycle <= 1;
         sent <= 0;
     end
-    else begin
+    else if (en_state == 4) begin
         curr_path <= next_path;
         curr_state <= next_state;
         track_length <= next_track_length;
@@ -58,7 +59,7 @@ always_ff @(posedge clk, posedge rst) begin
     end
 end
 
-always_comb begin
+always @(*) begin
     //if (curr_process == CODEBOOK) begin
         least2 = h_element[54:46];
         least1 = h_element[63:55];

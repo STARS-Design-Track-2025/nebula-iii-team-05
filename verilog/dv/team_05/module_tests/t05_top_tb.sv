@@ -119,7 +119,7 @@ module t05_top_tb;
         while (|fin_state_HT == 0) begin
             #0.01;
         end
-        $display("fin_state_HT: %4d", fin_state_HT);
+        //$display("fin_state_HT: %4d", fin_state_HT);
         en_state = 4;
         $display("4");        
         @(posedge |fin_state_CB)

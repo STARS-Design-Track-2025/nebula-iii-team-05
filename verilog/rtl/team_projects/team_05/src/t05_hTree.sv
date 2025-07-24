@@ -19,6 +19,7 @@ module t05_hTree (
   output logic [3:0] op_fin,                            // to controller - operation completion status
   //TEMPORARY
     //  output logic [3:0] state_reg,//for testing
+   // output logic [70:0] tree_reg, null1_reg, null2_reg,
   output logic WriteorRead                                     // to SRAM - Write or Read control signal (1=Read, 0=Write)
 );
     // Internal register declarations
@@ -29,11 +30,11 @@ module t05_hTree (
     logic [63:0] sum_reg;                               // Registered sum value
     logic [70:0] null1, null2, null1_reg, null2_reg;                          // Null node structures for sum nodes
     logic [70:0] tree, tree_reg;                                  // Current tree node being constructed
-    logic SRAM_fin;                                     // Registered SRAM finished signal
+    // logic SRAM_fin;                                     // Registered SRAM finished signal
     logic HT_fin;                                       // Huffman tree operation finished flag
     logic HT_finished;                                  // Huffman tree completely finished (both inputs null)
-    logic err;                                          // Error detection flag
-    logic HT_Finished,HT_fin_reg,ERROR;                 // Status and control flags
+    logic err_n;                                          // Error detection flag
+    logic HT_Finished,HT_fin_reg, err;                 // Status and control flags
     logic [2:0] nullsum_delay_counter, nullsum_delay_counter_reg; // Counter for NULLSUM state delays
     logic WorR;
     // logic [3:0] state_reg;                              // State register for debugging
@@ -44,7 +45,6 @@ module t05_hTree (
     // ASSUMING LEAST, SUM VALUES, SRAM_FINISHED ARE REGISTERD VALUES
 
     // State machine type definition
-    logic [3:0] next_state; // Next state combinational logic
     
  typedef enum logic [3:0] {
         FIN=0,                                          // Finished state - operation complete, waiting for disable
@@ -55,10 +55,12 @@ module t05_hTree (
         NULLSUM2=5,                                     // Process null sum data for least2
         RESET=6                                         // Reset state for special cases
     } state_t;
-    state_t state;                                      // Current state register
+    logic [3:0] state;                                      // Current state register
+    logic [3:0] next_state; // Next state combinational logic
+
 // Sequential logic block - handles state and register updates
 always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
+    if (~rst_n) begin
         // Reset all state machine and registers to initial values
         state <= NEWNODE;
         //reset all registers
@@ -70,11 +72,11 @@ always_ff @(posedge clk or negedge rst_n) begin
         clkCount_reg <= 0;
         HT_Finished <= 1'b0;   
         nullsum_delay_counter_reg <= 3'b0;   
-    end else begin
+        WriteorRead <= '0;
+    end else if (HT_en == 4'b0011) begin
         // Clock all signals on positive edge
-        state <= state_t'(next_state);
+        state <= next_state;
         clkCount_reg <= clkCount;
-
         least1_reg <= least1;
         least2_reg <= least2;
         sum_reg <= sum;
@@ -82,10 +84,10 @@ always_ff @(posedge clk or negedge rst_n) begin
         null1_reg <= null1;
         null2_reg <= null2;
         nullSumIndex <= nullSumIndex_reg;
-        SRAM_fin <= SRAM_finished;
+        // SRAM_fin <= SRAM_finished;
         HT_fin_reg <= HT_fin;
         HT_Finished <= HT_finished;
-        ERROR <= err;
+        err <= err_n;
         node_reg <= node;
         nullsum_delay_counter_reg <= nullsum_delay_counter;
         WriteorRead <= WorR; // Write or Read control signal
@@ -95,7 +97,7 @@ end
 
 // SRAM access in order to get nulls to be reset
     // Main combinational logic block - handles Huffman tree construction algorithm
-    always_comb begin
+    always @(*) begin
 
         // Default assignments to prevent latches and maintain current values
         tree = tree_reg;
@@ -113,7 +115,7 @@ end
         // Default operation finish signal
 
         // Main state machine logic based on HT enable signal
-        if (HT_en == 4'b0011) begin
+        // if (HT_en == 4'b0011) begin
             // Special case: single character file (one node with null)
             if (((least1[8] && least2 == 9'b110000000) || (least2[8] && least1 == 9'b110000000)) && least1 != least2) begin
                 if((least1[8] && least2 == 9'b110000000) && least1 != 9'b110000000) begin
@@ -235,7 +237,8 @@ end
                     end
                 endcase
             end
-        end else begin
+        // end else begin
+        if(HT_en == 0) begin
             // When HT_en is low, reset to NEWNODE for next operation
             next_state = NEWNODE;
             // Don't clear tree, null1, null2 - preserve the results
@@ -248,13 +251,13 @@ end
 
         // Error detection logic
         if(clkCount == 7'd0 && clkCount_reg == 7'd127) begin
-            err = 1'b1;
+            err_n = 1'b1;
         end else begin
-            err = 1'b0;
+            err_n = 1'b0;
         end
 
         // op fin sent to controller
-        if (ERROR) begin
+        if (err) begin
             op_fin = 4'b1000; // Indicate error operation finish
         end else if (HT_Finished) begin
             op_fin = 4'b0100;

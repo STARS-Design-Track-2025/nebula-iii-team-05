@@ -13,14 +13,14 @@ logic [7:0] charWipe1_n, charWipe2_n;
 
 always_ff @(posedge clk, posedge rst) begin
     if(rst) begin
-        least1 <= 0;
-        least2 <= 0;
+        least1 <= 9'b110000000;
+        least2 <= 9'b110000000;
         histo_index <= 0;
         charWipe1 <= 0;
         charWipe2 <= 0;
         sum <= 0;
-        val1 <= 64'hFFFFFFFFFFFFFFFF;
-        val2 <= 64'hFFFFFFFFFFFFFFFF;
+        val1 <= '1;
+        val2 <= '1;
     end else if (en_state == 2) begin
         least1 <= least1_n;
         least2 <= least2_n;
@@ -33,7 +33,7 @@ always_ff @(posedge clk, posedge rst) begin
     end
 end
 
-always_comb begin
+always @(*) begin
     if(histo_index < 385) begin
         count_n = histo_index + 1;
     end else begin
@@ -41,7 +41,7 @@ always_comb begin
     end
 end
 
-always_comb begin
+always @(*) begin
     val1_n = val1;
     val2_n = val2;
     charWipe1_n = charWipe1;
@@ -51,7 +51,7 @@ always_comb begin
     sumCount = histo_index - 256;
     sum_n = sum;
 
-    if(compVal != 0 && histo_index < 384) begin
+    if(compVal != 0 && histo_index < 384 && histo_index != 0) begin
         if(val1 > compVal && histo_index < 256) begin
             least2_n = least1;
             charWipe2_n = charWipe1;
@@ -75,9 +75,10 @@ always_comb begin
             charWipe2_n = '0;
             val2_n = compVal;
         end
-        if(val1 != 64'hFFFFFFFFFFFFFFFF && val2 != 64'hFFFFFFFFFFFFFFFF) begin
-            sum_n = val1 + val2;
-        end
+    end
+
+    if(val1 != '1 && val2 != '1) begin
+        sum_n = val1 + val2;
     end
     if(histo_index == 384) begin
         fin_state = 2;

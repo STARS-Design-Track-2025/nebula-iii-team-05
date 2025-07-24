@@ -51,7 +51,7 @@ always_ff @(posedge clk, posedge rst) begin
     end
 end
 
-always_comb begin
+always @(*) begin
     next_header = header;
     next_zeroes = zeroes;
     next_enable = enable;
