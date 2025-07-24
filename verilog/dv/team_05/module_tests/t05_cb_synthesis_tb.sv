@@ -33,6 +33,7 @@ module t05_cb_synthesis_tb;
     logic bit1;
     logic write_finish;
     logic wait_cycle;
+    logic SRAM_enable;
 
     always #5 clk = ~clk;
     t05_cb_synthesis cb1(.clk(clk), .SRAM_enable(SRAM_enable), .write_finish(write_finish), .track_length(track_length), .pos(pos), .least1(least1), .least2(least2), .rst(reset), .max_index(max_index), .curr_path(curr_path), .curr_index(curr_index), .h_element(h_element), .curr_state(state), .char_path(char_path), .char_index(char_index), .char_found(char_found), .finished(finished), .wait_cycle(wait_cycle));
@@ -62,6 +63,7 @@ module t05_cb_synthesis_tb;
       reset = 0;
       max_index = 0;
       mid_reset = 0;
+      SRAM_enable = 1;
       //h_element = {{7'd0}, {1'b0, 8'd67}, {2'b11, 7'd0}, {46'd0}};
       
       //ONE ELEMENT ARRAY:
