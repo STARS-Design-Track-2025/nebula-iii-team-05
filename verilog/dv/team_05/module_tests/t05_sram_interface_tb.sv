@@ -1,4 +1,5 @@
 `timescale 1ms/1ns
+
 module t05_sram_interface_tb;
 
   logic clk, rst;
@@ -16,20 +17,15 @@ module t05_sram_interface_tb;
   logic [127:0] codebook_path;
   logic [7:0] translation;
   logic [2:0] state;
-  logic [31:0] sram_data_out_his;
-  logic [63:0] sram_data_out_flv;
-  logic [127:0] sram_data_out_trn;
-  logic [70:0] sram_data_out_cb;
-  logic [70:0] sram_data_out_ht;
   logic wr_en, r_en;
+  logic busy_o;
   logic [3:0] select;
-  logic [31:0] old_char, addr, sram_data_in_hist;
-  logic [63:0] sram_data_in_flv, sram_data_in_ht;
+  logic [31:0] old_char, addr, data_i, data_o;
+  logic [63:0] sram_data_in_flv;
   logic [127:0] cb_path_sram, path;
   logic [63:0] comp_val;
   logic [70:0] h_element;
   logic [2:0] ctrl_done;
-  logic busy_o;
   logic cb_done;
   logic ht_done;
   logic [63:0] nulls;
@@ -55,20 +51,14 @@ module t05_sram_interface_tb;
     .codebook_path(codebook_path),
     .translation(translation),
     .state(state),
-    .sram_data_out_his(sram_data_out_his),
-    .sram_data_out_flv(sram_data_out_flv),
-    .sram_data_out_trn(sram_data_out_trn),
-    .sram_data_out_cb(sram_data_out_cb),
-    .sram_data_out_ht(sram_data_out_ht),
+    .data_i(data_i),
+    .data_o(data_o),
     .wr_en(wr_en),
     .r_en(r_en),
     .select(select),
     .nulls(nulls),
     .old_char(old_char),
     .addr(addr),
-    .sram_data_in_flv(sram_data_in_flv),
-    .sram_data_in_hist(sram_data_in_hist),
-    .sram_data_in_ht(sram_data_in_ht),
     .comp_val(comp_val),
     .h_element(h_element),
     .cb_path_sram(cb_path_sram),
@@ -97,12 +87,7 @@ module t05_sram_interface_tb;
     codebook_path = 128'b0;
     translation = 8'd0;
     state = 3'b000; // HIST state
-    sram_data_out_his = 32'b0;
-    sram_data_out_flv = 64'b0;
-    sram_data_out_trn = 128'b0;
-    sram_data_out_cb = 71'b0;
-    sram_data_out_ht = 71'b0;
-
+    data_o = 0;
     #1 rst = 0;  //testing the rst, everything back to 0
 
     // Histogram write test
@@ -110,64 +95,66 @@ module t05_sram_interface_tb;
     hist_r_wr = 1; // write mode
     histgram_addr = 8'd10;
     histogram = 32'd7;
-    #5;
+    busy_o = 1;
+    #10;
     rst = 1;
     #1;
     rst = 0;
-    #5;
+    #10;
     // FLV write test
     state = 3'b010;
     flv_r_wr = 1;
     charwipe1 = 8'd23;
-    #5;
+    #10;
     rst = 1;
     #1;
     rst = 0;
     #5;
     state = 3'b010;
     flv_r_wr =1;
-    charwipe2 = 8'd23;
-    #5;
+    charwipe2 = 8'd43;
+    #10;
     rst = 1;
     #1;
     rst = 0;
-    #5;
+    #10;
     //htree write
     state = 3'd3;
     htree_r_wr = 1;
     new_node[6:0] = 7'd42;
     new_node[70:7] = 64'd695;
-    htreeindex = 7'd14;
-    #5;
+    #10;
     rst = 1;
     #1;
     rst = 0;
-    #5;
+    #10;
     //codebook write
     state = 3'd5;
     char_index = 8'd33;
-    codebook_path = 128'd62597;
-    #5;
+    codebook_path = 128'd295990755982188385626203944899394889071;
+    #10;
     rst = 1;
     #1;
     rst = 0;
-    #5;
+    #10;
 
   //hist read
     state = 3'd1;
     hist_r_wr = 0; // switch to read
     histgram_addr = 8'd10; //should output the same vaule that was inputted before "10"
-    sram_data_out_his = 32'd14;
-    #5;
+    data_o = 32'd25;
+    #10;
     rst = 1;
     #1;
     rst = 0;
-    #5;
+    #10;
   //flv read
     state = 3'd2;
     flv_r_wr = 0;
     find_least = 249;
-    sram_data_out_flv = 64'd514;
+    data_o = 32'd11;
+    #1 
+    data_o = 32'd55;
     #5;
     rst = 1;
     #1;
@@ -176,7 +163,9 @@ module t05_sram_interface_tb;
     state = 3'd2;
     flv_r_wr = 0;
     find_least = 279;
-    sram_data_out_flv = 64'd714;
+    data_o = 32'd32;
+    #1 
+    data_o = 32'd5;
     #5;
     rst = 1;
     #1;
@@ -187,7 +176,11 @@ module t05_sram_interface_tb;
     state = 3'b011;
     htree_r_wr = 0; // read mode
     htreeindex = 7'd11;
-    sram_data_out_ht = 71'd971;
+    data_o = 32'd44;
+    #2
+    data_o = 32'd76;
+    #2
+    data_o = 32'd6;
     #5;
     rst = 1;
     #1;
@@ -197,8 +190,11 @@ module t05_sram_interface_tb;
     // Codebook test
     state = 3'b101;
     curr_index = 7'd9;
-    codebook_path = 128'd122;
-    sram_data_out_cb = 71'd625;
+    data_o = 32'd17;
+    #2
+    data_o = 32'd73;
+    #2
+    data_o = 32'd144;
     #5;
     rst = 1;
     #1;
@@ -207,7 +203,13 @@ module t05_sram_interface_tb;
   // Translation read test
     state = 3'b110;
     translation = 8'd44;
-    sram_data_out_trn = 77;
+    data_o = 32'd89;
+    #2
+    data_o = 32'd5;
+    #2
+    data_o = 32'd40;
+    #2
+    data_o = 32'd338;
     #5;
     rst = 1;
     #1;

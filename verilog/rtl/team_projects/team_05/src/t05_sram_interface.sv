@@ -74,7 +74,7 @@ module t05_sram_interface(  //send enable to htree and codebook for when it is d
     logic cb;
     logic [2:0] done;
 
-    logic [63:0] sram_data_in_flv;
+
     logic [31:0] sram_data_in_hist;
     logic [63:0] sram_data_in_ht;
     logic [31:0] sram_data_out_his;
@@ -82,11 +82,12 @@ module t05_sram_interface(  //send enable to htree and codebook for when it is d
     logic [127:0] sram_data_out_trn;
     logic [70:0] sram_data_out_cb;
     logic [70:0] sram_data_out_ht;
-    logic word_cnt;
-    logic cb_path_buff;
-    logic node_buffer;
-    logic temp_path;
-    logic find_it;
+    logic [2:0] word_cnt;
+    logic [127:0] cb_path_buff;
+    logic [63:0] node_buffer;
+    logic [127:0] temp_path;
+    logic [63:0] find_it;
+    logic [70:0] cb_out;
 
 always_ff @( posedge clk, posedge rst ) begin : blockName
     if (rst) begin
@@ -95,49 +96,95 @@ always_ff @( posedge clk, posedge rst ) begin : blockName
         node_buffer <= 0;
         temp_path <= 0;
         find_it <= 0;
+        cb_done <= 0;
+        ht_done <= 0;
     end else if (state == CODEBOOK && do_write) begin
         case (word_cnt)
-            0: begin
-                data_i <= cb_path_buff[31:0];
+            0: begin //wait state 
             end 
             1: begin
+                addr <= base_addr + (char_index * 4);
+                data_i <= cb_path_buff[31:0];
+            end 
+            2: begin
+                addr <= base_addr + (char_index * 4) + 4;
                 data_i <= cb_path_buff[63:32];
             end
-            2: begin
+            3: begin
+                addr <= base_addr + (char_index * 4) + 8;
                 data_i <= cb_path_buff[95:64];
             end
-            3: begin
+            4: begin
+                addr <= base_addr + (char_index * 4) + 12;
                 data_i <= cb_path_buff[127:96];
             end
         endcase
-        addr <= base_addr + (char_index * 4) + (word_cnt + 4);
+        cb_path_buff <= cb_path_sram ;
+        word_cnt <= word_cnt + 1;
+        if (word_cnt == 5) begin
+            cb_done <= 1;
+            word_cnt <= 0;
+            done <= 3'd5;
+        end
+    end else if (state == CODEBOOK && do_read) begin
+        case (word_cnt)
+            0: begin
+                addr <= base_addr + (curr_index * 4) ;
+                cb_out[31:0] <= data_o;
+            end 
+            1: begin
+                addr <= base_addr + (curr_index * 4) + 4;
+                cb_out[63:32] <= data_o;
+            end
+            2: begin
+                addr <= base_addr + (curr_index * 4) + 8;
+                cb_out[70:64] <= data_o[6:0];
+            end
+        endcase
         word_cnt <= word_cnt + 1;
         if (word_cnt == 3) begin
-            cb_path_buff <= codebook_path;
+            h_element <= cb_out;
             cb_done <= 1;
             word_cnt <= 0;
         end
     end else if (state == HTREE && do_read) begin
-        addr <= base_addr + (htreeindex << 2) + word_cnt;
         case (word_cnt)
             0: begin
+                addr <= base_addr + (htreeindex * 4);
                 node_buffer[31:0] <= data_o;
            end
             1: begin 
+                addr <= base_addr + (htreeindex * 4) + 4;
                 node_buffer[63:32] <= data_o;
-            end
-            2: begin 
-                node_buffer[70:64] <= data_o[6:0];
             end
         endcase
         word_cnt <= word_cnt + 1;
         if (word_cnt == 2) begin
-            sram_data_out_ht <= node_buffer;
+            nulls <= node_buffer;
             ht_done <= 1;
             word_cnt <= 0;
         end
+    end else if (state == HTREE && do_write) begin
+        case (word_cnt)
+            0: begin  //wait state for the sram to read
+            end
+            1: begin
+                addr <= base_addr + (new_node[6:0] * 4);
+                data_i <= new_node[38:7];
+           end
+            2: begin 
+                addr <= base_addr + (new_node[6:0] * 4) + 4;
+                data_i <= new_node[70:39];
+            end
+        endcase
+        word_cnt <= word_cnt + 1;
+        if (word_cnt == 3) begin
+            ht_done <= 1;
+            word_cnt <= 0;
+            done <= 3'd3;
+        end
     end else if (state == TRANSLATION && do_read) begin
-        case (trn_read_count)
+        case (word_cnt)
             0: begin
                 addr <= base_addr + (4 * translation) + 0;
                 temp_path[31:0]   <= data_o;
@@ -157,9 +204,8 @@ always_ff @( posedge clk, posedge rst ) begin : blockName
         endcase
             word_cnt <= word_cnt + 1;
             if (word_cnt == 3) begin
-                sram_data_out_trn <= temp_path;
+                path <= temp_path;
                 word_cnt <= 0;
-            
             end
     end else if (state == FLV && do_read) begin
         case (word_cnt)
@@ -168,7 +214,7 @@ always_ff @( posedge clk, posedge rst ) begin : blockName
                 find_it[31:0] <= data_o;
             end
             1: begin
-                addr <= base_addr + (4 * find_least);
+                addr <= base_addr + (4 * find_least) + 4;
                 find_it[63:32] <= data_o;
             end
         endcase
@@ -177,8 +223,23 @@ always_ff @( posedge clk, posedge rst ) begin : blockName
             sram_data_out_flv <= find_it;
             word_cnt <= 0;
         end
-    end
-
+    end else if (state == FLV && do_write) begin
+        case (word_cnt)
+            0: begin
+                addr <= base_addr + (4 * charwipe1);
+                data_i <= 0;
+            end
+            1: begin
+                addr <= base_addr + (4 * charwipe2);
+                data_i <= 0;
+            end
+        endcase
+        word_cnt <= word_cnt + 1;
+        if (word_cnt == 1) begin
+            word_cnt <= 0;
+            done <= 3'd2;
+        end
+    end 
 
 end
 
@@ -296,9 +357,6 @@ end
     always_ff @(posedge clk or posedge rst) begin
         if (rst) begin
             addr <= 0;
-            sram_data_in_hist <= 0;
-            sram_data_in_flv <= 0;
-            sram_data_in_ht <= 0;
             old_char <= 0;
             comp_val <= 0;
             path <= 0;
@@ -310,29 +368,19 @@ end
                 HIST: begin
                     addr <= base_addr + (4 * histgram_addr);
                     if (do_write) begin
-                        sram_data_in_hist <= histogram;
+                        data_i <= histogram;
                         done <= 3'd1;
                     end else if (do_read)  begin 
-                        old_char <= sram_data_out_his;
+                        old_char <= data_o;
                         done <= 3'd1;
                     end
                 end
                 FLV: begin
-                    if (do_write) begin
-                        addr <= base_addr + (4 * charwipe1);
-                        sram_data_in_flv <= 0; //replacing the date that is at that addr to 0
-
-
-                        addr <= base_addr + (4 * charwipe2);
-                        sram_data_in_flv <= 0;  //replacing this data that is at chrwipe 2 to 0
-                        done <= 3'd2;
-                    end else if (do_read) begin
+                if (do_read && busy_o && word_cnt == 2) begin
 
                         if (find_least <= 255) begin
-                            addr <= base_addr + (4 * find_least); //data coming from the histogram so make the base addr the same
                             comp_val <= sram_data_out_flv;
                         end else begin
-                            addr <= base_addr + (4 * find_least);  //same base addr as the htree
                             comp_val <= sram_data_out_flv; //64 bits of data back 46 coming from the htree 
                         end
                         done <= 3'd2;
@@ -340,12 +388,7 @@ end
                 end
 
                 HTREE: begin
-                    if (do_write) begin
-                        addr <= base_addr + (4 * new_node[6:0]);
-                        sram_data_in_ht <= new_node[70:7];
-                        done <= 3'd3;
-                    end else if (do_read) begin
-                        addr <= base_addr + (4 * htreeindex);
+                    if (do_read && busy_o && word_cnt == 2) begin
                         h_element <= sram_data_out_ht; //the htree will be getiing data from itself at the htreeindex
                         ht <= 1;  //enable going to the htree to let it know that the sram is finished
                         done <= 3'd3;
@@ -353,11 +396,8 @@ end
                     end
                 CODEBOOK: begin
                     if (do_write) begin
-                        addr <= base_addr + (4 * char_index);
                         cb_path_sram <= codebook_path;
-                        done <= 3'd5;
-                    end else if (do_read) begin
-                        addr <= base_addr + (4 * curr_index);  //data comming from the htree so make the base addr the same as htree written data
+                    end else if (do_read && busy_o && word_cnt == 2) begin
                         h_element <= sram_data_out_cb;
                         cb <= 1;  //enable going to the codebook letting it know that it is finished 
                         done <= 3'd5;
@@ -365,9 +405,9 @@ end
                 end
                
                 TRANSLATION: begin
-                        addr <= base_addr + (4 * translation);
-                        path <= sram_data_out_trn;
+                    if (do_read && busy_o && word_cnt == 3) begin
                         done <= 3'd6;
+                    end
                 end
             endcase
         end
