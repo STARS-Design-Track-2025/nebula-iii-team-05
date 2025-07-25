@@ -28,7 +28,7 @@ module t05_histogram_tb;
 
   // Clock generation
   initial clk = 0;
-  always #5 clk = ~clk; // 10ns clock period
+  always #1 clk = ~clk; // 10ns clock period
 
   // SRAM model: dummy 256-entry memory initialized to 0
   logic [31:0] sram_mem [0:255];

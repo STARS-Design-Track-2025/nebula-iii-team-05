@@ -122,7 +122,7 @@ module t05_sram_interface_tb;
     state = 3'd3;
     htree_r_wr = 1;
     new_node[6:0] = 7'd42;
-    new_node[70:7] = 64'd695;
+    new_node[70:7] = 64'd12345678901234567890;
     #10;
     rst = 1;
     #1;
