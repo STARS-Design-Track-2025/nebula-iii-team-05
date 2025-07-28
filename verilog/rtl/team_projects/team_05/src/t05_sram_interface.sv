@@ -55,7 +55,6 @@ module t05_sram_interface(  //send enable to htree and codebook for when it is d
     output logic [63:0] comp_val, //going to find least value
     //codebook outputs
     output logic [70:0] h_element, //from the htree going to codebook
-    output logic [127:0] cb_path_sram, //going to sram
     output logic cb_done,
 //translation outputs
     output logic [127:0] path,
@@ -88,6 +87,7 @@ module t05_sram_interface(  //send enable to htree and codebook for when it is d
     logic [127:0] temp_path;
     logic [63:0] find_it;
     logic [70:0] cb_out;
+    logic [127:0] cb_path_sram;
 
 always_ff @( posedge clk, posedge rst ) begin : blockName
     if (rst) begin

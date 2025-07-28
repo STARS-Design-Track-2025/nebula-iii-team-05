@@ -7,7 +7,7 @@ module t05_histogram(
     output logic complete, // eof = end of file; complete = done with byte
     output logic [31:0] total, sram_out,  //total number of characters within the file,  the updated data going to the sram 
     output logic [7:0]  hist_addr,     // address to SRAM
-    output logic [1:0] wr_r_en        // enable going to sram to tell it to read or write
+    output logic [2:0] wr_r_en        // enable going to sram to tell it to read or write, 1 is writing data to sram, 0 is reading data from sram
 );
 //send a controller enable to controller
 //accept an enable from sram to know when to procccess new data
@@ -33,7 +33,9 @@ always_ff @( posedge clk, posedge rst ) begin
         state <= IDLE;
     end else if (en_state == 1) begin
         state <= next_state;
-    end 
+    end else begin
+        state <= state;
+    end
 end
 
 always_ff @(posedge clk, posedge rst) begin
@@ -44,82 +46,76 @@ always_ff @(posedge clk, posedge rst) begin
     end
 end
 
-always_ff @( posedge clk, posedge rst ) begin : blockName
-    if (rst) begin
-        new_spi <= 0;
-    end else if (en_state == 1) begin
-        new_spi <= spi_in;
-    end
-end
-
 // Next state logic
 always_ff @( posedge clk, posedge rst ) begin
-    if (rst) begin
+    if (rst || en_state == 0) begin
         state      <= IDLE;
         wait_cnt   <= 0;
         wr_r_en    <= 0;
         total      <= 0;
         sram_out   <= 0;
         hist_addr  <= 0;
-        eof        <= 0;
+        eof        <= eof;
         complete   <= 0;
         char_total <= 0;
     end else if (en_state == 1) begin
         case (state)
             IDLE:  begin //beginning of the histogram
                 next_state <= READ;
-                wr_r_en   <= 2'd3;
+                wr_r_en   <= 3'd2;
                 complete  <= 0;
                 eof       <= 0;
                 hist_addr <= 00;
                 sram_out <= 0;
             end
             READ:  begin  //giving the sram the character that it wants to pull
-                next_state <= READ2;
-                wr_r_en   <= 2'd0;
-                hist_addr <= new_spi;
+                next_state <= WAIT;
+                wr_r_en   <= 3'd0;
+                hist_addr <= spi_in;
+                sram_out <= sram_out;
                 char_total <= char_total + 1;
             end
             READ2: begin  //giving the updated data to the sram for storage
                 next_state <= WAIT;
-                wr_r_en <= 2'd0;
+                wr_r_en <= 3'd0;  //change this back to 0
+                sram_out <= sram_in + 1;
+                hist_addr <= spi_in;
             end
             WAIT:  begin  //wait cycle between input and output from sram
-                wr_r_en <= 2'd3;
-                if (wait_cnt == 2) begin
+                wr_r_en <= 3'd3;
+                if (wait_cnt == 1) begin
                     wait_cnt <= 0;
-                    next_state <= WRITE;
+                    next_state <= DONE;
                 end else begin
-                    next_state <= WAIT;
+                    next_state <= WRITE;
                 end
             end
             WRITE: begin  //pulling the data from the sram and adding 1
-                wr_r_en <= 2'd1;
+                wr_r_en <= 3'd5;
                 sram_out <= sram_in + 1;
                 if (spi_in == end_file) begin
                     next_state <= HALT;
                     eof <= 1;
-                    wr_r_en <= 2'd3;
+                    wr_r_en <= 3'd6;
                 end else begin
-                    next_state <= READ;
+                    next_state <= READ2;
                 end
             end
             DONE: begin  //done with that 1 cycle
-                next_state <= DONE;
+                next_state <= IDLE;
                 complete <= 1;
-                wr_r_en <= 2'd3;
+                wr_r_en <= 3'd1;
             end
             HALT:   begin  //the end of file has been enabled and histogram will stop
-                next_state <= DONE;
-                //eof <= 1;
+                next_state <= HALT;
+                eof <= 1;
+                complete <= 1;
                 total <= char_total + 1;
-                wr_r_en <= 2'd3;
+                wr_r_en <= 3'd6;
             end
             default: next_state <= IDLE;
         endcase
         end
-        // else if (en_state != 1) begin
-        //     eof <= 0;
-        // end
+
     end
 endmodule
