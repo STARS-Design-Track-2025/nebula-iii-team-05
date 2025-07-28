@@ -1,12 +1,12 @@
-typedef enum logic [2:0] {
-    LEFT=0,
-    RIGHT,
-    TRACK,
-    BACKTRACK,
-    FINISH,
-    INIT,
-    SEND
-} state_cb;
+// typedef enum logic [2:0] {
+//     LEFT=0,
+//     RIGHT,
+//     TRACK,
+//     BACKTRACK,
+//     FINISH,
+//     INIT,
+//     SEND
+// } state_cb;
   
 module t05_cb_synthesis (
     input logic clk,

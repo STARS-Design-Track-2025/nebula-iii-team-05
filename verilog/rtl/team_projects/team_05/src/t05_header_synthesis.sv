@@ -36,6 +36,7 @@ logic next_zero_sent;
 logic write_char_path;
 logic next_write_char_path;
 logic next_first_char;
+logic [127:0] first_char_path, next_first_char_path;
 
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
@@ -51,6 +52,7 @@ always_ff @(posedge clk, posedge rst) begin
       zero_sent <= 0;
       write_char_path <= 0;
       path_count <= 0;
+      first_char_path <= 0;
     end
     else begin
         header <= next_header;
@@ -65,6 +67,7 @@ always_ff @(posedge clk, posedge rst) begin
       zero_sent <= next_zero_sent; 
       write_char_path <= next_write_char_path;
       path_count <= next_path_count;
+      first_char_path <= next_first_char_path;
     end
 end
 
@@ -87,6 +90,7 @@ always_comb begin
         next_enable = 0;
         next_start = 1;
         next_write_finish = 0;
+        next_first_char_path = char_path;
     end
   if ((state == BACKTRACK && !char_added && !char_found && curr_path[0] == 1 && track_length > 0)) begin // send one zero for each backtrack (not while char is being added)
         next_write_zeroes = 1;
@@ -103,12 +107,14 @@ always_comb begin
   end
 
     if ((!write_char_path && first_char)) begin
-        if (path_count < 9'd129) begin
+        if (path_count < 9'd127) begin
             next_enable = 1;
             next_write_char_path = 0;
+            next_bit1 = next_first_char_path[127-path_count];
             next_path_count = path_count + 1;
         end
         else begin
+            next_bit1 = 0;
             next_write_char_path = 1;
             next_path_count = 0;
         end
