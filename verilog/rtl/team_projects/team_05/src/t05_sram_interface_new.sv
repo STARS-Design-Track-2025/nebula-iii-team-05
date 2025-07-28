@@ -1,44 +1,28 @@
-    typedef enum logic [3:0] {
-        A_IDLE = 4'b000,
-        HIST   = 4'b001,
-        FLV    = 4'b010,
-        HTREE  = 4'b011,
-        CODEBOOK = 4'b101,
-        TRANSLATION = 4'b110
-    } module_state_t;
-
-
-    typedef enum logic [1:0] {
-        S_IDLE,
-        S_WAIT1,
-        S_WAIT2
-    } ctrl_state_t;
-
-module t05_sram_intergace_new (
+module t05_sram_interface_new (
     input  logic clk,
     input  logic rst,
     //histogram inputs
     input  logic [31:0] histogram,
     input  logic [7:0] histgram_addr,
     input  logic [1:0] hist_r_wr,
-//flv inputs
+    //flv inputs
     input  logic [8:0] find_least,
     input logic [7:0] charwipe1, charwipe2,
     input logic flv_r_wr,
-//htree inputs
+    //htree inputs
     input  logic [70:0] new_node,
     input  logic [6:0] htreeindex,
     input  logic htree_r_wr,
-//codebook inputs
+    //codebook inputs
     input logic [6:0] curr_index, //addr of data wanting to be pulled from the htree
     input  logic [7:0] char_index, //addr for writing data in
     input  logic [127:0] codebook_path, //store this data 
     input logic cb_r_wr,
-//translation input
+    //translation input
     input  logic [7:0] translation,
-//controller input
+    //controller input
     input  logic [3:0] state,
-//wishbone connects
+    //wishbone connects
     output logic wr_en,
     output logic r_en,
     input logic busy_o,  
@@ -51,15 +35,14 @@ module t05_sram_intergace_new (
     output logic ht_done,
     // histogram output
     output logic [31:0] old_char, //data going to histogram
-//flv outputs
+    //flv outputs
     output logic [63:0] comp_val, //going to find least value
     //codebook outputs
     output logic [70:0] h_element, //from the htree going to codebook
-    //output ,
     output logic cb_done,
-//translation outputs
+    //translation outputs
     output logic [127:0] path,
-//controller output
+    //controller output
     output logic [5:0] ctrl_done
 );
 
@@ -126,7 +109,7 @@ always_comb begin
     path_n = path;
 
     case(state) 
-        HIST: begin
+        1: begin //HISTOGRAM
             if(hist_r_wr == 1) begin
                 wr_en = 1;
                 r_en = 0;
@@ -139,7 +122,7 @@ always_comb begin
                 addr = 32'h33000000 + (histgram_addr * 4);
             end
         end
-        FLV: begin
+        2: begin //FLV
             if(flv_r_wr == 1) begin
                 wr_en = 1;
                 r_en = 0;
@@ -202,7 +185,7 @@ always_comb begin
                 end
             end
         end
-        HTREE: begin
+        3: begin //HTREE
             if (htree_r_wr == 1) begin
                 wr_en = 1;
                 r_en = 0;
@@ -244,7 +227,7 @@ always_comb begin
                 endcase
             end 
         end
-        CODEBOOK: begin
+        4: begin //CBS
             if (cb_r_wr == 1) begin
                 wr_en = 1;
                 r_en = 0;
@@ -300,7 +283,7 @@ always_comb begin
                 endcase
             end
         end
-        TRANSLATION: begin
+        5: begin //Translation
             wr_en = 0;
             r_en = 1;
             case(word_cnt)
