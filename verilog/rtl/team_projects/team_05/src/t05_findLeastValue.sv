@@ -86,8 +86,8 @@ always @(*) begin
     end
 
     if(val1 == '1 && val2 == '1) begin
-        least1 = 384;
-        least2 = 384;
+        least1_n = 384;
+        least2_n = 384;
     end
 
     if(val1 != '1 && val2 != '1) begin

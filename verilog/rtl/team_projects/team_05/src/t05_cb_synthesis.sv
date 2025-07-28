@@ -17,6 +17,7 @@ module t05_cb_synthesis (
     input logic write_finish,
     input logic [3:0] en_state,
     //input logic [2:0] curr_process,
+    input logic SRAM_enable,
     output logic char_found,
     output logic [127:0] char_path,
     output logic [7:0] char_index,
@@ -78,7 +79,7 @@ always @(*) begin
         case (curr_state)
             INIT: begin 
                 //next_index = max_index;
-              if (wait_cycle == 0) begin // wait one cycle for inputs (like getting htree element from curr_index) to stabilize between states
+              if (wait_cycle == 0 && SRAM_enable) begin // wait one cycle for inputs (like getting htree element from curr_index) to stabilize between states
                     next_state = LEFT;
                   next_pos = 1;
                 end
@@ -88,7 +89,7 @@ always @(*) begin
                 end
             end
             LEFT: begin // move left (add 0 to path)
-              if (wait_cycle == 0) begin
+              if (wait_cycle == 0 && SRAM_enable) begin
                   next_track_length = track_length + 1; // update total path length
                 //   if(least1[8] == 1'b0) begin
                 //       next_state = SEND;
@@ -137,7 +138,7 @@ always @(*) begin
               // end
             end
             TRACK: begin // after backtrack state when a character was found, use that backtracked path to start from the top of the tree and then retrieve the htree element
-              if (wait_cycle == 0) begin
+              if (wait_cycle == 0 && SRAM_enable) begin
                   next_state = state_cb'((track_length >= pos) ? TRACK : RIGHT);
                   next_wait_cycle = 1;
                   if (track_length >= pos) begin // if the h_tree element of the previous node hasn't been reached
@@ -160,7 +161,7 @@ always @(*) begin
               end
             end
             BACKTRACK: begin // after a char was found and bits were written through the spi (header portion) start to backtrack until you can move right again
-              if (wait_cycle == 0) begin
+              if (wait_cycle == 0 && SRAM_enable) begin
                 next_wait_cycle = 1;
                   // if the top of the tree has been reached and left and right have already been traversed, next state is FINISH
                   next_state = state_cb'(track_length < 7'b1 && curr_path[0] == 1'b1 ? FINISH : (curr_path[0] == 1'b1 ? BACKTRACK : TRACK)); 
@@ -186,7 +187,7 @@ always @(*) begin
               end
             end
             RIGHT: begin  // move right (add 1 to path)
-              if (wait_cycle == 0) begin
+              if (wait_cycle == 0 && SRAM_enable) begin
                   next_track_length = track_length + 1; // update total path length
                   next_wait_cycle = 1;
                   next_state = state_cb'((least2[8] == 1'b0) ? SEND : LEFT);

@@ -1,11 +1,12 @@
 `timescale 10ms/10ns
 module t05_top_tb;
-    
+
     logic hwclk, reset, miso;
-    logic mosi, SRAM_finished, cont_en;
+    logic mosi, cont_en;
+    //logic SRAM_finished;
     logic [5:0] op_fin; // when SRAM finishes
     logic [7:0] read_out;
-    logic [63:0] compVal, nulls;
+    //logic [63:0] compVal, nulls;
     logic [8:0] fin_State;      // Output from top module        // outputs from modules
     logic error_detected;      // For error status tracking
 
@@ -26,21 +27,33 @@ module t05_top_tb;
     logic [31:0] wbs_adr_i;
     logic wbs_ack_o;
     logic [31:0] wbs_dat_o;
+    logic [2:0] test_num;
 
-    t05_top top (.hwclk(hwclk),
+    t05_top top (
+    .hwclk(hwclk),
     .reset(reset),
     .mosi(mosi),
     .miso(miso),
     .op_fin(op_fin),
     .read_out(read_out),
-    .compVal(compVal),
-    .nulls(nulls),
+    //.compVal(compVal),
+    //.nulls(nulls),
     //.h_element(h_element),
-    .SRAM_finished(SRAM_finished),
+    //.SRAM_finished(SRAM_finished),
     .finished_signal(finished_signal),
     .en_state(en_state),
     .cont_en(cont_en),
-    .fin_State(fin_State)
+    .fin_State(fin_State),
+
+    //WRAPPER
+    .wbs_stb_o(wbs_stb_i),
+    .wbs_cyc_o(wbs_cyc_i),
+    .wbs_we_o(wbs_we_i),
+    .wbs_sel_o(wbs_sel_i),
+    .wbs_dat_o(wbs_dat_i),
+    .wbs_adr_o(wbs_adr_i),
+    .wbs_ack_i(wbs_ack_o),
+    .wbs_dat_i(wbs_dat_o)
     );
 
     sram_WB_Wrapper sram (
@@ -148,28 +161,28 @@ module t05_top_tb;
                     read_out = 8'h1A; // Initialize histogram data
                 end
                 FLV: begin
-                    compVal = 64'd0; // Initialize frequency comparison value
+                    //compVal = 64'd0; // Initialize frequency comparison value
                 end
                 HTREE: begin
-                    nulls = 64'd500; // Initialize nulls for Huffman tree
+                    //nulls = 64'd500; // Initialize nulls for Huffman tree
                     if (i == 1) begin
                         // Loop case - might need different data
-                        compVal = 64'd0; // Different comparison for loop
+                        //compVal = 64'd0; // Different comparison for loop
                     end
                 end
                 CBS: begin
                     // Initialize codebook data
                     read_out = 8'hFF; // Example codebook data
-                    SRAM_finished = 1;
+                    //SRAM_finished = 1;
                     #10;
-                    SRAM_finished = 0;
+                    //SRAM_finished = 0;
                 end
                 TRN: begin
                     // Initialize translation data
                     read_out = 8'hEE; // Example translation data
-                    SRAM_finished = 1;
+                    //SRAM_finished = 1;
                     #10;
-                    SRAM_finished = 0;
+                    //SRAM_finished = 0;
                 end
                 default: begin
                     // Other states don't need specific data initialization
@@ -540,40 +553,61 @@ module t05_top_tb;
         reset = 0;
         miso = 0;
         read_out = '0;
-        compVal = '0;
+        //compVal = '0;
         op_fin = '0;
         cont_en = 0;
-        nulls = '0;
-        SRAM_finished = 0;
+        test_num = '0;
+        //nulls = '0;
+        //SRAM_finished = 0;
 
         // TEST 1: Basic Reset and Normal Flow
         $display("\n=== TEST 1: Basic Flow with Node Progression ===");
+        test_num = 1;
         resetOn();
         #100;
 
+        read_out = 8'b0010010;
+        #10
+        read_out = 8'b00010001;
+        #10
+        read_out = 8'b00011111;
+        #10
+        read_out = 8'b00110001;
+        #10
+        read_out = 8'b00010111;
+        #10
+        read_out = 8'b00010001;
+        #10
+        read_out = 8'h1A;
+        #10
+
+        
+
         // Basic flow through all states
-        auto_advance("IDLE to HISTO", 0, 0);
-        #5;
-        read_out = 8'h1A;  // Add histogram data
-        auto_advance("HISTO to FLV", 0, 0);
-        #5;
-        //compVal = 64'd20;  // Add compare value for FLV
-        auto_advance("FLV to HTREE", 0, 0);
-        #5;
-        nulls = 64'd500;   // Add nulls data for HTREE
-        auto_advance("HTREE to CBS", 0, 0);
-        #5;
-        //h_element = {7'b1000000, 9'b110000000, 9'b110000000, 46'd0};
-        auto_advance("CBS to TRN", 0, 0);
-        #5;
-        auto_advance("TRN to SPI", 0, 0);
-        #5;
-        auto_advance("SPI to DONE", 0, 0);
-        #5;
-        auto_advance("DONE to IDLE", 0, 0);
-        #5;
+        // auto_advance("IDLE to HISTO", 0, 0);
+        // #5;
+        // read_out = 8'h1A;  // Add histogram data
+        // auto_advance("HISTO to FLV", 0, 0);
+        // #5;
+        // //compVal = 64'd20;  // Add compare value for FLV
+        // auto_advance("FLV to HTREE", 0, 0);
+        // #5;
+        // //nulls = 64'd500;   // Add nulls data for HTREE
+        // auto_advance("HTREE to CBS", 0, 0);
+        // #5;
+        // //h_element = {7'b1000000, 9'b110000000, 9'b110000000, 46'd0};
+        // auto_advance("CBS to TRN", 0, 0);
+        // #5;
+        // auto_advance("TRN to SPI", 0, 0);
+        // #5;
+        // auto_advance("SPI to DONE", 0, 0);
+        // #5;
+        // auto_advance("DONE to IDLE", 0, 0);
+        // #5;
 
         // TEST 2: HTREE Looping Test
+        #2000;
+        test_num = 2;
         $display("\n=== TEST 2: HTREE Looping Test ===");
         resetOn();
         #100;
@@ -600,36 +634,42 @@ module t05_top_tb;
         #5;
 
         // TEST 3: Error Handling
+        test_num = 3;
         $display("\n=== TEST 3: Error Cases ===");
         
         // Test SRAM error
+        #2000
         resetOn();
         #100;
         auto_advance("SRAM Error Test", 0, 2);  // err=2 for SRAM error
         #20;
 
         // Test module error
+        #2000;
         resetOn();
         #100;
         auto_advance("Module Error Test", 0, 1);  // err=1 for module error
         #20;
 
         // Test both errors
+        #2000;
         resetOn();
         #100;
         auto_advance("Combined Error Test", 0, 3);  // err=3 for both errors
         #20;
 
         // TEST 4: SRAM Interface
+        test_num = 4;
+        #2000;
         $display("\n=== TEST 4: SRAM Interface Test ===");
         resetOn();
         #100;
         
         // Progress through states with SRAM interactions
         auto_advance("IDLE to HISTO with SRAM", 0, 0);
-        SRAM_finished = 1;
+        //SRAM_finished = 1;
         #50;
-        SRAM_finished = 0;
+        //SRAM_finished = 0;
         auto_advance("Continue after SRAM", 0, 0);
         #20;
 

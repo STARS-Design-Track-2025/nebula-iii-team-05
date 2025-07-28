@@ -23,6 +23,7 @@ module sram_WB_Wrapper #(
     input logic [31:0] wbs_adr_i,
     output logic wbs_ack_o,
     output logic [31:0] wbs_dat_o
+    
 );
     // Declare SRAM ports
     // Write Port

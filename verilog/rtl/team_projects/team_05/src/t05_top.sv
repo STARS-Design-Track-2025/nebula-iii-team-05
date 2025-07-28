@@ -18,12 +18,12 @@ module t05_top (
     output logic [1:0] wr,
 
     //FLV
-    input logic [63:0] compVal,
+    //input logic [63:0] compVal,
     //output logic [8:0] histo_index,
 
     //HTREE
-    input logic SRAM_finished,
-    input logic [63:0] nulls,
+    //input logic SRAM_finished,
+    //input logic [63:0] nulls,
 
     //CB
     //input logic [70:0] h_element,
@@ -70,10 +70,9 @@ module t05_top (
   //HTREE CB
   logic [6:0] max_index;
 
-
   //HTREE SRAM
-  //logic [63:0] nulls;
-  //logic SRAM_finished;
+  logic [63:0] nulls;
+  logic SRAM_finished;
   logic [70:0] node_reg;
   logic [6:0] nullSumIndex;
   logic WorR;
@@ -94,7 +93,8 @@ module t05_top (
   //FLV SRAM
   logic [7:0] cw1, cw2;
   logic [8:0] histo_index;
-  //logic [63:0] compVal;
+  logic [63:0] compVal;
+  logic flv_r_wr;
 
   //SRAM TRN
   logic [127:0] path;
@@ -102,6 +102,7 @@ module t05_top (
 
   //CB SRAM
   logic [7:0] curr_index;
+  logic SRAM_enable;
 
   //SPI
   logic writeBit_HS, writeBit_TL;
@@ -122,14 +123,17 @@ module t05_top (
   assign fin_State = {fin_state_idle, fin_state_HG, fin_state_FLV, HT_fin_reg, fin_state_HT, fin_state_CB, fin_state_TL, '0, temp};//fin_state_SPI,temp };
 
   //WB & SRAM INTERFACE
-  logic write_i, read_i, addr_i, sel_i;
+  logic write_i, read_i;
+  logic [31:0] addr_i;
+  logic [3:0] sel_i;
+  logic busy_o;
 
-  wishbone_mananger WB (
+  wishbone_manager WB (
     .nRST(!reset),
     .CLK(hwclk),
     .DAT_I(wbs_dat_i),
     .ACK_I(wbs_ack_i),
-    .CPU_DAT_I(),
+    .CPU_DAT_I(data_i_wish),
     .ADR_I(addr_i),
     .SEL_I(sel_i),
     .WRITE_I(write_i),
@@ -140,26 +144,28 @@ module t05_top (
     .WE_O(wbs_we_o),
     .STB_O(wbs_stb_o),
     .CYC_O(wbs_cyc_o),
-    .CPU_DAT_O(),
-    .BUSY_O()
+    .CPU_DAT_O(data_o_wish),
+    .BUSY_O(busy_o)
   );
+
+  logic [31:0] data_i_wish, data_o_wish;
 
   t05_sram_interface sram_interface (
     .clk(hwclk),
     .rst(reset),
     //HISTOGRAM INPUTS
     .histogram(sram_out),
-    .histogram_addr(hist_addr),
+    .histgram_addr(hist_addr),
     .hist_r_wr(wr),
     //FLV INPUTS
-    .fin_least(histo_index),
-    .charWipe1(cw1),
-    .charWipe2(cw2),
-    .flv_r_wr(),
+    .find_least(histo_index),
+    .charwipe1(cw1),
+    .charwipe2(cw2),
+    .flv_r_wr(flv_r_wr),
     //HTREE INPUTS
     .new_node(node_reg),
     .htreeindex(nullSumIndex),
-    .htree_r_wr(),
+    .htree_r_wr(WorR),
     //CB INPUTS
     .curr_index(curr_index),
     .char_index(char_index),
@@ -167,47 +173,44 @@ module t05_top (
     //TLN INPUT
     .translation(read_out),
     //CONTROLLER INPUT
-    .state(state),
+    .state(en_state),
     //INPUTS FROM SRAM
-    .sram_data_out_his(),
-    .sram_data_out_flv(),
-    .sram_data_out_trn(),
-    .sram_data_out_cb(),
-    .sram_data_out_ht(),
-    
+    .data_o(data_o_wish),
+    .busy_o(busy_o),
+
     //OUTPUTS to SRAM
     .wr_en(write_i),
     .r_en(read_i),
-    .busy_o(),
     .select(sel_i),
     .addr(addr_i),
+    .data_i(data_i_wish),
     //HTREE OUTPUTS
-    .sram_data_in_ht(),        //Goes to SRAM
     .nulls(nulls),             //data going to hTree
-    .ht_done(SRAM_finished),
+    .ht_done(SRAM_finished),  //enable going to the htree to let it know that the sram has finished reading or writing data
     //HISTOGRAM OUTPUTS
-    .sram_data_in_hist(),     //Stored to SRAM
-    .old_char(sram_in),       //data going to histogram
+    .old_char(hist_data_o),       //data going to histogram
     //FLV OUTPUTS
-    .compVal(compVal),        //Data going to FLV 
-    .sram_data_in_flv(),      //Going to SRAM
+    .comp_val(compVal),        //Data going to FLV 
     //CB OUTPUTS
     .h_element(h_element),    //data going to CB
-    .cb_path_sram(),          //Going to SRAM
-    .cb_done(),
+    .cb_done(SRAM_enable),  //1 bit enable going to the codebook to let it know that the sram has finished writing/reading the data it was given
     //TLN OUTPUTS
     .path(path),
     //Controller Output
-    .ctrl_done()
+    .ctrl_done(ctrl_state) //output going to the controller to let it kow which module hase finished reading/writing
   );
 
+  logic [5:0] ctrl_state;
+  //logic [3:0] in_state;
+  logic [31:0] hist_data_o;
+
   t05_controller controller (
-    .clk(hwclk), 
+    .clk(hwclk),
     .rst(reset), 
     .cont_en(cont_en), 
     .restart_en('0), 
     .finState(fin_State), 
-    .op_fin(op_fin), 
+    .op_fin(ctrl_state), 
     .error_FIN_HG(error_FIN_HG), 
     .error_FIN_FLV(error_FIN_FLV), 
     .error_FIN_HT(error_FIN_HT),
@@ -232,7 +235,7 @@ module t05_top (
     .rst(reset), 
     .en_state(en_state),
     .spi_in(read_out), 
-    .sram_in(sram_in), 
+    .sram_in(hist_data_o), 
     .eof(fin_state_HG), 
     .complete(readEn),
     .total(totChar), 
@@ -289,7 +292,7 @@ module t05_top (
     .least2(least2_CB), 
     .finished(fin_state_CB),
     .track_length(track_length),
-    .SRAM_enable()
+    .SRAM_enable(SRAM_enable)
     );
 
   t05_header_synthesis header_synthesis (

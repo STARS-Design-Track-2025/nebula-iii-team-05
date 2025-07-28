@@ -43,6 +43,7 @@ module t05_translation (
             writeEn_n = 0;
             resEn_n = 0;
         end else if(totalEn == 1) begin
+            writeEn_n = 1;
             writeBin = totChar[index[4:0]];
             index_n = index - 1;  
             if(index == 0 && index_n == 127) begin
@@ -53,6 +54,7 @@ module t05_translation (
             index_n = index - 1;
             if(charIn == 8'b00011010) begin
                 fin_state = 1;
+                writeEn_n = 0;
             end else begin
                 if(path[index] == 1) begin
                     writeEn_n = 1;
