@@ -1,0 +1,272 @@
+// typedef enum logic [3:0] {
+//     INIT, // initial (set if enable for the hd_decode module isn't high)
+//     SET_PATH, // set path of the first char found all the way left in the tree (first 128 bits of the header)
+//     READ_LEADING_BIT, // read leading bit checks if there is a backtrack (0) or if another char was found (1)
+//     READ_CHAR, // read 8 bits of the char from data_in after reading the leading bit(s)
+//     CHECK_NEXT_CHAR, // will check how many lefts are needed for current char when previous char was also left
+//     UPDATE_PATH, // after getting the character, use the # of backtrack and the bit after the char to update the path
+//     WRITE_PATH, // once a full path is found, (after a char was found and corresponding path was updated with correct digits), send the path to SRAM with the curr char index
+//     READ_TOT_CHAR, // read the total number chars in the file after the whole binary tree was turned into a codebook  
+//     FINISH // finished writing all char codes from header
+// } state_hd;
+
+module hd_decode (
+    input logic clk, rst,
+    input logic hd_enable,
+    input logic [7:0] SPI_data_in, // read byte of header from SPI
+    output logic SPI_read_en, // sent to SPI to enable a new byte to be read
+    output logic [127:0] SRAM_data_out, // write a char path to SRAM
+    output logic [7:0] char_index, // set to SRAM to store address
+    output logic SRAM_write_en, // sent to SRAM to enable writing a char path
+    output logic finished, // sent to controller
+    output logic [31:0] tot_chars // read from compressed file and sent to translation to determine the finish condition
+);
+  state_hd curr_state, next_state; 
+  logic [127:0] curr_path, next_path; 
+  logic [3:0] offset, next_offset; // marker to keep track of which bit in byte of data_in to read next
+  //logic next_read_en_SPI, next_write_en_SRAM;
+  logic [7:0] count, next_count;
+  logic [3:0] char_bit_count, next_char_bit_count;
+  logic [1:0] leading_bit, next_leading_bit;
+  logic [7:0] backtracks, next_backtracks;
+  logic [7:0] curr_char, next_char;
+  logic [7:0] char_check, next_char_check;
+  logic [7:0] first_char_path_len, next_first_char_path_len;
+  logic next_wait_cycle, wait_cycle;
+  logic next_first, first;
+  logic next_finished;
+  logic [31:0] next_tot_chars;
+  //logic [7:0] data_in_SPI; 
+  
+always_ff @(posedge clk, posedge rst) begin
+    if (rst) begin
+        curr_state <= INIT;
+        curr_path <= 128'b0;
+        offset <= 0;
+        count <= 0;
+        leading_bit <= 2'b0;
+        char_bit_count <= 0;
+        curr_char <= 0;
+        char_check <= 0;
+        first_char_path_len <= 0;
+        wait_cycle <= 1;
+        backtracks <= 0;
+        first <= 0;
+        finished <= 0;
+        tot_chars <= 0;
+    end
+    else if (hd_enable) begin
+        curr_state <= next_state;
+        curr_path <= next_path;
+        offset <= next_offset;
+        count <= next_count;
+        leading_bit <= next_leading_bit;
+        char_bit_count <= next_char_bit_count;
+        curr_char <= next_char;
+        char_check <= next_char_check;
+        first_char_path_len <= next_first_char_path_len;
+        wait_cycle = next_wait_cycle;
+        backtracks = next_backtracks;
+        first <= next_first;
+        finished <= next_finished;
+        tot_chars <= next_tot_chars;
+      
+    end
+end
+
+always_comb begin
+    next_count = count;
+    next_state = curr_state;
+    next_path = curr_path;
+    next_offset = offset;
+    next_char_bit_count = char_bit_count;
+    next_char = curr_char;
+    next_first_char_path_len = first_char_path_len;
+    next_char_check = char_check;
+    next_backtracks = backtracks;
+    next_leading_bit = leading_bit;
+    next_wait_cycle = wait_cycle;
+    SRAM_data_out = curr_path;
+    char_index = curr_char;
+    next_first = first;
+    next_finished = finished;
+    next_tot_chars = tot_chars;
+
+    SPI_read_en = 0;
+    SRAM_write_en = 0;
+
+    case (curr_state)
+        INIT: begin // if the controller's enable is set high for hd_decode to start or not
+            if (hd_enable) begin
+                 if (!wait_cycle) begin
+                    SPI_read_en = 1;
+                    next_state = SET_PATH;
+                 end
+                 else begin
+                     next_wait_cycle = 0;
+                 end
+            end
+            else begin
+                next_state = INIT;
+            end
+        end
+        SET_PATH: begin // set first 128 bits of header to the first char path to write to SRAM
+          if (count < 8'd128) begin
+            if (offset < 8) begin
+              next_path[127-count[6:0]] = SPI_data_in[7-offset[2:0]]; // transfer 128 bits of first char path to the curr_path
+              if (SPI_data_in[7-offset[2:0]] == 1'b1) begin // shows the actual beginning of the first char's path
+                        next_first_char_path_len = 127-count;
+                    end
+                    next_count = count + 1;
+                    next_offset = offset + 1;
+                end
+                else begin
+                    SPI_read_en = 1;
+                    next_offset = offset - 8;
+                end
+            end
+            else begin
+                next_state = READ_LEADING_BIT; // read leading bit of first char found to then parse the 8 char bits after it
+                next_first = 1;
+              next_count = 0;
+            end
+        end
+        READ_LEADING_BIT: begin // parses leading bit(s) of a char (1 if no backtrack), (0 if backtrack)
+        if (backtracks != first_char_path_len) begin
+                if (offset < 8) begin
+                  next_leading_bit = {1'b1, SPI_data_in[7-offset[2:0]]}; // add 1 to beginning to leading bit to show a leading bit was read (not none)
+                    next_offset = offset + 1;
+                    if (next_leading_bit[0] == 0) begin
+                      next_state = READ_LEADING_BIT; // read the leading bit until a leading 1 is found
+                      next_backtracks = backtracks + 1; // keep track of the number of backtracks for next char's path
+                    end
+                    else begin
+                      next_state = READ_CHAR;
+                    end
+                end
+                else begin
+                    SPI_read_en = 1;
+                    next_offset = offset - 8;
+                end
+            end
+        else begin
+            next_state = READ_TOT_CHAR;
+        end
+        end
+        READ_CHAR: begin
+            if (offset < 8) begin
+                if (char_bit_count < 8) begin // read 8 bits of the data into the char index
+                  next_char[7-char_bit_count[2:0]] = SPI_data_in[7-offset[2:0]];
+                    next_char_bit_count = char_bit_count + 1;
+                  next_offset = offset + 1;
+                end
+                else begin
+                    next_state = UPDATE_PATH; // after fetching the char, update the current path
+                    next_char_bit_count = 0;
+                end
+            end
+            else begin // once 8 bits of SPI data is read, get a new chunk
+                SPI_read_en = 1;
+                next_offset = offset - 8;
+            end
+        end
+        CHECK_NEXT_CHAR: begin
+             if (offset < 8) begin
+               if (char_bit_count < 8) begin // read 8 bits of the data into the char index
+                 next_char_check[next_char_bit_count[2:0]] = SPI_data_in[7-offset[2:0]];
+                    next_char_bit_count = char_bit_count + 1;
+                end
+                else begin
+                    if (SPI_data_in[offset[2:0]] == 0) begin // the next and curr char are two leaf nodes of the current node
+                        next_path = {curr_path[126:0], 1'b0}; // add another left the curr char path
+                        next_state = WRITE_PATH;
+                    end
+                    next_char_bit_count = 0;
+                end
+            end
+            else begin // once 8 bits of SPI data is read, get a new chunk
+                SPI_read_en = 1;
+                next_offset = offset - 8;
+            end
+        end
+        UPDATE_PATH: begin
+            if (offset < 8) begin
+                if (backtracks == 1) begin
+                    next_path = {curr_path[127:1], 1'b1}; // if on the last backtrack, shift out last move and move right
+                    next_backtracks = backtracks - 1;
+                  if (SPI_data_in[7-offset[2:0]] == 0) begin // if the char is a right then write the path
+                  next_state = WRITE_PATH;
+                    end
+                end
+              else if (backtracks > 0) begin // continue to backtrack until only one is left
+                    next_path = {1'b0, curr_path[127:1]}; // backtrack by shifting out last move
+                    next_backtracks = backtracks - 1; // remove one from backtracks
+                end
+              else begin // backtracks are 0
+                if (SPI_data_in[7-offset[2:0]] == 1) begin // if next char is a left
+//                     if (!first) begin
+//                             next_path = {curr_path[125:0], 2'b10}; // if there were no backtracks (last char was a left), and curr char is a left, move right and then left
+//                             next_state = CHECK_NEXT_CHAR; // check if the next char is the right to the current char to decide to add another left
+//                     end
+                    if (first) begin // if it is the path of the first char (it is a left and there would be no backtracks), immmediately move to write_path
+                      next_state = WRITE_PATH; 
+                    end
+                    else begin // once all backtracks were done and the path was moved right, add a left if the char is a left
+                      next_path = {curr_path[126:0], 1'b0}; // add left to end of path
+                      next_state = WRITE_PATH;
+                    end
+                end
+                else begin // if a 0 follows the char, add last move as right
+                    next_path = {curr_path[126:0], 1'b1};
+                    next_state = WRITE_PATH;
+                end
+             end
+            end
+        end
+        WRITE_PATH: begin
+            if (count < 1) begin
+                SRAM_write_en = 1;
+                char_index = curr_char;
+                SRAM_data_out = curr_path;
+              next_count = count + 1;
+            end
+            else begin
+                next_path = {1'b0, curr_path[127:1]}; // shift out last move
+                if (char_check == 8'b0) begin
+                    next_state = READ_LEADING_BIT;
+                  next_first = 0;
+                  next_count = 0;
+                end 
+                else begin
+                    next_state = UPDATE_PATH;
+                    next_char = next_char_check;
+                    next_char_check = 8'b0;
+                  next_count = 0;
+                end
+            end
+        end
+        READ_TOT_CHAR: begin
+            if (count < 32) begin // read 4 bytes of data from SPI to get 32 bits of data for tot_chars
+                if (offset < 8) begin // if curr bit is within valid index of SPI read byte (0-7)
+                    next_tot_chars[31-count] = SPI_data_in[7-offset];
+                    next_count = count + 1;
+                    next_offset = offset + 1;
+                end
+                else begin // once 8 bits of SPI data is read, get a new chunk
+                    SPI_read_en = 1;
+                    next_offset = offset - 8;
+                end
+            end
+            else begin
+                next_count = 0;
+                next_state = FINISH;
+            end
+        end
+        FINISH: begin
+            next_finished = 1;
+        end
+        default: begin next_state = curr_state; end
+    endcase
+end
+
+endmodule;
