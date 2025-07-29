@@ -83,6 +83,7 @@ module t05_sram_interface (
     logic busy_o_last;
 
     logic [31:0] old_char_n;
+    logic check, check_n;
 
     // logic r_n, wr_n;
 
@@ -98,9 +99,11 @@ always_ff @( posedge clk, posedge rst) begin
         init_counter <= '0;
         busy_o_last <= 0;
         old_char <= '0;
+        check <= 0;
         // r_en <= 0;
         // wr_en <= 0;
-    end else if (!busy_o) begin
+    // end else if (!busy_o) begin
+    end else begin
         word_cnt <= word_cnt_n;
         pulse <= ~pulse_n;
         comp_val <= comp_val_n;
@@ -111,9 +114,10 @@ always_ff @( posedge clk, posedge rst) begin
         init_counter <= init_counter_n;
         busy_o_last <= busy_o;
         old_char <= old_char_n;
+        check <= check_n;
         // r_en <= r_n;
         // wr_en <= wr_n;
-    end else begin
+    // end else begin
         busy_o_last <= busy_o;
     end
 end
@@ -124,6 +128,7 @@ always_comb begin
     addr = 32'h33000000;
     wr_en = 0;
     r_en = 0;
+    check_n = check;
 
     comp_val_n = comp_val;
     word_cnt_n = word_cnt;
@@ -135,24 +140,31 @@ always_comb begin
 
     case(state) 
         1: begin //HISTOGRAM
-            if(init) begin 
-                addr = 32'h33000000 + (init_counter * 4);
+            if(init) begin
+                addr = (init_counter < 2048) ? 32'h33000000 + (init_counter * 4) : 32'h33001FFC;
                 data_i = '0;
                 wr_en = 1;
                 r_en = 0;
-                if(init_counter < 2048) begin
+                if (init_counter == 2048 && !check) begin
+                    check_n = 1;
+                end
+                else if (init_counter == 2047) begin
                     init_counter_n = init_counter + 1;
-                end else begin
+                end
+                else if(init_counter < 2047) begin
+                    init_counter_n = init_counter + 1;
+                end else if (check && (busy_o_last == 1 && busy_o == 0)) begin
                     init_n = 0;
+                    check_n = 0;
                 end
             end else begin
-                if(hist_r_wr == 1 && (busy_o_last == 1 && busy_o == 0)) begin
+                if(hist_r_wr == 1 && busy_o == 0) begin //(busy_o_last == 1 && busy_o == 0)) begin
                     wr_en = 1;
                     r_en = 0;
                     data_i = histogram;
                     addr = 32'h33000000 + (histgram_addr * 4);
                     old_char_n = data_o;
-                end else if (hist_r_wr == 0 && (busy_o_last == 1 && busy_o == 0)) begin
+                end else if (hist_r_wr == 0 && busy_o == 0) begin // (busy_o_last == 1 && busy_o == 0)) begin
                     wr_en = 0;
                     r_en = 1;
 

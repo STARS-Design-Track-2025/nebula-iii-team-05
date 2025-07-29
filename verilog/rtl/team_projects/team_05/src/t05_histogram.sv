@@ -108,7 +108,7 @@ always_comb begin
             wr_r_en_n = 2'd3;
             if(!busy_i) begin
                 next_state = WRITE;
-                wr_r_en_n = 2'd1;
+                wr_r_en_n = 2'd3;
                 sram_out_n = sram_in + 1;
             end
         end
@@ -116,7 +116,7 @@ always_comb begin
             wr_r_en_n = 2'd3;
             if(!busy_i) begin
                 next_state = READ;
-                wr_r_en_n = 2'd0;
+                // wr_r_en_n = 2'd0;
             end
         end
         // READ2: begin  //giving the updated data to the sram for storage
@@ -146,7 +146,6 @@ always_comb begin
             end else begin
                 next_state = WAITWRITE;
             end
-            wr_r_en_n = 2'd1;
         end
         DONE: begin  //done with that 1 cycle
             next_state = DONE;
@@ -163,9 +162,10 @@ always_comb begin
 
     if(init) begin
         next_state = WRITE;
+        wr_r_en_n = 2'd1;
     end else if (init_edge && !init) begin
         next_state = READ;
-        //wr_r_en_n = 2'd0;
+        wr_r_en_n = 2'd0;
     end
     end
 endmodule
