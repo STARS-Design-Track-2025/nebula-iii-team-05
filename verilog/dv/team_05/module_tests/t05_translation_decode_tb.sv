@@ -6,7 +6,7 @@ typedef enum logic [2:0] {
     WRITE_PATH, // writes the char index of the matching path from SRAM to SPI decompressed file, increment chars found and compare tot chars
     FINISH
 } state_tr;
-module translation_decode_tb;
+module t05_translation_decode_tb;
     logic clk, reset;
     logic translation_enable;
     logic [31:0] tot_chars; // total characters read in the hd_decode
