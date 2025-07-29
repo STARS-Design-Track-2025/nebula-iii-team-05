@@ -10,7 +10,7 @@
 //     FINISH // finished writing all char codes from header
 // } state_hd;
 
-module hd_decode (
+module t05_hd_decode (
     input logic clk, rst,
     input logic hd_enable,
     input logic [7:0] SPI_data_in, // read byte of header from SPI

@@ -7,7 +7,7 @@
 //     FINISH
 // } state_tr;
 
-module translation_decode (
+module t05_translation_decode (
     input logic clk, rst,
     input logic translation_enable,
     input logic [31:0] tot_chars, // total characters read in the hd_decode

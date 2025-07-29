@@ -23,7 +23,7 @@ module translation_decode_tb;
     logic [8:0] SRAM_count;
 
     always #5 clk = ~clk;
-    translation_decode tr1 (.clk(clk), .rst(reset), .SRAM_count(SRAM_count), .finished(finished), .tot_chars(tot_chars), .translation_enable(1'b1), .char_index(char_index), .SPI_data_in(SPI_data_in), .SPI_read_en(read_en_SPI), .SRAM_data_in(SRAM_data_in), .SRAM_read_en(SRAM_read_en), .SPI_data_out(SPI_data_out), .SPI_write_en(SPI_write_en));
+    t05_translation_decode tr1 (.clk(clk), .rst(reset), .SRAM_count(SRAM_count), .finished(finished), .tot_chars(tot_chars), .translation_enable(1'b1), .char_index(char_index), .SPI_data_in(SPI_data_in), .SPI_read_en(read_en_SPI), .SRAM_data_in(SRAM_data_in), .SRAM_read_en(SRAM_read_en), .SPI_data_out(SPI_data_out), .SPI_write_en(SPI_write_en));
     task reset_fsm();
       begin
         reset = 1;
@@ -46,8 +46,8 @@ module translation_decode_tb;
     endtask
 
     initial begin
-      $dumpfile("waves/translation_decode.vcd"); //change the vcd vile name to your source file name
-      $dumpvars(0, translation_decode_tb);
+      $dumpfile("t05_translation_decode.vcd"); //change the vcd vile name to your source file name
+      $dumpvars(0, t05_translation_decode_tb);
       
       clk = 0;
       reset = 0;
