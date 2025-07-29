@@ -29,6 +29,8 @@ module t05_top_tb;
     logic [31:0] wbs_dat_o;
     logic [2:0] test_num;
 
+    logic [23:0] i;
+
     t05_top top (
     .hwclk(hwclk),
     .reset(reset),
@@ -564,7 +566,7 @@ module t05_top_tb;
         $display("\n=== TEST 1: Basic Flow with Node Progression ===");
         test_num = 1;
         resetOn();
-        #100;
+        #20000;
 
         read_out = 8'b0010010;
         #10
@@ -581,7 +583,7 @@ module t05_top_tb;
         read_out = 8'h1A;
         #10
 
-        
+
 
         // Basic flow through all states
         // auto_advance("IDLE to HISTO", 0, 0);

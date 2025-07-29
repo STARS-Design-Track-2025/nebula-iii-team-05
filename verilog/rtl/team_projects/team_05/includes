@@ -15,4 +15,3 @@
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_top.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_spiClockDivider.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_sram_interface.sv
--v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_sram_interface_new.sv

@@ -103,6 +103,7 @@ module t05_top (
   //CB SRAM
   logic [7:0] curr_index;
   logic SRAM_enable;
+  logic cb_r_wr;
 
   //SPI
   logic writeBit_HS, writeBit_TL;
@@ -127,6 +128,8 @@ module t05_top (
   logic [31:0] addr_i;
   logic [3:0] sel_i;
   logic busy_o;
+
+  logic init;
 
   wishbone_manager WB (
     .nRST(!reset),
@@ -170,6 +173,7 @@ module t05_top (
     .curr_index(curr_index),
     .char_index(char_index),
     .codebook_path(char_path),
+    .cb_r_wr(cb_r_wr),
     //TLN INPUT
     .translation(read_out),
     //CONTROLLER INPUT
@@ -189,6 +193,7 @@ module t05_top (
     .ht_done(SRAM_finished),  //enable going to the htree to let it know that the sram has finished reading or writing data
     //HISTOGRAM OUTPUTS
     .old_char(hist_data_o),       //data going to histogram
+    .init(init),
     //FLV OUTPUTS
     .comp_val(compVal),        //Data going to FLV 
     //CB OUTPUTS
@@ -233,8 +238,12 @@ module t05_top (
   t05_histogram histogram (
     .clk(hwclk), 
     .rst(reset), 
+    .busy_i(busy_o),
+    .init(init),
     .en_state(en_state),
     .spi_in(read_out), 
+    .write_i(write_i),
+    .read_i(read_i),
     .sram_in(hist_data_o), 
     .eof(fin_state_HG), 
     .complete(readEn),
