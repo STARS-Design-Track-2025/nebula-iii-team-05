@@ -2,7 +2,7 @@
 
 module t05_controller_tb;
     // Testbench signals
-    logic clk, rst_n, cont_en, restart_en;
+    logic clk, rst, cont_en, restart_en;
     logic [3:0] finState, op_fin;
     logic [3:0] state_reg;
     logic finished_signal;
@@ -19,7 +19,7 @@ module t05_controller_tb;
     // DUT instantiation
     t05_controller dut (
         .clk(clk),
-        .rst_n(rst_n),
+        .rst(rst),
         .cont_en(cont_en),
         .restart_en(restart_en),
         .finState(finState),
@@ -50,14 +50,14 @@ module t05_controller_tb;
     task automatic reset();
         begin
             $display("=== PERFORMING RESET ===");
-            rst_n = 1'b0;
+            rst = 1'b1;
             cont_en = 1'b0;
             finState = 4'h0;
             op_fin = 4'h0;
             
             // Hold reset for longer period
             #100;  // Hold reset longer
-            rst_n = 1'b1;
+            rst = 1'b0;
             #100;  // Wait longer after reset release
             
             // Check reset worked
@@ -443,7 +443,7 @@ module t05_controller_tb;
         finState = 4'h0;
         op_fin = 4'h0;
         cont_en = 1'b0;
-        rst_n = 1'b0;  // Start with reset asserted
+        rst = 1'b1;  // Start with reset asserted
         
         // Wait for several clock cycles before releasing reset
         #100;

@@ -10,6 +10,7 @@ module t05_findLeastValue (
 logic [8:0] least1_n, least2_n, count_n, sumCount;
 logic [63:0] val1, val2, val1_n, val2_n, sum_n;
 logic [7:0] charWipe1_n, charWipe2_n;
+logic nextCharEn; // Missing declaration
 
 always_ff @(posedge clk, posedge rst) begin
     if(rst) begin

@@ -1,6 +1,6 @@
 `timescale 1ms/10ps
 module t05_hTree_tb;
-  logic clk, rst_n;
+  logic clk, rst;
   logic [8:0] least1, least2;
   logic [45:0] sum;
   logic [63:0] nulls;
@@ -14,7 +14,7 @@ module t05_hTree_tb;
   logic err;
   int test_progress = 0;
 
-  t05_hTree inst (.clk(clk), .rst_n(rst_n), .least1(least1), .least2(least2), .sum(sum),
+  t05_hTree inst (.clk(clk), .rst(rst), .least1(least1), .least2(least2), .sum(sum),
    .nulls(nulls), .HT_en(HT_en), .SRAM_finished(SRAM_finished),.node_reg(node) /* .tree_reg(tree), .null1_reg(null1),
     .null2_reg(null2)*/, .clkCount(clkCount), .nullSumIndex(nullSumIndex), .op_fin(op_fin)/*,.state_reg(state)For testing only*/
     , .WriteorRead(WorR),.tree_reg(tree), .null1_reg(null1), .null2_reg(null2), .state_reg(state));
@@ -322,7 +322,7 @@ module t05_hTree_tb;
     $dumpvars(0, t05_hTree_tb);
     
     // Initialize all signals
-    rst_n = 1'b0;
+    rst = 1'b1;
     HT_en = 4'b0;
     SRAM_finished = 1'b1;
     least1 = 9'b0;
@@ -332,7 +332,7 @@ module t05_hTree_tb;
     
     // Reset sequence
     #20;
-    rst_n = 1'b1; // Release reset
+    rst = 1'b0; // Release reset
     #20; 
     
     $display("Reset complete, starting node creation tests...");
@@ -363,9 +363,9 @@ module t05_hTree_tb;
     $display("After disable: State=%d, node=%b, op_fin=%b", state, node, op_fin);
     $display("");
 
-    rst_n = 1'b0; // Reset for next test
+    rst = 1'b1; // Reset for next test
     #20;
-    rst_n = 1'b1; // Release reset
+    rst = 1'b0; // Release reset
     #20;
     
     // TEST 1 - L1 = CHARACTER, L2 = CHARACTER
@@ -475,9 +475,9 @@ module t05_hTree_tb;
     #30; // Increased timing for disable propagation
     
     // Reset for next test
-    rst_n = 1'b0;
+    rst = 1'b1;
     #20;
-    rst_n = 1'b1;
+    rst = 1'b0;
     #20;
     
     // TEST 12 - SRAM Not Ready
@@ -503,9 +503,9 @@ module t05_hTree_tb;
     // TEST 13 - OP_FIN SIGNAL TESTING
     test_progress ++;
     $display("\n\n=== TEST 13: OP_FIN SIGNAL TESTING ===\n");
-    rst_n = 1'b0;
+    rst = 1'b1;
     #20;
-    rst_n = 1'b1;
+    rst = 1'b0;
     #20;
     
     // Test that op_fin signals are properly generated
