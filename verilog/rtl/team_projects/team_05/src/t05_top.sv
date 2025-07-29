@@ -45,7 +45,8 @@ module t05_top (
     output logic [31:0] wbs_dat_o,
     output logic [31:0] wbs_adr_o,
     input logic wbs_ack_i,
-    input logic [31:0] wbs_dat_i
+    input logic [31:0] wbs_dat_i,
+    input logic pulse
 );
   logic serial_clk;
   logic sclk;
@@ -152,6 +153,7 @@ module t05_top (
   );
 
   logic [31:0] data_i_wish, data_o_wish;
+  logic hist_read_latch;
 
   t05_sram_interface sram_interface (
     .clk(hwclk),
@@ -169,6 +171,7 @@ module t05_top (
     .new_node(node_reg),
     .htreeindex(nullSumIndex),
     .htree_r_wr(WorR),
+    .hist_read_latch(hist_read_latch),
     //CB INPUTS
     .curr_index(curr_index),
     .char_index(char_index),
@@ -240,6 +243,7 @@ module t05_top (
     .rst(reset), 
     .busy_i(busy_o),
     .init(init),
+    .pulse(pulse),
     .en_state(en_state),
     .spi_in(read_out), 
     .write_i(write_i),
@@ -250,7 +254,8 @@ module t05_top (
     .total(totChar), 
     .sram_out(sram_out), 
     .hist_addr(hist_addr),
-    .wr_r_en(wr)
+    .wr_r_en(wr),
+    .get_data(hist_read_latch)
     );
 
   t05_findLeastValue findLeastValue (

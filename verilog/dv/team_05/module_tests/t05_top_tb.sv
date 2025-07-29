@@ -31,6 +31,8 @@ module t05_top_tb;
 
     logic [23:0] i;
 
+    logic pulse;
+
     t05_top top (
     .hwclk(hwclk),
     .reset(reset),
@@ -46,6 +48,7 @@ module t05_top_tb;
     .en_state(en_state),
     .cont_en(cont_en),
     .fin_State(fin_State),
+    .pulse(pulse),
 
     //WRAPPER
     .wbs_stb_o(wbs_stb_i),
@@ -559,6 +562,7 @@ module t05_top_tb;
         op_fin = '0;
         cont_en = 0;
         test_num = '0;
+        pulse = 0;
         //nulls = '0;
         //SRAM_finished = 0;
 
@@ -568,20 +572,27 @@ module t05_top_tb;
         resetOn();
         #20000;
 
+        #6
+        pulse = 1;
         read_out = 8'b0010010;
-        #10
+        #2
+        pulse = 0;
+        #50
+        pulse = 1;
         read_out = 8'b00010001;
-        #10
+        #2
+        pulse = 0;
+        #50
         read_out = 8'b00011111;
-        #10
+        #50
         read_out = 8'b00110001;
-        #10
+        #50
         read_out = 8'b00010111;
-        #10
+        #50
         read_out = 8'b00010001;
-        #10
+        #50
         read_out = 8'h1A;
-        #10
+        #50
 
 
 

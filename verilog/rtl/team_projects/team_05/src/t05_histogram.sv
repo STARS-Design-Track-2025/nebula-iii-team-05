@@ -4,12 +4,13 @@ module t05_histogram(
     input logic [7:0] spi_in,        // input byte from SPI
     input logic [31:0] sram_in,       // value from SRAM
     input logic busy_i, init,
-    input logic read_i, write_i,
+    input logic read_i, write_i, pulse,
     output logic eof,
     output logic complete, // eof = end of file; complete = done with byte
     output logic [31:0] total, sram_out,  //total number of characters within the file,  the updated data going to the sram 
     output logic [7:0]  hist_addr,     // address to SRAM
-    output logic [1:0] wr_r_en        // enable going to sram to tell it to read or write
+    output logic [1:0] wr_r_en,        // enable going to sram to tell it to read or write
+    output logic get_data
 );
 //send a controller enable to controller
 //accept an enable from sram to know when to procccess new data
@@ -22,12 +23,13 @@ logic init_edge;
 typedef enum logic [3:0] {
     IDLE  = 4'd0,
     READ  = 4'd1,
-    WAITREAD  = 4'd2,
+    WAITREAD_1  = 4'd2,
     WRITE = 4'd3,
     HALT  = 4'd4,
     DONE = 4'd5,
-    WAITWRITE = 4'd6,
-    READ3 = 4'd7
+    WAITREAD_2  = 4'd6,
+    WAITWRITE = 4'd7,
+    READ3 = 4'd8
 } state_t;
 
 // assign sram_out = sram_in + 1;
@@ -89,26 +91,34 @@ always_comb begin
     wait_cnt_n = wait_cnt;
     timer_n = timer;
     sram_out_n = sram_out;
+    get_data = 0;
 
     case (state)
         IDLE:  begin //beginning of the histogram
             next_state = READ;
-            wr_r_en_n   = 2'd3;
+            wr_r_en_n   = 2'd0;
             complete_n  = 0;
             eof_n       = 0;
             hist_addr_n = 0;
         end
         READ:  begin  //giving the sram the character that it wants to pull
-            next_state = WAITREAD;
-            wr_r_en_n  = 2'd0;
+            next_state = WAITREAD_1;
+            wr_r_en_n  = 2'd3;
             hist_addr_n = spi_in;
             total_n = total + 1;
         end
-        WAITREAD: begin
+        WAITREAD_1: begin
+            wr_r_en_n = 2'd3;
+            if(!busy_i) begin
+                next_state = WAITREAD_2;
+                get_data = 1;
+            end
+        end
+        WAITREAD_2: begin
             wr_r_en_n = 2'd3;
             if(!busy_i) begin
                 next_state = WRITE;
-                wr_r_en_n = 2'd3;
+                wr_r_en_n = 2'd1;
                 sram_out_n = sram_in + 1;
             end
         end
@@ -116,7 +126,7 @@ always_comb begin
             wr_r_en_n = 2'd3;
             if(!busy_i) begin
                 next_state = READ;
-                // wr_r_en_n = 2'd0;
+                wr_r_en_n = 2'd0;
             end
         end
         // READ2: begin  //giving the updated data to the sram for storage
@@ -145,6 +155,7 @@ always_comb begin
                 wr_r_en_n = 2'd3;
             end else begin
                 next_state = WAITWRITE;
+                wr_r_en_n = 2'd3;
             end
         end
         DONE: begin  //done with that 1 cycle
@@ -160,9 +171,16 @@ always_comb begin
         default: next_state = IDLE;
     endcase
 
+    if(pulse) begin
+        next_state = READ;
+        wr_r_en_n = '0;
+        hist_addr_n = spi_in;
+    end
+
     if(init) begin
         next_state = WRITE;
         wr_r_en_n = 2'd1;
+        sram_out_n = sram_out;
     end else if (init_edge && !init) begin
         next_state = READ;
         wr_r_en_n = 2'd0;

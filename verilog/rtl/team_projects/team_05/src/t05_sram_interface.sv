@@ -5,6 +5,7 @@ module t05_sram_interface (
     input  logic [31:0] histogram,
     input  logic [7:0] histgram_addr,
     input  logic [1:0] hist_r_wr,
+    input  logic hist_read_latch,
     //flv inputs
     input  logic [8:0] find_least,
     input logic [7:0] charwipe1, charwipe2,
@@ -84,6 +85,7 @@ module t05_sram_interface (
 
     logic [31:0] old_char_n;
     logic check, check_n;
+    // logic check_2, check_2_n;
 
     // logic r_n, wr_n;
 
@@ -100,6 +102,7 @@ always_ff @( posedge clk, posedge rst) begin
         busy_o_last <= 0;
         old_char <= '0;
         check <= 0;
+        // check_2 <= 0;
         // r_en <= 0;
         // wr_en <= 0;
     // end else if (!busy_o) begin
@@ -115,6 +118,7 @@ always_ff @( posedge clk, posedge rst) begin
         busy_o_last <= busy_o;
         old_char <= old_char_n;
         check <= check_n;
+        // check_2 <= check_2_n;
         // r_en <= r_n;
         // wr_en <= wr_n;
     // end else begin
@@ -129,6 +133,7 @@ always_comb begin
     wr_en = 0;
     r_en = 0;
     check_n = check;
+    // check_2_n = check_2;
 
     comp_val_n = comp_val;
     word_cnt_n = word_cnt;
@@ -143,34 +148,35 @@ always_comb begin
             if(init) begin
                 addr = (init_counter < 2048) ? 32'h33000000 + (init_counter * 4) : 32'h33001FFC;
                 data_i = '0;
-                wr_en = 1;
+                wr_en = (~check);
                 r_en = 0;
-                if (init_counter == 2048 && !check) begin
+                if (init_counter == 2048 && !check && (busy_o_last == 1 && busy_o == 0)) begin
                     check_n = 1;
                 end
-                else if (init_counter == 2047) begin
+                else if(init_counter <= 2047 && (busy_o_last == 1 && busy_o == 0)) begin
                     init_counter_n = init_counter + 1;
                 end
-                else if(init_counter < 2047) begin
-                    init_counter_n = init_counter + 1;
-                end else if (check && (busy_o_last == 1 && busy_o == 0)) begin
+                else if (check) begin
                     init_n = 0;
-                    check_n = 0;
                 end
+                // else if (check && (busy_o_last == 1 && busy_o == 0)) begin
+                //     check_2_n = 1;
+                // end
+                
             end else begin
+                data_i = histogram;
+                addr = 32'h33000000 + (histgram_addr * 4);
                 if(hist_r_wr == 1 && busy_o == 0) begin //(busy_o_last == 1 && busy_o == 0)) begin
                     wr_en = 1;
                     r_en = 0;
-                    data_i = histogram;
-                    addr = 32'h33000000 + (histgram_addr * 4);
-                    old_char_n = data_o;
+                    // addr = 32'h33000000 + (histgram_addr * 4);
                 end else if (hist_r_wr == 0 && busy_o == 0) begin // (busy_o_last == 1 && busy_o == 0)) begin
                     wr_en = 0;
                     r_en = 1;
-
-                    addr = 32'h33000000 + (histgram_addr * 4);
+                    // addr = 32'h33000000 + (histgram_addr * 4);
                 end
             end
+            if (hist_read_latch) old_char_n = data_o;
         end
         2: begin //FLV
             if(flv_r_wr == 1) begin
