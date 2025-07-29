@@ -4,7 +4,7 @@
 // and handles SRAM operations for sum node null value lookups
 module t05_hTree (
   // Clock and reset
-  input logic clk, rst_n,
+  input logic clk, rst,
   // Input data from FLV module
   input logic [8:0] least1, least2,                     // From FLV - two least frequent nodes to combine
   input logic [45:0] sum,                               // From FLV - combined frequency sum for new node
@@ -59,8 +59,8 @@ module t05_hTree (
     } state_t;
     state_t state;                                      // Current state register
 // Sequential logic block - handles state and register updates
-always_ff @(posedge clk or negedge rst_n) begin
-    if (!rst_n) begin
+always_ff @(posedge clk or posedge rst) begin
+    if (rst) begin
         // Reset all state machine and registers to initial values
         state <= NEWNODE;
         //reset all registers
@@ -72,7 +72,7 @@ always_ff @(posedge clk or negedge rst_n) begin
         clkCount_reg <= 0;
         HT_Finished <= 1'b0;   
         nullsum_delay_counter_reg <= 3'b0;   
-    end else begin
+    end else /*if (HT_en == 4'b0011)*/begin
         // Clock all signals on positive edge
         state <= state_t'(next_state);
         clkCount_reg <= clkCount;

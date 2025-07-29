@@ -3,12 +3,12 @@
 // Manages sequential execution of: HISTO -> FLV -> HTREE -> CBS -> TRN -> SPI -> DONE
 `default_nettype none
 module t05_controller (
- input logic clk, rst_n, cont_en,restart_en,        // Clock, reset, continue enable, restart enable
+ input logic clk, rst, cont_en,restart_en,        // Clock, reset, continue enable, restart enable
  input logic [3:0] finState,op_fin,                 // Module completion signals (assumed to be registered)
  output logic [3:0] state_reg,                      // Current state output for other modules
  output logic finished_signal                       // Signal indicating entire compression pipeline is complete
 );
-
+// FINSTATE NEEDS TO ALWAYS BE MOST RECENTLY CHANGED STATE FROM MODULES
     // State machine enumeration for main compression pipeline states
     typedef enum logic [3:0] {
         IDLE=0,     // Waiting for start signal
@@ -56,8 +56,8 @@ module t05_controller (
     state_t state;                 // Current state machine state
 
     // Sequential logic block - handles state and register updates
-    always_ff @(posedge clk or negedge rst_n) begin
-        if (!rst_n) begin
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
             // Reset all state machine and control registers to initial values
             state <= IDLE;
             state_reg <= IDLE;
