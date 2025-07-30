@@ -7,3 +7,4 @@
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_hTree.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_controller.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_histogram.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_i2c.sv

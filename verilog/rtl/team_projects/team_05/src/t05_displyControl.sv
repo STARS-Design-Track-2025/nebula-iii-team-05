@@ -1,9 +1,9 @@
 module t05_displayControl
 (
     input logic clk, rst,
-    input logic [2:0] i2c_state,
+    input logic ready,commsError,
     input logic [3:0] contState,
-    output logic [2:0] state
+    output logic [5:0] data_o
 );
 
     always_ff @(posedge clk or posedge rst) begin
@@ -31,6 +31,6 @@ module t05_displayControl
     always_comb begin
         case (contState)
             IDLE: begin
-                
+
 
 endmodule
