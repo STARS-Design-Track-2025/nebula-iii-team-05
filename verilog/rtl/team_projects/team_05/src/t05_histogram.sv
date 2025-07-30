@@ -10,7 +10,8 @@ module t05_histogram(
     output logic [31:0] total, sram_out,  //total number of characters within the file,  the updated data going to the sram 
     output logic [7:0]  hist_addr,     // address to SRAM
     output logic [1:0] wr_r_en,        // enable going to sram to tell it to read or write
-    output logic get_data
+    output logic get_data,          // Tell SRAM to give data read
+    output logic confirm        // Handshake confirm to SPI
 );
 //send a controller enable to controller
 //accept an enable from sram to know when to procccess new data
@@ -43,6 +44,7 @@ logic [7:0] hist_addr_n;
 logic eof_n, complete_n;
 
 logic [3:0] timer_n, timer;
+logic confirm_n;
 
 logic [31:0] sram_out_n;
 
@@ -61,6 +63,7 @@ always_ff @( posedge clk, posedge rst ) begin
         timer <= '0;
         sram_out <= '0;
         init_edge <= 0;
+        confirm <= 0;
         //new_spi <= 0;
         //new_spi <= spi_in;
     end else if (en_state == 1) begin
@@ -76,6 +79,7 @@ always_ff @( posedge clk, posedge rst ) begin
         timer <= timer_n;
         sram_out <= sram_out_n;
         init_edge <= init;
+        confirm <= confirm_n;
     end 
 end
 
@@ -92,11 +96,11 @@ always_comb begin
     timer_n = timer;
     sram_out_n = sram_out;
     get_data = 0;
+    confirm_n = 0;
 
     case (state)
         IDLE:  begin //beginning of the histogram
-            next_state = READ;
-            wr_r_en_n   = 2'd0;
+            wr_r_en_n   = 2'd3;
             complete_n  = 0;
             eof_n       = 0;
             hist_addr_n = 0;
@@ -125,8 +129,8 @@ always_comb begin
         WAITWRITE: begin
             wr_r_en_n = 2'd3;
             if(!busy_i) begin
-                next_state = READ;
-                wr_r_en_n = 2'd0;
+                next_state = IDLE;
+                wr_r_en_n = 2'd3;
             end
         end
         // READ2: begin  //giving the updated data to the sram for storage
@@ -171,9 +175,10 @@ always_comb begin
         default: next_state = IDLE;
     endcase
 
-    if(pulse) begin
+    if(pulse && !busy_i) begin
         next_state = READ;
         wr_r_en_n = '0;
+        confirm_n = 1;
         hist_addr_n = spi_in;
     end
 

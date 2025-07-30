@@ -44,9 +44,12 @@ module t05_top (
     output logic [3:0] wbs_sel_o,
     output logic [31:0] wbs_dat_o,
     output logic [31:0] wbs_adr_o,
+    output spi_confirm_out,
+    output logic nextChar,
+    output logic init,
     input logic wbs_ack_i,
     input logic [31:0] wbs_dat_i,
-    input logic pulse
+    input logic pulse_in
 );
   logic serial_clk;
   logic sclk;
@@ -130,7 +133,7 @@ module t05_top (
   logic [3:0] sel_i;
   logic busy_o;
 
-  logic init;
+  //logic init;
 
   wishbone_manager WB (
     .nRST(!reset),
@@ -197,6 +200,7 @@ module t05_top (
     //HISTOGRAM OUTPUTS
     .old_char(hist_data_o),       //data going to histogram
     .init(init),
+    .nextChar(nextChar),
     //FLV OUTPUTS
     .comp_val(compVal),        //Data going to FLV 
     //CB OUTPUTS
@@ -243,7 +247,7 @@ module t05_top (
     .rst(reset), 
     .busy_i(busy_o),
     .init(init),
-    .pulse(pulse),
+    .pulse(pulse_in),
     .en_state(en_state),
     .spi_in(read_out), 
     .write_i(write_i),
@@ -255,7 +259,8 @@ module t05_top (
     .sram_out(sram_out), 
     .hist_addr(hist_addr),
     .wr_r_en(wr),
-    .get_data(hist_read_latch)
+    .get_data(hist_read_latch),
+    .confirm(spi_confirm_out)
     );
 
   t05_findLeastValue findLeastValue (
@@ -269,7 +274,8 @@ module t05_top (
     .least1(least1_FLV), 
     .least2(least2_FLV),
     .histo_index(histo_index), 
-    .fin_state(fin_state_FLV)
+    .fin_state(fin_state_FLV),
+    .flv_r_wr(flv_r_wr)
     );
 
   t05_hTree hTree (

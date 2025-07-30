@@ -37,6 +37,7 @@ module t05_sram_interface (
     // histogram output
     output logic [31:0] old_char, //data going to histogram
     output logic init,
+    output logic nextChar,
     //flv outputs
     output logic [63:0] comp_val, //going to find least value
     //codebook outputs
@@ -133,6 +134,7 @@ always_comb begin
     wr_en = 0;
     r_en = 0;
     check_n = check;
+    nextChar = 0;
     // check_2_n = check_2;
 
     comp_val_n = comp_val;
@@ -169,6 +171,7 @@ always_comb begin
                 if(hist_r_wr == 1 && busy_o == 0) begin //(busy_o_last == 1 && busy_o == 0)) begin
                     wr_en = 1;
                     r_en = 0;
+                    nextChar = 1; 
                     // addr = 32'h33000000 + (histgram_addr * 4);
                 end else if (hist_r_wr == 0 && busy_o == 0) begin // (busy_o_last == 1 && busy_o == 0)) begin
                     wr_en = 0;

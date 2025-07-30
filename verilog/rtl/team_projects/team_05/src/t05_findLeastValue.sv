@@ -5,7 +5,8 @@ module t05_findLeastValue (
     output logic [63:0] sum,                            //Sum of two values
     output logic [7:0] charWipe1, charWipe2,            //Characters to be wiped from SRAM
     output logic [8:0] least1, least2, histo_index,     //Least values and the index for the next value from SRAM
-    output logic fin_state                              //Finish Enable
+    output logic fin_state,                              //Finish Enable
+    output logic flv_r_wr
 );
 logic [8:0] least1_n, least2_n, count_n, sumCount;
 logic [63:0] val1, val2, val1_n, val2_n, sum_n;
@@ -54,10 +55,7 @@ always @(*) begin
     sumCount = histo_index - 256;
     sum_n = sum;
     fin_state_n = fin_state;
-
-    // if(histo_index == 0) begin
-    //     fin_state_n = 0;
-    // end
+    flv_r_wr = 0;
 
     if(compVal != 0 && histo_index < 384 && histo_index != 0) begin
         if(val1 > compVal && histo_index < 256) begin
@@ -89,12 +87,12 @@ always @(*) begin
         least1_n = 384;
         least2_n = 384;
     end
-
     if(val1 != '1 && val2 != '1) begin
         sum_n = val1 + val2;
     end
     if(histo_index == 384) begin
         fin_state_n = 1;
+        flv_r_wr = 1;
     end
 end
 endmodule
