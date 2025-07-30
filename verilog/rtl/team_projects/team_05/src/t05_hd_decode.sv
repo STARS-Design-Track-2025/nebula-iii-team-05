@@ -36,6 +36,7 @@ module t05_hd_decode (
   logic next_first, first;
   logic next_finished;
   logic [31:0] next_tot_chars;
+  logic [127:0] char_path, next_char_path;
   //logic [7:0] data_in_SPI; 
   
 always_ff @(posedge clk, posedge rst) begin
@@ -54,6 +55,7 @@ always_ff @(posedge clk, posedge rst) begin
         first <= 0;
         finished <= 0;
         tot_chars <= 0;
+        char_path <= 0;
     end
     else if (hd_enable) begin
         curr_state <= next_state;
@@ -70,6 +72,7 @@ always_ff @(posedge clk, posedge rst) begin
         first <= next_first;
         finished <= next_finished;
         tot_chars <= next_tot_chars;
+        char_path <= next_char_path;
       
     end
 end
@@ -91,6 +94,7 @@ always_comb begin
     next_first = first;
     next_finished = finished;
     next_tot_chars = tot_chars;
+    next_char_path = char_path;
 
     SPI_read_en = 0;
     SRAM_write_en = 0;
@@ -171,23 +175,24 @@ always_comb begin
             end
         end
         CHECK_NEXT_CHAR: begin
-             if (offset < 8) begin
                if (char_bit_count < 8) begin // read 8 bits of the data into the char index
-                 next_char_check[next_char_bit_count[2:0]] = SPI_data_in[7-offset[2:0]];
-                    next_char_bit_count = char_bit_count + 1;
-                end
+                    if (offset < 8) begin
+                        next_char_check[7-next_char_bit_count[2:0]] = SPI_data_in[7-offset[2:0]];
+                        next_char_bit_count = char_bit_count + 1;
+                        next_offset = offset + 1;
+                    end
+                    else begin // once 8 bits of SPI data is read, get a new chunk
+                        SPI_read_en = 1;
+                        next_offset = offset - 8;
+                    end
+               end
                 else begin
-                    if (SPI_data_in[offset[2:0]] == 0) begin // the next and curr char are two leaf nodes of the current node
+                    if (SPI_data_in[7-offset[2:0]] == 0) begin // the next and curr char are two leaf nodes of the current node
                         next_path = {curr_path[126:0], 1'b0}; // add another left the curr char path
                         next_state = WRITE_PATH;
+                        next_char_bit_count = 0;
                     end
-                    next_char_bit_count = 0;
                 end
-            end
-            else begin // once 8 bits of SPI data is read, get a new chunk
-                SPI_read_en = 1;
-                next_offset = offset - 8;
-            end
         end
         UPDATE_PATH: begin
             if (offset < 8) begin
@@ -204,11 +209,12 @@ always_comb begin
                 end
               else begin // backtracks are 0
                 if (SPI_data_in[7-offset[2:0]] == 1) begin // if next char is a left
-//                     if (!first) begin
-//                             next_path = {curr_path[125:0], 2'b10}; // if there were no backtracks (last char was a left), and curr char is a left, move right and then left
-//                             next_state = CHECK_NEXT_CHAR; // check if the next char is the right to the current char to decide to add another left
-//                     end
-                    if (first) begin // if it is the path of the first char (it is a left and there would be no backtracks), immmediately move to write_path
+                    if (!first && char_path[0] == 0) begin // if the last char was found left and the curr char is a left
+                            next_path = {curr_path[126:0], 1'b1}; // if there were no backtracks (last char was a left), and curr char is a left, move right and then left
+                            next_state = CHECK_NEXT_CHAR; // check if the next char is the right to the current char to decide to add another left
+                            next_offset = offset + 1;
+                    end
+                    else if (first) begin // if it is the path of the first char (it is a left and there would be no backtracks), immmediately move to write_path
                       next_state = WRITE_PATH; 
                     end
                     else begin // once all backtracks were done and the path was moved right, add a left if the char is a left
@@ -229,6 +235,7 @@ always_comb begin
                 char_index = curr_char;
                 SRAM_data_out = curr_path;
               next_count = count + 1;
+              next_char_path = curr_path;
             end
             else begin
                 next_path = {1'b0, curr_path[127:1]}; // shift out last move
