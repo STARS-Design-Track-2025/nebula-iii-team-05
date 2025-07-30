@@ -90,6 +90,10 @@ module t05_sram_interface (
 
     logic [31:0] HTREE_log;
 
+    assign ctrl_done = '0;
+    assign cb_done = 0;
+    assign ht_done = 0;
+
     assign HTREE_log = {22'd0, find_least} - 32'd256;
     // logic check_2, check_2_n;
 
@@ -141,6 +145,7 @@ always_comb begin
     check_n = check;
     nextChar = 0;
     FLV_HTREE_counter = 0;
+    data_i = 0;
     // check_2_n = check_2;
 
     comp_val_n = comp_val;

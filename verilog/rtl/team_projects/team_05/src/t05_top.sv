@@ -58,6 +58,7 @@ module t05_top (
   logic [8:0] least1_FLV, least2_FLV;
   logic [63:0] sum;
 
+  assign mosi = 0;
   //Controller
   // logic [3:0] en_state;
   //logic [3:0] fin_state;
@@ -87,7 +88,6 @@ module t05_top (
   //CB To Header Syn
   logic char_found;
   logic [7:0] char;
-  logic [7:0] index_of_root;
   logic [7:0] char_index;
   logic write_finish;
   logic [127:0] char_path;
@@ -108,6 +108,7 @@ module t05_top (
   logic [7:0] curr_index;
   logic SRAM_enable;
   logic cb_r_wr;
+  assign cb_r_wr = 0;
 
   //SPI
   logic writeBit_HS, writeBit_TL;
@@ -118,6 +119,12 @@ module t05_top (
   logic fin_state_idle, fin_state_HG, fin_state_FLV, fin_state_HT, fin_state_CB, fin_state_TL, fin_state_SPI;
   assign fin_state_idle = 1;
   logic error_FIN_HG, error_FIN_FLV, error_FIN_HT, error_FIN_FINISHED, error_FIN_CBS, error_FIN_TRN, error_FIN_SPI;
+  assign error_FIN_HG = 0;
+  assign error_FIN_FLV = 0;
+  assign error_FIN_FINISHED = 0;
+  assign error_FIN_CBS = 0;
+  assign error_FIN_TRN = 0;
+  assign error_FIN_SPI = 0;
 
   logic temp;
   assign temp = /* error_FIN_HG || error_FIN_FLV || */ error_FIN_HT; //|| error_FIN_FINISHED; //|| error_FIN_CBS || error_FIN_TRN;// || error_FIN_SPI;
@@ -126,6 +133,8 @@ module t05_top (
   logic nextCharEn;
   logic writeEn_HS, writeEn_TL;
   assign fin_State = {fin_state_idle, fin_state_HG, fin_state_FLV, HT_fin_reg, fin_state_HT, fin_state_CB, fin_state_TL, '0, temp};//fin_state_SPI,temp };
+
+  assign fin_state_idle = 1;
 
   //WB & SRAM INTERFACE
   logic write_i, read_i;
@@ -277,7 +286,8 @@ module t05_top (
     .least2(least2_FLV),
     .histo_index(histo_index), 
     .fin_state(fin_state_FLV),
-    .flv_r_wr(flv_r_wr)
+    .flv_r_wr(flv_r_wr),
+    .pulse_FLV(pulse_FLV)
     );
 
   t05_hTree hTree (
@@ -302,7 +312,7 @@ module t05_top (
   t05_cb_synthesis cb_syn (
     .clk(hwclk),
     .rst(reset),
-    .max_index(index_of_root), 
+    .max_index({1'b0, max_index}), 
     .h_element(h_element), 
     .write_finish(write_finish),
     .en_state(en_state), 
