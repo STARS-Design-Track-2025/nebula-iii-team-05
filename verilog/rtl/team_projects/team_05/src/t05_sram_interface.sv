@@ -207,14 +207,14 @@ always_comb begin
                 case(word_cnt) 
                     0: begin
                         addr = '0;
-                        word_cnt_n = 1;
+                        word_cnt_n = 2;
                     end
                     1: begin
                         if (find_least > 255) begin
                             addr = 32'h33001024 + (FLV_HTREE_counter * 4) + 2;
                             comp_val_n[63:46] = '0;
                             comp_val_n[45:16] = data_o[29:0];
-                            word_cnt_n = 2;
+                            word_cnt_n = 3;
                         end else begin
                             word_cnt_n = 2;
                         end
@@ -223,15 +223,15 @@ always_comb begin
                         if (find_least < 256) begin
                             addr = 32'h33000000 + (find_least * 4);
                             comp_val_n[31:0] = data_o;
-                            word_cnt_n = 1;
+                            //word_cnt_n = 1;
                         end
                         else if (find_least > 384) begin
-                            word_cnt_n = 3;
+                            word_cnt_n = 1;
                         end
                         else if (find_least > 255) begin
                             addr = 32'h33001024 + ((FLV_HTREE_counter + 1) * 4) + 2;
                             comp_val_n[15:0] = data_o[31:16];
-                            word_cnt_n = 1;
+                            //word_cnt_n = 1;
                         end
                     end
                 endcase

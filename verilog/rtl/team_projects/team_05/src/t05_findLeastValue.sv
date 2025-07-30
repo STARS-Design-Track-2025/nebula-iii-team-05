@@ -57,7 +57,7 @@ always @(*) begin
     fin_state_n = fin_state;
     flv_r_wr = 0;
 
-    if(compVal != 0 && histo_index < 384 && histo_index != 0) begin
+    if(compVal != 0 && histo_index < 384) begin //&& histo_index != 0) begin
         if(val1 > compVal && histo_index < 256) begin
             least2_n = least1;
             charWipe2_n = charWipe1;
