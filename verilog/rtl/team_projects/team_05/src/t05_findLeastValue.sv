@@ -13,6 +13,7 @@ logic [8:0] least1_n, least2_n, count_n, sumCount;
 logic [63:0] val1, val2, val1_n, val2_n, sum_n;
 logic [7:0] charWipe1_n, charWipe2_n;
 logic fin_state_n;
+logic alt, alt_n;
 
 always_ff @(posedge clk, posedge rst) begin
     if(rst) begin
@@ -25,6 +26,7 @@ always_ff @(posedge clk, posedge rst) begin
         val1 <= '1;
         val2 <= '1;
         fin_state <= 0;
+        alt <= 0;
     end else if (en_state == 2) begin
         least1 <= least1_n;
         least2 <= least2_n;
@@ -35,16 +37,18 @@ always_ff @(posedge clk, posedge rst) begin
         val1 <= val1_n;
         val2 <= val2_n;
         fin_state <= fin_state_n;
+        alt <= alt_n;
     end
 end
 
 always @(*) begin
+    count_n = histo_index;
     pulse_FLV = 0;
-    if(histo_index < 385) begin
+    alt_n = ~alt;
+
+    if(histo_index < 385 && alt) begin
         count_n = histo_index + 1;
         pulse_FLV = 1;
-    end else begin
-        count_n = 0;
     end
 end
 

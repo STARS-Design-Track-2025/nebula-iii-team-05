@@ -133,8 +133,9 @@ module t05_top (
   logic nextCharEn;
   logic writeEn_HS, writeEn_TL;
   assign fin_State = {fin_state_idle, fin_state_HG, fin_state_FLV, HT_fin_reg, fin_state_HT, fin_state_CB, fin_state_TL, '0, temp};//fin_state_SPI,temp };
+  assign fin_state_SPI = 0;
 
-  assign fin_state_idle = 1;
+  //assign fin_state_idle = 1;
 
   //WB & SRAM INTERFACE
   logic write_i, read_i;

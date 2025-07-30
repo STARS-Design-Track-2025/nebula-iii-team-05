@@ -52,8 +52,6 @@ module t05_sram_interface (
 
     logic [5:0] done;
 
-    logic pulse, pulse_n;
-
     logic [31:0] index;
     assign index = {25'd0, (new_node[6:0] + 1'b1)};
 
@@ -102,7 +100,6 @@ module t05_sram_interface (
 always_ff @( posedge clk, posedge rst) begin
     if (rst) begin
         word_cnt <= '0;
-        pulse <= 0;
         comp_val <= '0;
         nulls <= '0;
         h_element <= '0;
@@ -118,7 +115,6 @@ always_ff @( posedge clk, posedge rst) begin
     // end else if (!busy_o) begin
     end else begin
         word_cnt <= word_cnt_n;
-        pulse <= ~pulse_n;
         comp_val <= comp_val_n;
         nulls <= nulls_n;
         h_element <= h_element_n;

@@ -75,6 +75,8 @@ module t05_controller (
     end
    
     always_comb begin
+        finished = finished_signal;
+        
             //finState_next = fin_reg;
             case (fin_reg)
                 IDLE_FIN: begin
