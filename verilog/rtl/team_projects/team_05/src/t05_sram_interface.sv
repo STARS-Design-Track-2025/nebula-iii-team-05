@@ -10,6 +10,7 @@ module t05_sram_interface (
     input  logic [8:0] find_least,
     input logic [7:0] charwipe1, charwipe2,
     input logic flv_r_wr,
+    input logic pulse_FLV,
     //htree inputs
     input  logic [70:0] new_node,
     input  logic [6:0] htreeindex,
@@ -72,7 +73,7 @@ module t05_sram_interface (
     assign lindex2 = {24'd0, translation + 8'd2};
     assign lindex3 = {24'd0, translation + 8'd3};
 
-    logic [31:0] FLV_HTREE_counter, FLV_HTREE_counter_n;
+    logic [31:0] FLV_HTREE_counter;//, FLV_HTREE_counter_n;
 
     logic [2:0] word_cnt, word_cnt_n;
 
@@ -86,6 +87,10 @@ module t05_sram_interface (
 
     logic [31:0] old_char_n;
     logic check, check_n;
+
+    logic [31:0] HTREE_log;
+
+    assign HTREE_log = {22'd0, find_least} - 32'd256;
     // logic check_2, check_2_n;
 
     // logic r_n, wr_n;
@@ -135,6 +140,7 @@ always_comb begin
     r_en = 0;
     check_n = check;
     nextChar = 0;
+    FLV_HTREE_counter = 0;
     // check_2_n = check_2;
 
     comp_val_n = comp_val;
@@ -182,67 +188,58 @@ always_comb begin
             if (hist_read_latch) old_char_n = data_o;
         end
         2: begin //FLV
-            if(flv_r_wr == 1) begin
-                wr_en = 1;
-                r_en = 0;
-                case(word_cnt) 
-                    0: begin
-                        addr = '0;
+            case(word_cnt)
+                0: begin //IDLE
+                    addr = '0;
+                    if(pulse_FLV) begin
                         word_cnt_n = 1;
                     end
-                    1: begin
+                end
+                1: begin //Determining histogram or htree
+                    if(find_least == 384) begin
                         addr = 32'h33000000 + (charwipe1 * 4);
                         data_i = '0;
+                        wr_en = 1;
+                        word_cnt_n = 5;
+                    end else if (find_least < 256) begin
+                        addr = 32'h33000000 + (find_least * 4);
+                        if(!flv_r_wr) begin
+                            r_en = 1;
+                        end
                         word_cnt_n = 2;
-                    end
-                    2: begin
-                        addr = 32'h33000000 + (charwipe2 * 4);
-                        data_i = '0;
-                        word_cnt_n = 0;
-                    end
-                endcase
-            end else if (flv_r_wr == 0) begin
-                wr_en = 0;
-                r_en = 1;
-                case(word_cnt) 
-                    0: begin
-                        addr = '0;
-                        word_cnt_n = 2;
-                    end
-                    1: begin
-                        if (find_least > 255) begin
-                            addr = 32'h33001024 + (FLV_HTREE_counter * 4) + 2;
-                            comp_val_n[63:46] = '0;
-                            comp_val_n[45:16] = data_o[29:0];
-                            word_cnt_n = 3;
-                        end else begin
-                            word_cnt_n = 2;
+                    end else if (find_least > 255) begin
+                        FLV_HTREE_counter = HTREE_log * 2;
+                        addr = 32'h33001024 + (FLV_HTREE_counter * 4);
+                        if(!flv_r_wr) begin
+                            r_en = 1;
                         end
-                    end
-                    2: begin
-                        if (find_least < 256) begin
-                            addr = 32'h33000000 + (find_least * 4);
-                            comp_val_n[31:0] = data_o;
-                            //word_cnt_n = 1;
-                        end
-                        else if (find_least > 384) begin
-                            word_cnt_n = 1;
-                        end
-                        else if (find_least > 255) begin
-                            addr = 32'h33001024 + ((FLV_HTREE_counter + 1) * 4) + 2;
-                            comp_val_n[15:0] = data_o[31:16];
-                            //word_cnt_n = 1;
-                        end
-                    end
-                endcase
-                if(word_cnt != 0) begin
-                    if(FLV_HTREE_counter == 256) begin
-                        FLV_HTREE_counter_n = 0;
-                    end else if (pulse) begin
-                        FLV_HTREE_counter_n = FLV_HTREE_counter + 2;
+                        word_cnt_n = 5;
                     end
                 end
-            end
+                2: begin //Read in histogram state
+                    comp_val_n [31:0] = data_o;
+                    comp_val_n [63:32] = '0;
+                    word_cnt_n = 0; //Back to idle
+                end
+                3: begin //First HTREE read state
+                    comp_val_n [31:0] = data_o;
+                    addr = 32'h33001024 + (FLV_HTREE_counter + 1) * 4;
+                    if(!flv_r_wr) begin
+                        r_en = 1;
+                    end
+                    word_cnt_n = 4;
+                end
+                4: begin //Second HTREE read state
+                    comp_val_n [63:32] = data_o;
+                    word_cnt_n = 0;
+                end
+                5: begin //Finish overwriting histogram state
+                    addr = 32'h33000000 + (charwipe2 * 4);
+                    data_i = '0;
+                    wr_en = 1;
+                    word_cnt_n = 0;
+                end
+            endcase
         end
         3: begin //HTREE
             if (htree_r_wr == 1) begin

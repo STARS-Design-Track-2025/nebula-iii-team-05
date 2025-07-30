@@ -157,6 +157,7 @@ module t05_top (
 
   logic [31:0] data_i_wish, data_o_wish;
   logic hist_read_latch;
+  logic pulse_FLV;
 
   t05_sram_interface sram_interface (
     .clk(hwclk),
@@ -170,6 +171,7 @@ module t05_top (
     .charwipe1(cw1),
     .charwipe2(cw2),
     .flv_r_wr(flv_r_wr),
+    .pulse_FLV(pulse_FLV),
     //HTREE INPUTS
     .new_node(node_reg),
     .htreeindex(nullSumIndex),

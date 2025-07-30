@@ -1,3 +1,18 @@
+`default_nettype none
+module t05_SPI (
+    input logic miso, // Read
+    input logic rst, // Reset
+    input logic serial_clk, clk,
+    input logic writebit,
+    input logic read_en, write_en, read_stop, nextCharEn,
+    input logic [31:0] read_address, write_address,
+    output logic slave_select,
+    output logic [7:0] read_output,
+    output logic [3:0] finish, 
+    output logic freq_flag, cmd_en,
+    output logic mosi // Write
+);
+
 typedef enum logic [5:0] {
     INITIAL = 0,
     READ_SPI = 1,
@@ -20,20 +35,6 @@ typedef enum logic [5:0] {
     C5 = 18,
     CIDLE = 19
 }state_t;
-
-module t05_SPI (
-    input logic miso, // Read
-    input logic rst, // Reset
-    input logic serial_clk, clk,
-    input logic writebit,
-    input logic read_en, write_en, read_stop, nextCharEn,
-    input logic [31:0] read_address, write_address,
-    output logic slave_select,
-    output logic [7:0] read_output,
-    output logic [3:0] finish, 
-    output logic freq_flag, cmd_en,
-    output logic mosi // Write
-);
 
 localparam
     CMD0 = 48'b010000000000000000000000000000000000000010010101, // To go into IDLE STATE

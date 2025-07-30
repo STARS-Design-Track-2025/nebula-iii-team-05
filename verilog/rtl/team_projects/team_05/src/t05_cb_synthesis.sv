@@ -220,6 +220,5 @@ always @(*) begin
                 next_state = curr_state;
             end
         endcase
-
-end
-endmodule;
+  end
+endmodule
