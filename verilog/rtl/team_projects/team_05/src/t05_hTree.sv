@@ -5,19 +5,25 @@
 module t05_hTree (
   // Clock and reset
   input logic clk, rst_n,
+
   // Input data from FLV module
   input logic [8:0] least1, least2,                     // From FLV - two least frequent nodes to combine
   input logic [63:0] sum,                               // From FLV - combined frequency sum for new node
+  
   // SRAM interface
   input logic [63:0] nulls,                             // sum node to null sum from SRAM - null values for sum nodes
   input logic SRAM_finished,                            // from SRAM - indicates SRAM read operation complete
+  
   // Control signals
   input logic [3:0] HT_en,                              // Enable signal for HTREE operation from controller
+  
   // Output data to other modules
   output logic [70:0] node_reg,   // nodes to be written to SRAM
   output logic [6:0] clkCount, nullSumIndex,            // to Sram (nullSumIndex for addressing), To Codebook (clkCount for indexing)
+  
   //output logic [3:0] op_fin,                            // to controller - operation completion status
   output logic HT_fin_reg, HT_Finished,
+  
   //TEMPORARY
     //  output logic [3:0] state_reg,//for testing
    // output logic [70:0] tree_reg, null1_reg, null2_reg,

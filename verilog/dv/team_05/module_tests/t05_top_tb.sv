@@ -139,14 +139,14 @@ module t05_top_tb;
         pulse = 0;
         
         //while(!init) begin
-            pulseit (3, 18);
-            pulseit (2, 31);
-            pulseit (1, 18);
-            pulseit (1, 49);
-            pulseit (1, 18);
-            pulseit (1, 8'h1A);
+        pulseit (3, 18);
+        pulseit (2, 31);
+        pulseit (1, 18);
+        pulseit (1, 49);
+        pulseit (1, 18);
+        pulseit (1, 8'h1A);
 
-        #100 $finish;
+        #10000 $finish;
     end
 
 endmodule

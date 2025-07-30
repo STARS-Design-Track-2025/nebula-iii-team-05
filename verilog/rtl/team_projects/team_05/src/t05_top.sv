@@ -168,6 +168,9 @@ module t05_top (
   logic [31:0] data_i_wish, data_o_wish;
   logic hist_read_latch;
   logic pulse_FLV;
+  logic nextChar_FLV;
+  logic FLV_done;
+  logic wipe_the_char;
 
   t05_sram_interface sram_interface (
     .clk(hwclk),
@@ -182,6 +185,8 @@ module t05_top (
     .charwipe2(cw2),
     .flv_r_wr(flv_r_wr),
     .pulse_FLV(pulse_FLV),
+    .FLV_done(FLV_done),
+    .wipe_the_char(wipe_the_char),
     //HTREE INPUTS
     .new_node(node_reg),
     .htreeindex(nullSumIndex),
@@ -214,7 +219,9 @@ module t05_top (
     .init(init),
     .nextChar(nextChar),
     //FLV OUTPUTS
-    .comp_val(compVal),        //Data going to FLV 
+    .comp_val(compVal),        //Data going to FLV
+    .nextChar_FLV(nextChar_FLV),
+    .word_cnt(word_cnt),
     //CB OUTPUTS
     .h_element(h_element),    //data going to CB
     .cb_done(SRAM_enable),  //1 bit enable going to the codebook to let it know that the sram has finished writing/reading the data it was given
@@ -227,6 +234,8 @@ module t05_top (
   logic [5:0] ctrl_state;
   //logic [3:0] in_state;
   logic [31:0] hist_data_o;
+
+  logic [3:0] word_cnt;
 
   t05_controller controller (
     .clk(hwclk),
@@ -288,7 +297,11 @@ module t05_top (
     .histo_index(histo_index), 
     .fin_state(fin_state_FLV),
     .flv_r_wr(flv_r_wr),
-    .pulse_FLV(pulse_FLV)
+    .pulse_FLV(pulse_FLV),
+    .nextChar(nextChar_FLV),
+    .word_cnt(word_cnt),
+    .FLV_done(FLV_done),
+    .wipe_the_char(wipe_the_char)
     );
 
   t05_hTree hTree (
