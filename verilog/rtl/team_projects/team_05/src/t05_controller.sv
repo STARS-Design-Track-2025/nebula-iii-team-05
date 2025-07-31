@@ -8,7 +8,7 @@ module t05_controller (
  output logic [3:0] state_reg,                      // Current state output for other modules
  output logic finished_signal                       // Signal indicating entire compression pipeline is complete
 );
-// FINSTATE NEEDS TO ALWAYS BE MOST RECENTLY CHANGED STATE FROM MODULES
+//FINSTATE NEEDS TO ALWAYS BE MOST RECENTLY CHANGED STATE FROM MODULES
     // State machine enumeration for main compression pipeline states
     typedef enum logic [3:0] {
         IDLE=0,     // Waiting for start signal
