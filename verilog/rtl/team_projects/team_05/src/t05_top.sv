@@ -156,6 +156,8 @@ module t05_top (
   logic write_HT_fin;
   logic pulse_HTREE;
   logic HT_complete;
+  logic [3:0] HT_state;
+  logic HT_read_complete;
 
   t05_sram_interface sram_interface (
     .clk(hwclk),
@@ -179,6 +181,7 @@ module t05_top (
     .htree_r_wr(WorR),
     .hist_read_latch(hist_read_latch),
     .pulse_HTREE(pulse_HTREE),
+    .HT_state(HT_state),
     //CB INPUTS
     .curr_index(curr_index),
     .char_index(char_index),
@@ -203,6 +206,7 @@ module t05_top (
     .ht_done(SRAM_finished),  //enable going to the htree to let it know that the sram has finished reading or writing data
     .write_HT_fin(write_HT_fin),
     .HTREE_complete(HT_complete),
+    .HT_read_complete(HT_read_complete),
     //HISTOGRAM OUTPUTS
     .old_char(hist_data_o),       //data going to histogram
     .init(init),
@@ -283,7 +287,8 @@ module t05_top (
     .nextChar(nextChar_FLV),
     .word_cnt(word_cnt),
     .FLV_done(FLV_done),
-    .wipe_the_char(wipe_the_char)
+    .wipe_the_char(wipe_the_char),
+    .HTREE_complete(HT_complete)
     );
 
   t05_hTree hTree (
@@ -303,7 +308,9 @@ module t05_top (
     .HT_fin_reg(HT_fin_reg),
     .write_HT_fin(write_HT_fin),
     .pulse(pulse_HTREE),
-    .sram_complete(HT_complete)
+    .sram_complete(HT_complete),
+    .state(HT_state),
+    .read_complete(HT_read_complete)
     );
 
   //Curr_state should be changed to logic can not pass typedefs through instantiation

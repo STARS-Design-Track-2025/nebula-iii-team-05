@@ -24,7 +24,7 @@ module t05_controller (
         IDLE_FIN=       8'b10000000,
         HFIN=           8'b11000000,
         FLV_FIN=        8'b11100000,
-        HTREE_FIN=      8'b11110000,
+        HTREE_FIN=      8'b11010000,
         HTREE_FINISHED= 8'b11101000,
         CBS_FIN=        8'b11101100,
         TRN_FIN=        8'b11101110,

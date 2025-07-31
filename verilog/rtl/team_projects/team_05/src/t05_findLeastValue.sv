@@ -11,7 +11,8 @@ module t05_findLeastValue (
     output logic wipe_the_char,
     input logic nextChar,
     input logic [3:0] word_cnt,
-    input logic FLV_done
+    input logic FLV_done,
+    input logic HTREE_complete
 );
 logic [8:0] least1_n, least2_n, count_n, sumCount;
 logic [63:0] val1, val2, val1_n, val2_n, sum_n;
@@ -22,7 +23,7 @@ logic alt;
 logic [3:0] alternator_timer, alternator_timer_n;
 
 always_ff @(posedge clk, posedge rst) begin
-    if(rst) begin
+    if(rst || HTREE_complete) begin
         least1 <= 9'b110000000;
         least2 <= 9'b110000000;
         histo_index <= 0;

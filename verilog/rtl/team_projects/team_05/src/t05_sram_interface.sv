@@ -18,6 +18,7 @@ module t05_sram_interface (
     input logic [6:0] htree_write,
     input logic pulse_HTREE,
     input  logic htree_r_wr,
+    input logic [3:0] HT_state,
     //codebook inputs
     input logic [7:0] curr_index, //addr of data wanting to be pulled from the htree
     input  logic [7:0] char_index, //addr for writing data in
@@ -40,6 +41,7 @@ module t05_sram_interface (
     output logic ht_done,
     output logic write_HT_fin,
     output logic HTREE_complete,
+    output logic HT_read_complete,
     // histogram output
     output logic [31:0] old_char, //data going to histogram
     output logic init,
@@ -79,7 +81,7 @@ module t05_sram_interface (
     assign lindex2 = {24'd0, translation + 8'd2};
     assign lindex3 = {24'd0, translation + 8'd3};
 
-    logic [31:0] FLV_HTREE_counter;//, FLV_HTREE_counter_n;
+    logic [31:0] FLV_HTREE_counter, FLV_HTREE_counter_n;
 
     logic [3:0] /*word_cnt,*/ word_cnt_n;
 
@@ -135,6 +137,7 @@ always_ff @( posedge clk, posedge rst) begin
         write_counter_FLV <= 0;
         write_HT_fin <= 0;
         counter_HTREE <= 0;
+        FLV_HTREE_counter <= 0;
     end else begin
         word_cnt <= word_cnt_n;
         comp_val <= comp_val_n;
@@ -152,6 +155,7 @@ always_ff @( posedge clk, posedge rst) begin
         FLV_done <= FLV_done_n;
         write_HT_fin <= write_HT_fin_n;
         counter_HTREE <= counter_HTREE_n;
+        FLV_HTREE_counter <= FLV_HTREE_counter_n;
     end
 end
 
@@ -162,9 +166,9 @@ always_comb begin
     r_en = 0;
     nextChar = 0;
     nextChar_FLV = 0;
-    FLV_HTREE_counter = 0;
     data_i = 0;
     HTREE_complete = 0;
+    HT_read_complete = 0;
 
     old_char_n = old_char;
     check_n = check;
@@ -179,6 +183,7 @@ always_comb begin
     zero_cnt_n = zero_cnt;
     FLV_done_n = FLV_done;
     write_counter_FLV_n = write_counter_FLV;
+    FLV_HTREE_counter_n = FLV_HTREE_counter;
 
     counter_HTREE_n = counter_HTREE;
 
@@ -215,17 +220,21 @@ always_comb begin
             if (hist_read_latch) old_char_n = data_o;
         end
         2: begin //FLV
+            write_HT_fin_n = 0;
             case(word_cnt)
                 0: begin //IDLE
                     addr = '0;
                     if(find_least == 384 && write_counter_FLV == 4) begin
                         FLV_done_n = 1;
                         word_cnt_n = 0;
+                        write_counter_FLV_n = 0;
                     end
                     else if(pulse_FLV && !busy_o) begin
+                        FLV_done_n = 0;
                         word_cnt_n = 1;
                         comp_val_n = '0;
                     end else if (pulse_FLV && find_least == 0) begin
+                        FLV_done_n = 0;
                         word_cnt_n = 1;
                         comp_val_n = '0;
                     end
@@ -246,7 +255,7 @@ always_comb begin
                         word_cnt_n = 2;
                         nextChar_FLV = 1;
                     end else if (find_least > 255) begin
-                        FLV_HTREE_counter = HTREE_log * 2;
+                        FLV_HTREE_counter_n = HTREE_log * 2;
                         addr = 32'h33001024 + (FLV_HTREE_counter * 4);
                         if(!flv_r_wr) begin
                             r_en = 1;
@@ -272,7 +281,7 @@ always_comb begin
                 end
                 3: begin //First HTREE read state
                     if(!busy_o) begin
-                        addr = 32'h33001024 + (FLV_HTREE_counter + 1) * 4;
+                        addr = 32'h33001024 + ((FLV_HTREE_counter + 1) * 4);
                         if(!flv_r_wr) begin
                             r_en = 1;
                         end
@@ -285,12 +294,12 @@ always_comb begin
                     end
                 end
                 8: begin
-                    comp_val_n [31:0] = data_o;
+                    comp_val_n [63:32] = {18'd0, data_o[13:0]};
                     word_cnt_n = 3;
                 end
                 4: begin //Second HTREE read state
                     if(!busy_o) begin
-                        comp_val_n [63:32] = data_o;
+                        comp_val_n [31:0] = data_o;
                         nextChar_FLV = 1;
                         word_cnt_n = 0;
                     end
@@ -343,8 +352,16 @@ always_comb begin
                         HTREE_complete = 1;
                     end
                     else if(pulse_HTREE && !busy_o) begin
-                        word_cnt_n = 1;
+                        word_cnt_n = 8;
                         counter_HTREE_n = 0;
+                    end
+                    else if(htree_r_wr) begin
+                        word_cnt_n = 8;
+                        counter_HTREE_n = 0;
+                    end else if(HT_state == 9 && !busy_o && counter_HTREE == 2) begin
+                        nulls_n[31:0] = data_o;
+                        word_cnt_n = 8;
+                        HT_read_complete = 1;
                     end
                 end
                 1: begin //DETERMINE
@@ -395,8 +412,9 @@ always_comb begin
                 7: begin
                     word_cnt_n = 2;
                 end
-
-
+                8: begin
+                    word_cnt_n = 1;
+                end
             endcase
         end
         4: begin //CBS

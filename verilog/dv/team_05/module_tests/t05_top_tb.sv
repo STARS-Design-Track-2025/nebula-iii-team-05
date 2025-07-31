@@ -141,7 +141,7 @@ module t05_top_tb;
         pulseit (1, 18);
         pulseit (1, 8'h1A);
 
-        #10000 $finish;
+        #100000 $finish;
     end
 
 endmodule
