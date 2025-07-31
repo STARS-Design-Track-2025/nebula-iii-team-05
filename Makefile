@@ -46,11 +46,11 @@ endif
 
 # export OPENLANE_ROOT?=$(PWD)/dependencies/openlane_src  # We are not using OpenLane1
 
-# export OPENLANE2_ROOT?=${HOME}/STARS2024/openlane2-2.0.7  # for nanoHUB
-export OPENLANE2_ROOT?=~/openlane2# Working somewhere else
+export OPENLANE2_ROOT?=${HOME}/STARS2024/openlane2-2.0.7  # for nanoHUB
+# export OPENLANE2_ROOT?=~/openlane2  # working somewhere else
 export BUS_WRAP_ROOT?=$(PWD)/dependencies/BusWrap
-export PDK_ROOT?=$(PWD)/dependencies/pdks
-# export PDK_ROOT?=/apps/share64/rocky8/openlane2/openlane2-stars2024-20240613/PDKS   # for nanoHUB
+export PDK_ROOT?=/apps/share64/rocky8/openlane2/openlane2-stars2024-20240613/PDKS   # for nanoHUB
+# export PDK_ROOT?=$(PWD)/dependencies/pdks  # working somewhere else
 export DISABLE_LVS?=0
 
 export ROOTLESS
@@ -61,7 +61,8 @@ export ROOTLESS
 ifeq ($(PDK),sky130A)
 	SKYWATER_COMMIT=f70d8ca46961ff92719d8870a18a076370b85f6c
 	export OPEN_PDKS_COMMIT_LVS?=6d4d11780c40b20ee63cc98e645307a9bf2b2ab8
-	export OPEN_PDKS_COMMIT?=0fe599b2afb6708d281543108caf8310912f54af
+	export OPEN_PDKS_COMMIT?=4d5af10bfee4dab799566aaf903bb22aee69bac9
+# For outside nanoHUB: export OPEN_PDKS_COMMIT?=0fe599b2afb6708d281543108caf8310912f54af
 	export OPENLANE_TAG?=2023.07.19-1
 	MPW_TAG ?= CC2509-test
 
@@ -556,33 +557,43 @@ tbsim-source-%: nebula
 # Example target: make cram_team_00
 .PHONY: cram_%
 cram_%:
-	@export BUILD=verilog/rtl/team_projects/$*/build &&\
-	export ICE=fpga_support/ice40hx8k.sv &&\
-	export UART=fpga_support/uart/* &&\
-	export PINMAP=fpga_support/pinmap.pcf &&\
-	export TEAM_DIR=verilog/rtl/team_projects/$* &&\
-	export SRC_DIR=verilog/rtl/team_projects/$*/src &&\
+	@export USER_PROJECT_VERILOG=$(UPRJ_ROOT)/verilog &&\
+	export BUILD=$$USER_PROJECT_VERILOG/rtl/team_projects/$*/build &&\
+	export ICE=$(UPRJ_ROOT)/fpga_support/ice40hx8k.sv &&\
+	export UART=$(UPRJ_ROOT)/fpga_support/uart &&\
+	export PINMAP=$(UPRJ_ROOT)/fpga_support/pinmap.pcf &&\
+	export TEAM_DIR=$$USER_PROJECT_VERILOG/rtl/team_projects/$* &&\
+	export SRC_DIR=$$USER_PROJECT_VERILOG/rtl/team_projects/$*/src &&\
+	export SRAM_WRAPPER="$$USER_PROJECT_VERILOG/rtl/sram/sram_WB_Wrapper.sv" &&\
 	export FPGA_TOP=$*_fpga_top &&\
 	mkdir -p $$BUILD &&\
-	yosys -p "read_verilog -sv -noblackbox $$ICE $$UART $$TEAM_DIR/*.sv $$SRC_DIR/*.sv; synth_ice40 -top ice40hx8k -json $$BUILD/$$FPGA_TOP.json" &&\
+	sed -i 's/sram_for_FPGA/sky130_sram_8kbyte_1r1w_32x2048_8/' $$SRAM_WRAPPER &&\
+	sed -i 's/sky130_sram_8kbyte_1r1w_32x2048_8/sram_for_FPGA/' $$SRAM_WRAPPER &&\
+	yosys -p "read_verilog -sv -noblackbox $$ICE $$UART $$TEAM_DIR/*.sv $$SRC_DIR/*.sv \
+		$$USER_PROJECT_VERILOG/rtl/wishbone_manager/wishbone_manager.sv $$SRAM_WRAPPER \
+		$$USER_PROJECT_VERILOG/rtl/sram/sram_for_FPGA.v; \
+		synth_ice40 -top ice40hx8k -json $$BUILD/$$FPGA_TOP.json" &&\
 	nextpnr-ice40 --hx8k --package ct256 --pcf $$PINMAP --asc $$BUILD/$$FPGA_TOP.asc --json $$BUILD/$$FPGA_TOP.json &&\
 	icepack $$BUILD/$$FPGA_TOP.asc $$BUILD/$$FPGA_TOP.bin &&\
-	iceprog -S $$BUILD/$$FPGA_TOP.bin
-
+	iceprog -S $$BUILD/$$FPGA_TOP.bin &&\
+	sed -i 's/sram_for_FPGA/sky130_sram_8kbyte_1r1w_32x2048_8/' $$SRAM_WRAPPER
 
 # KLayout Command
+# Add quotations to command if NOT in nanoHUB
 klayout_cmd = \
-	"klayout $(PROJECT_ROOT)/gds/$*.gds \
-	-l $(PDKPATH)/libs.tech/klayout/tech/$(PDK).lyp"
+	klayout $(PROJECT_ROOT)/gds/$*.gds \
+	-l $(PDKPATH)/libs.tech/klayout/tech/$(PDK).lyp
 
 # Open GDSII of design in KLayout
 # Example target: make gdsview_team_00_klayout
+
+# Replace command with this if NOT in nanoHUB: nix-shell --run $(klayout_cmd) --pure $(OPENLANE2_ROOT)/shell.nix
 .PHONY: gdsview_%_klayout
 gdsview_%_klayout:
 	@if echo "$(blocks)" | grep -qw "$*"; then \
 		if [ -f "$(PROJECT_ROOT)/gds/$*.gds" ]; then \
 			echo "Opening GDSII layout of $* in KLayout..."; \
-			nix-shell --run $(klayout_cmd) --pure $(OPENLANE2_ROOT)/shell.nix; \
+			$(klayout_cmd); \
 		else \
 			if [ -n "$(wildcard $(PROJECT_ROOT)/gds/$*.gds.gz*)" ]; then \
 				echo "Error: Design $* has a compressed GDSII file. Run \"make uncompress\" to extract the original file"; \
@@ -605,6 +616,26 @@ sv2v_%:
 	@mkdir -p verilog/rtl/team_projects/$*/converted_modules && \
 	sv2v -y verilog/rtl/team_projects/$*/src -w verilog/rtl/team_projects/$*/converted_modules verilog/rtl/team_projects/$*/$*.sv && \
 	echo "\nConversion complete!\n"
+
+
+# Lint a module
+.PHONY: vlint-%
+# Example targets: make vlint-team_00 (for top level module), make vlint-team_00-t00_flex_counter (for submodule)
+vlint-%:
+	@export USER_PROJECT_VERILOG=$(UPRJ_ROOT)/verilog &&\
+	export TEAM_DIR=$$USER_PROJECT_VERILOG/rtl/team_projects/$(firstword $(subst -, ,$*)) &&\
+	export SRC_DIR=$$TEAM_DIR/src &&\
+	if [ "$(firstword $(subst -, ,$*))" = "$(lastword $(subst -, ,$*))" ]; then \
+		verilator --lint-only --timing -Wall -Wno-EOFNEWLINE -Wno-TIMESCALEMOD -y $$SRC_DIR \
+		-y $$USER_PROJECT_VERILOG/rtl/wishbone_manager \
+		-y $$USER_PROJECT_VERILOG/rtl/sram \
+		$$TEAM_DIR/$(lastword $(subst -, ,$*)).sv; \
+	else \
+		verilator --lint-only --timing -Wall -Wno-EOFNEWLINE -Wno-TIMESCALEMOD -y $$SRC_DIR \
+		-y $$USER_PROJECT_VERILOG/rtl/wishbone_manager \
+		-y $$USER_PROJECT_VERILOG/rtl/sram \
+		$$SRC_DIR/$(lastword $(subst -, ,$*)).sv; \
+	fi
 
 
 # Assemble RISC-V assembly (.asm) file into a list of instructions in a C header file

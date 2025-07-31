@@ -27,7 +27,8 @@ def main():
     root_directory = find_root_directory(os.getcwd())
     
     teams = get_teams(root_directory)
-    print(f"Generating Nebula with {len(teams)-1} teams")
+    num_teams = max(int(team.split('_')[1]) for team in teams)
+    print(f"Generating Nebula with {num_teams} teams")
     
     # Specify the file to create
     output_file = root_directory + "/verilog/rtl/nebula.v"
@@ -36,7 +37,7 @@ def main():
     with open(output_file, 'w') as f:
         f.write(\
 """\
-// Please do not edit.  This file will automatically update when make nebula is called.
+// PLEASE DO NOT EDIT!!! This file will automatically update when "make nebula" is called.
 // It has dependencies of each of the teams' yaml files.  If the LA, or GPIO change significantly, 
 // this script may need to be changed.  The relevant script is ./scripts/nebula_generation.py
 module nebula (
@@ -70,19 +71,16 @@ module nebula (
     output [37:0] io_oeb,
 
     // IRQ
-    output [2:0] irq,
-    
-    input en
-    //input [31:0] start_addr
+    output [2:0] irq
 );
 
-// Number of teams
+    // Number of teams
 """\
 )
             
             
             
-        f.write(f"    localparam NUM_TEAMS = {len(teams)-1};\n")
+        f.write(f"    localparam NUM_TEAMS = {num_teams};\n")
 
         f.write(\
 """
@@ -150,7 +148,8 @@ module nebula (
 """\
 )
 
-        for team_number, team in enumerate(teams):
+        for team in teams:
+            team_number = int(team.split('_')[1])
             f.write(\
 f"""      
     // {team} Project Instance
@@ -190,8 +189,7 @@ f"""
         .WE_O  (arbitrator_we_i[{team_number}]),
         .STB_O(arbitrator_stb_i[{team_number}]),
         .CYC_O(arbitrator_cyc_i[{team_number}])
-    );
-        
+    ); 
         
 """\
 )
@@ -207,8 +205,8 @@ f"""
     integer i1;
     always @* begin
         for (i1 = 0; i1 <= NUM_TEAMS; i1 = i1 + 1) begin
-            designs_gpio_out_flat[i1*38 +: 38] = designs_gpio_out[i1];//[38i:38(i+1)-1]
-            designs_gpio_oeb_flat[i1*38 +: 38] = designs_gpio_oeb[i1];//[38i:38(i+1)-1]
+            designs_gpio_out_flat[i1*38 +: 38] = designs_gpio_out[i1];//[38(i+1)-1:38i]
+            designs_gpio_oeb_flat[i1*38 +: 38] = designs_gpio_oeb[i1];//[38(i+1)-1:38i]
         end
     end
 
@@ -246,7 +244,7 @@ f"""
     integer i2;
     always @* begin
         for (i2 = 0; i2 <= NUM_TEAMS; i2 = i2 + 1) begin
-            designs_la_data_out_flat[i2*32 +: 32] = designs_la_data_out[i2];//[38i:38(i+1)-1]
+            designs_la_data_out_flat[i2*32 +: 32] = designs_la_data_out[i2];//[32(i+1)-1:32i]]
         end
     end
 
@@ -275,46 +273,44 @@ f"""
         .la_data_out(la_data_out[31:0])
     );
 
-    // Flattened wbs_dat_i_projects
+    // Flattened WB signals from projects
     reg [32*(NUM_TEAMS+1)-1:0] wbs_dat_i_projects_flat;
-
     wire [32*(NUM_TEAMS+1)-1:0] wbs_adr_o_projects_flat;
     wire [32*(NUM_TEAMS+1)-1:0] wbs_dat_o_projects_flat;
     wire [4*(NUM_TEAMS+1)-1:0] wbs_sel_o_projects_flat;
-
-    // Flattening of wbs_dat_i_projects
+    // Flattening of WB signals from projects
     integer i3;
     always @* begin
         for (i3 = 0; i3 <= NUM_TEAMS; i3 = i3 + 1) begin
-            wbs_dat_i_projects_flat[i3*32 +: 32] = wbs_dat_i_projects[i3];//[38i:38(i+1)-1]
+            wbs_dat_i_projects_flat[i3*32 +: 32] = wbs_dat_i_projects[i3];//[32(i+1)-1:32i]]
 
-            wbs_adr_o_projects[i3] = wbs_adr_o_projects_flat[i3*32 +: 32];//[38i:38(i+1)-1]
-            wbs_dat_o_projects[i3] = wbs_dat_o_projects_flat[i3*32 +: 32];//[38i:38(i+1)-1]
-            wbs_sel_o_projects[i3] = wbs_sel_o_projects_flat[i3*4 +: 4];//[38i:38(i+1)-1]
+            wbs_adr_o_projects[i3] = wbs_adr_o_projects_flat[i3*32 +: 32];//[32(i+1)-1:32i]]
+            wbs_dat_o_projects[i3] = wbs_dat_o_projects_flat[i3*32 +: 32];//[32(i+1)-1:32i]]
+            wbs_sel_o_projects[i3] = wbs_sel_o_projects_flat[i3*4 +: 4];//[4(i+1)-1:4i]]
         end
     end
 
-    //Flattening of arbitrator signals
+    
+    // Flattened manager signals to arbitrator
     reg [32*(NUM_TEAMS+1)-1:0] arbitrator_dat_i_flat;
     reg [32*(NUM_TEAMS+1)-1:0] arbitrator_adr_i_flat;
     wire [32*(NUM_TEAMS+1)-1:0] arbitrator_dat_o_flat;
     reg [4*(NUM_TEAMS+1)-1:0] arbitrator_sel_i_flat;
-    
+    // Flattening of manager signals to arbitrator
     integer i4;
     always @* begin
         for (i4 = 0; i4 <= NUM_TEAMS; i4 = i4 + 1) begin
-            arbitrator_dat_i_flat[i4*32 +: 32] = arbitrator_dat_i[i4];
-            arbitrator_adr_i_flat[i4*32 +: 32] = arbitrator_adr_i[i4];
-            arbitrator_sel_i_flat[i4* 4 +:  4] = arbitrator_sel_i[i4];
+            arbitrator_dat_i_flat[i4*32 +: 32] = arbitrator_dat_i[i4];//[32(i+1)-1:32i]]
+            arbitrator_adr_i_flat[i4*32 +: 32] = arbitrator_adr_i[i4];//[32(i+1)-1:32i]]
+            arbitrator_sel_i_flat[i4* 4 +:  4] = arbitrator_sel_i[i4];//[4(i+1)-1:4i]]
 
-            arbitrator_dat_o[i4] = arbitrator_dat_o_flat[i4*32 +: 32];
+            arbitrator_dat_o[i4] = arbitrator_dat_o_flat[i4*32 +: 32];//[32(i+1)-1:32i]]
         end
     end
 
     // Wishbone Arbitrator
-    // everywhere with squigly brackets is where more manager signals can be concatinated!!!
     wishbone_arbitrator #(
-        .NUM_MANAGERS(NUM_TEAMS+2)//+2 for caravel core processor and sample project
+        .NUM_MANAGERS(NUM_TEAMS+2)  //+2 for caravel core processor and sample project
     ) wb_arbitrator (
         
     `ifdef USE_POWER_PINS
@@ -450,7 +446,6 @@ module async_reset_sync (
 endmodule
 
 `default_nettype wire
-
 """\
 )         
             

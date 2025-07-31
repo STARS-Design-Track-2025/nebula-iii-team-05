@@ -17,12 +17,13 @@ jobs:
         fetch-depth: 0  # Fetch the full history
 
     - name: Confirm only changes in allowed files
+      continue-on-error: true
       run: |
         
         # When merging teams' files together, common editing of files causes issues.
 
         # Commit with most up to date common files. Do not change unless you are working on the post-program integration team or have explicit permission from someone who is.
-        BASE_COMMIT="872a2b06f6531f267f9fda7c60e46fc82496015b" # 07/14/2025
+        BASE_COMMIT="ccdc747f491555e64bf0e6a913c5b92881d8909e" # 07/30/2025
 
         # Get list of changed files between the base commit and current commit
         git diff --name-only $BASE_COMMIT > changed_files.txt
@@ -136,6 +137,7 @@ jobs:
 
         if [ "$DISALLOWED_FILE_CHANGE_FOUND" = true ]; then
             echo "Push includes blocked files. Failing the workflow."
+            echo "ANY_FAILED=1" >> $GITHUB_ENV
             exit 1
         else
             echo "No blocked files were changed."
@@ -155,7 +157,18 @@ jobs:
       run: python ./.github/scripts/test_environment.py
 
     - name: Check New Files
-      run: python .github/scripts/check_new_files.py
+      continue-on-error: true
+      run: python ./.github/scripts/check_new_files.py || echo "ANY_FAILED=1" >> $GITHUB_ENV
 
     - name: Module Naming Check
-      run: python ./.github/scripts/module_naming_test.py
+      continue-on-error: true
+      run: python ./.github/scripts/module_naming_test.py || echo "ANY_FAILED=1" >> $GITHUB_ENV
+
+    - name: Final check for any failure
+      run: |
+        if [ "$ANY_FAILED" -eq "1" ]; then
+          echo "❌ One or more checks failed."
+          exit 1
+        else
+          echo "✅ All checks succeeded."
+        fi
