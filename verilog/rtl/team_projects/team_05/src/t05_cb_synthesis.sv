@@ -24,27 +24,22 @@ module t05_cb_synthesis (
     output state_cb curr_state,
     output logic [6:0] curr_index,
     output logic [127:0] curr_path,
-    output logic [8:0] least1,
-    output logic [8:0] least2,
     output logic [3:0] finished,
     output logic [6:0] track_length,
-    output logic [6:0] pos,
-    output logic wait_cycle,
     output logic [7:0] num_lefts,
     output logic left
 );
+logic [8:0] least1, least2;
 
 // next state logic
 logic [127:0] next_path; // store current path
 logic [6:0] next_index; // htree element index
 state_cb next_state; // current codebook state
 logic [6:0] next_track_length; // current path length (for tracking state)
-//logic wait_cycle;
-logic next_wait_cycle;
-logic [6:0] next_pos;
+logic wait_cycle, next_wait_cycle;
+logic [6:0] pos, next_pos;
 logic sent;
 logic next_sent;
-//logic next_first_char;
 logic [7:0] next_num_lefts;
 logic next_left;
 
@@ -89,7 +84,6 @@ always_comb begin
         next_sent = sent;
         next_num_lefts = num_lefts;
         next_left = left;
-        //next_first_char = first_char;
 
         case (curr_state)
             INIT: begin 
