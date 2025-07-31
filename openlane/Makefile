@@ -134,12 +134,12 @@ ifeq ($(OPENLANE2_ROOT),)
 	@exit 1
 endif
 
-# Add quotations to command if not running in nanoHUB
+# Add quotations to command if NOT running in nanoHUB
 openlane_cmd = \
-	"openlane \
+	openlane \
 	--run-tag $(OPENLANE_RUN_TAG) \
 	--pdk-root $(PDK_ROOT) \
-	$*/config.json"
+	$*/config.json
 openlane_cmd_interactive = "flow.tcl -it -file $$(realpath ./$*/interactive.tcl)"
 
 list:
@@ -151,12 +151,11 @@ enable-openlane-pdk:
 
 .PHONY: $(designs)
 $(designs) : export current_design=$@
-$(designs) : % : ./%/config.json enable-openlane-pdk
+$(designs) : % : ./%/config.json # Add enable-openlane-pdk as a rule if NOT in nanoHUB
 	mkdir -p ./$*/runs/$(OPENLANE_RUN_TAG) 
 	rm -rf ./$*/runs/$*
 	ln -s $$(realpath ./$*/runs/$(OPENLANE_RUN_TAG)) ./$*/runs/$*
-# $(openlane_cmd)
-	nix-shell --run $(openlane_cmd) --pure $(OPENLANE2_ROOT)/shell.nix
+	$(openlane_cmd)
 #If not in nanoHUB, run this instead: nix-shell --run $(openlane_cmd) --pure $(OPENLANE2_ROOT)/shell.nix
 #https://github.com/efabless/caravel_user_project_ol2/blob/main/openlane/Makefile
 	@mkdir -p $(PROJECT_ROOT)/signoff/$*/
