@@ -2,7 +2,7 @@ module t05_i2c
 (
     input logic clk, rst, sda_i, // sda_i is what we recieve from the display (ack signal)
     input logic trans, // This is telling the i2c when to begin transmitting
-    input logic [5:0] lcdData, // What data you want to send to the LCD ||
+    input logic [7:0] lcdData, // What data you want to send to the LCD ||
     output logic sda_o, scl, oeb,  //sda_o is data, scl is the clock line, and oeb is whether we are sending or recieving on the sda
     output logic [2:0] state, // So that the display FSM can check when you are ready for a new transmission ||
     output logic commsError,  // This tells the display FSM that we have not succeeded in getting an ack ||
@@ -169,8 +169,7 @@ module t05_i2c
             begin
                 sendCounter_n = sendCounter + 1;
                 if (sendCounter[1:0] == 0) begin        // First, update the data
-                    lcdDataPadded = {lcdData, 2'b0};
-                    sda_o_n = lcdDataPadded[7-sendCounter[4:2]]; // This means we transmit 8 bits, and the last two are padding
+                    sda_o_n = lcdData[7-sendCounter[4:2]]; // This means we transmit 8 bits, and the last two are padding
                     scl_n = 0;
                 end else if (sendCounter[1:0] == 3) begin // At the end, turn clock off
                     scl_n = 0;
