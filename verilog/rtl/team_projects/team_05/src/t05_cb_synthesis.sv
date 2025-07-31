@@ -1,3 +1,5 @@
+`timescale 1ms/10ps
+
 // typedef enum logic [2:0] {
 //     LEFT=0,
 //     RIGHT,
@@ -27,8 +29,9 @@ module t05_cb_synthesis (
     output logic [3:0] finished,
     output logic [6:0] track_length,
     output logic [6:0] pos,
-    output logic first_char,
-    output logic wait_cycle
+    output logic wait_cycle,
+    output logic [7:0] num_lefts,
+    output logic left
 );
 
 // next state logic
@@ -41,7 +44,9 @@ logic next_wait_cycle;
 logic [6:0] next_pos;
 logic sent;
 logic next_sent;
-logic next_first_char;
+//logic next_first_char;
+logic [7:0] next_num_lefts;
+logic next_left;
 
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
@@ -52,7 +57,8 @@ always_ff @(posedge clk, posedge rst) begin
         pos <= 7'b1;
         wait_cycle <= 1;
         sent <= 0;
-        first_char <= 0;
+        num_lefts <= 0;
+        left <= 0;
     end
     else if (en_state == 4) begin
         curr_path <= next_path;
@@ -62,7 +68,8 @@ always_ff @(posedge clk, posedge rst) begin
         pos <= next_pos;
         wait_cycle <= next_wait_cycle;
         sent <= next_sent;
-        first_char <= next_first_char;
+        num_lefts <= next_num_lefts;
+        left <= next_left;
     end
 end
 
@@ -80,7 +87,9 @@ always_comb begin
         next_pos = pos;
         next_wait_cycle = wait_cycle;
         next_sent = sent;
-        next_first_char = first_char;
+        next_num_lefts = num_lefts;
+        next_left = left;
+        //next_first_char = first_char;
 
         case (curr_state)
             INIT: begin 
@@ -103,19 +112,19 @@ always_comb begin
                           char_found = 1'b1;
                           next_state = SEND;
                           next_wait_cycle = 1;
-                          if (!first_char) begin
-                            next_first_char = 1;
-                          end
+                          next_left = 1;
                       end
                       else begin  // case for only one element in htree (if character is a null character)
                           next_state = FINISH;
                       end
                       next_path = {curr_path[126:0], 1'b0}; // left shift and add 0 (left) to next path
+                      next_num_lefts = num_lefts + 1; // store {1'b1, number of lefts} after the left char to aid in decompression
                       char_path = next_path;
                   end
 
                   else if (least1[8] == 1'b1) begin // if LSE is a sum
                       next_path = {curr_path[126:0], 1'b0}; // left shift and add 0 (left) to next path
+                      next_num_lefts = num_lefts + 1; // store {1'b1, number of lefts} after the left char to aid in decompression
                       next_index = least1[6:0]; // set next index to get from htree to the sum
                     next_wait_cycle = 1;
                   end
@@ -128,6 +137,8 @@ always_comb begin
                   if (write_finish) begin
                       next_state = BACKTRACK;
                       next_wait_cycle = 1;
+                      next_num_lefts = 0;
+                      next_left = 0;
                   end
                   else begin
                       next_sent = 1;
@@ -190,13 +201,14 @@ always_comb begin
                       else begin  // case for only one element in htree (if character is a null character)
                           next_state = FINISH;
                       end
-                      next_path = {curr_path[126:0], 1'b1}; // left shift and add 1 (left) to output character path
+                    next_path = {curr_path[126:0], 1'b1}; // right shift and add 1 (right) to output character path
                       char_path = next_path;
                   end
 
                   else if (least2[8] == 1'b1) begin // if RSE is a sum
-                      next_path = {curr_path[126:0], 1'b1}; // left shift and add 0 (left) to next path
+                    next_path = {curr_path[126:0], 1'b1}; // right shift and add 0 (right) to next path
                       next_index = least2[6:0]; // set next index to get from htree to the sum
+                    next_num_lefts = 0; // reset lefts counted to only count lefts after going right
                   end
               end
               else begin
@@ -213,3 +225,4 @@ always_comb begin
 
 end
 endmodule;
+

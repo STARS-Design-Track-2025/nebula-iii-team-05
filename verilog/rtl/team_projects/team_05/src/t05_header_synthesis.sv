@@ -9,7 +9,8 @@ module t05_header_synthesis (
     input logic [127:0] curr_path,
     input logic [6:0] track_length,
     input state_cb state,
-    input logic first_char,
+    input logic left, // if the char found is a left char
+    input logic [7:0] num_lefts, // num of lefts from htree
     output logic [8:0] header,
     output logic enable,
     output logic bit1,
@@ -36,7 +37,7 @@ logic next_zero_sent;
 logic write_char_path;
 logic next_write_char_path;
 logic next_first_char;
-logic [127:0] first_char_path, next_first_char_path;
+logic write_num_lefts, next_write_num_lefts;
 
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
@@ -52,7 +53,7 @@ always_ff @(posedge clk, posedge rst) begin
       zero_sent <= 0;
       write_char_path <= 0;
       path_count <= 0;
-      first_char_path <= 0;
+      write_num_lefts <= 0;
     end
     else begin
         header <= next_header;
@@ -67,7 +68,7 @@ always_ff @(posedge clk, posedge rst) begin
       zero_sent <= next_zero_sent; 
       write_char_path <= next_write_char_path;
       path_count <= next_path_count;
-      first_char_path <= next_first_char_path;
+      write_num_lefts <= next_write_num_lefts;
     end
 end
 
@@ -83,6 +84,7 @@ always_comb begin
     next_start = start;
     next_write_char_path = write_char_path;
     next_path_count = path_count;
+    next_write_num_lefts = write_num_lefts;
     
     if ((char_found == 1'b1)) begin
         next_header = {1'b1, char_index}; // add control bit, beginning 1, and character index for header
@@ -90,7 +92,7 @@ always_comb begin
         next_enable = 0;
         next_start = 1;
         next_write_finish = 0;
-        next_first_char_path = char_path;
+      	next_write_char_path = 1;
     end
   if ((state == BACKTRACK && !char_added && !char_found && curr_path[0] == 1 && track_length > 0)) begin // send one zero for each backtrack (not while char is being added)
         next_write_zeroes = 1;
@@ -106,19 +108,6 @@ always_comb begin
     next_zeroes = 0;
   end
 
-    if ((!write_char_path && first_char)) begin
-        if (path_count < 9'd127) begin
-            next_enable = 1;
-            next_write_char_path = 0;
-            next_bit1 = next_first_char_path[127-path_count];
-            next_path_count = path_count + 1;
-        end
-        else begin
-            next_bit1 = 0;
-            next_write_char_path = 1;
-            next_path_count = 0;
-        end
-    end
     if (write_char_path) begin
         if (start) begin
             next_enable = 1;
@@ -143,6 +132,12 @@ always_comb begin
                 next_count = 0;
                 next_char_added = 0;
                 next_zero_sent = 0;
+                next_path_count = 0;
+              	next_write_char_path = 0;
+              if (num_lefts != 0 && left) begin
+                  next_write_num_lefts = 1;
+                  next_write_finish = 0;
+                end
             end
         end
         else begin
@@ -150,5 +145,27 @@ always_comb begin
             next_count = 0;
         end
     end
+  else if (write_num_lefts) begin // write the number of lefts after going right in the tree for left chars after their header portion
+     if(count == 0) begin // add 1 as first bit
+        next_bit1 = 1'b1;
+        next_count = count + 1;
+        next_write_char_path = 0;
+        next_enable = 1;
+      end
+    else if (count < 9) begin // write 8 bit # of lefts and a leading 1
+      next_enable = 1;
+      next_bit1 = num_lefts[8-count];
+      next_count = count + 1;
+    end
+    else begin
+      next_count = 0;
+      next_enable = 0;
+      next_bit1 = 0;
+      next_write_num_lefts = 0;
+      next_write_finish = 1;
+      next_path_count = 0;
+    end
+  end
+    
 end
 endmodule

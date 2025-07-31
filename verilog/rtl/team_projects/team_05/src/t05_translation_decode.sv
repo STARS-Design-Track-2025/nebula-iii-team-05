@@ -1,6 +1,4 @@
 `timescale 1ms/10ps
-//`include "typedefs.sv"
-// Code your design here
 // typedef enum logic [2:0] {
 //     INIT, // initial (set if enable for the translation_decode module isn't high)
 //     READ_SRAM_PATH, // read a codebook path for a char from the SRAM
@@ -21,12 +19,11 @@ module t05_translation_decode (
     output logic [7:0] char_index, // char index for char path to get in SRAM
     output logic SPI_data_out, // given an char index from SRAM, write the char (bit by bit) based on the corresponding code
     output logic SPI_write_en,
-    output logic finished,
-    output logic [8:0] SRAM_count
+    output logic finished
 ); 
 state_tr curr_state, next_state;
 logic [3:0] SPI_count, next_SPI_count; // count to 7 and room incase of overflow
-logic [8:0] next_SRAM_count; // count to 256 (for code paths for each char from SRAM)
+logic [8:0] SRAM_count, next_SRAM_count; // count to 256 (for code paths for each char from SRAM)
 logic [7:0] next_char_index;
 logic [127:0] SPI_path, next_SPI_path; // store 7 bytes from SPI in a path
 logic [7:0] path_bit_count, next_path_bit_count; // counter to 128
@@ -84,7 +81,6 @@ always_comb begin
 
     SPI_read_en = 0;
     SPI_write_en = 0;
-    //SRAM_read_en = 0;
 
     case (curr_state)
         INIT:begin
@@ -168,9 +164,9 @@ always_comb begin
               if (SPI_count < 8) begin
                   next_SPI_data_out = char_index[7-SPI_count]; 
                   next_SPI_count = SPI_count + 1;
-                  //next_wait_cycle = 1;
               end
               else begin
+                  next_SPI_data_out = 0;
                   next_SPI_count = 0;
                   next_SPI_path = 128'b0;
                   next_wait_cycle = 1;
