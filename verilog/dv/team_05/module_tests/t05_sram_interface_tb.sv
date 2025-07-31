@@ -1,152 +1,153 @@
-`timescale 1ms/1ns
+`timescale 10ms/1ns
 module t05_sram_interface_tb;
-
-  logic clk, rst, trn_nxt_char;
-  logic [31:0] histogram;
-  logic [7:0] histgram_addr;
-  logic hist_r_wr;
-  logic [7:0] find_least;
-  logic [70:0] new_node;
-  logic [6:0] htreeindex;
-  logic htree_r_wr;
-  logic [7:0] codebook;
-  logic [127:0] codebook_path;
-  logic [7:0] translation;
-  logic [2:0] state;
-  logic [31:0] sram_data_out_his;
-  logic [63:0] sram_data_out_flv;
-  logic [128:0] sram_data_out_trn;
-  logic [70:0] sram_data_out_cb;
-  logic [31:0] sram_data_out_ht;
-  logic wr_en, r_en;
-  logic [3:0] select;
-  logic [31:0] old_char, addr, sram_data_in;
-  logic [63:0] comp_val;
-  logic [70:0] h_element;
-  logic [128:0] char_code;
-  logic busy_o;
+    logic clk;
+    logic rst;
+    //histogram inputs
+    logic [31:0] histogram;
+    logic [7:0] histgram_addr;
+    logic [1:0] hist_r_wr;
+    //flv inputs
+    logic [8:0] find_least;
+    logic [7:0] charwipe1; 
+    logic [7:0] charwipe2;
+    logic flv_r_wr;
+    //htree inputs
+    logic [70:0] new_node;
+    logic [6:0] htreeindex;
+    logic htree_r_wr;
+    //codebook inputs
+    logic [6:0] curr_index; //addr of data wanting to be pulled from the htree
+    logic [7:0] char_index; //addr for writing data in
+    logic [127:0] codebook_path; //store this data 
+    logic cb_r_wr;
+    //translation input
+    logic [7:0] translation;
+    //controller input
+    logic [3:0] state;
+    //wishbone connects
+    logic wr_en;
+    logic r_en;
+    logic busy_o;  
+    logic [3:0] select;
+    logic [31:0] addr;
+    logic [31:0] data_i;
+    logic [31:0] data_o;
+    //htree outputs
+    logic [63:0] nulls; //data going to htree
+    logic ht_done;
+    // histogram output
+    logic [31:0] old_char; //data going to histogram
+    //flv outputs
+    logic [63:0] comp_val; //going to find least value
+    //codebook outputs
+    logic [70:0] h_element; //from the htree going to codebook
+    logic cb_done;
+    //translation outputs
+    logic [127:0] path;
+    //controller output
+    logic [5:0] ctrl_done;
 
   // Instantiate the DUT
-  t05_sram_interface dut (
+  t05_sram_interface test (
     .clk(clk),
     .rst(rst),
-    .busy_o(busy_o),
-    .trn_nxt_char(trn_nxt_char),
+    
     .histogram(histogram),
     .histgram_addr(histgram_addr),
     .hist_r_wr(hist_r_wr),
+    
     .find_least(find_least),
+    .charwipe1(charwipe1),
+    .charwipe2(charwipe2),
+    .flv_r_wr(flv_r_wr),
+    
     .new_node(new_node),
     .htreeindex(htreeindex),
     .htree_r_wr(htree_r_wr),
-    .codebook(codebook),
+
+    .curr_index(curr_index),
+    .char_index(char_index),
     .codebook_path(codebook_path),
+    .cb_r_wr(cb_r_wr),
+
     .translation(translation),
+
     .state(state),
-    .sram_data_out_his(sram_data_out_his),
-    .sram_data_out_flv(sram_data_out_flv),
-    .sram_data_out_trn(sram_data_out_trn),
-    .sram_data_out_cb(sram_data_out_cb),
-    .sram_data_out_ht(sram_data_out_ht),
+
     .wr_en(wr_en),
     .r_en(r_en),
+    .busy_o(busy_o),
     .select(select),
-    .old_char(old_char),
     .addr(addr),
-    .sram_data_in(sram_data_in),
+    .data_i(data_i),
+    .data_o(data_o),
+    .nulls(nulls),
+    .ht_done(ht_done),
+    .old_char(old_char),
     .comp_val(comp_val),
     .h_element(h_element),
-    .char_code(char_code)
+    .cb_done(cb_done),
+    .path(path),
+    .ctrl_done(ctrl_done)
   );
 
-  // Clock generator
-  initial clk = 0;
-  always #1 clk = ~clk;
+    always begin
+        #1
+        clk = ~clk;
+    end
 
-  // Test sequence
-  initial begin
-    $display("Starting t05_sram_interface testbench");
-    $dumpfile("waves/t05_sram_interface.vcd");
-    $dumpvars(0, t05_sram_interface_tb);
+    initial begin
+        $dumpfile("t05_sram_interface.vcd");
+        $dumpvars(0, t05_sram_interface_tb);
+        clk = 0;
+        rst = 0;
 
-    // Initialize
-    rst = 1;
-    trn_nxt_char = 0;
-    histogram = 32'hAABBCCDD;
-    histgram_addr = 8'd3;
-    hist_r_wr = 0; // read first
-    find_least = 8'd20;
-    new_node = 71'h123456789ABCD;
-    htreeindex = 7'd5;
-    htree_r_wr = 1;
-    codebook = 8'd15;
-    codebook_path = 128'hCAFEBABE12345678CAFEBABE12345678;
-    translation = 8'd7;
-    state = 3'b001; // HIST state
-    sram_data_out_his = 32'hDEADBEEF;
-    sram_data_out_flv = 64'h1122334455667788;
-    sram_data_out_trn = 129'hFEDCBA9876543210FEDCBA987654321;
-    sram_data_out_cb = 71'h13579BDF13579;
-    sram_data_out_ht = 32'hFEEDFACE;
+        histogram = '0;
+        histgram_addr = '0;
+        hist_r_wr = 0;
 
-    #1 rst = 0;  //testing the rst, everything back to 0
+        find_least = '0;
+        charwipe1 = '0;
+        charwipe2 = '0;
+        flv_r_wr = 0;
 
-    // Histogram write test
-    state = 3'd1;
-    hist_r_wr = 1; // write mode
-    histgram_addr = 8'd10;
-    histogram = 32'd7;
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
-    hist_r_wr = 0; // switch to read
-    histgram_addr = 8'd10; //should output the same vaule that was inputted before "10"
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
-    // FLV test
-    state = 3'b010;
-    find_least = 8'd23;
+        new_node = '0;
+        htreeindex = '0;
+        htree_r_wr = 0;
 
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
-    // Translation test
-    state = 3'b110;
-    trn_nxt_char = 1;
-    translation = 8'd44;
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
-    // Codebook test
-    state = 3'b101;
-    codebook = 8'd9;
-    codebook_path = 128'd122;
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
+        curr_index = '0;
+        char_index = '0;
+        codebook_path = '0;
+        cb_r_wr = 0;
 
-    // HTREE test
-    state = 3'b011;
-    htree_r_wr = 0; // read mode
-    htreeindex = 7'd11;
-    rst = 1;
-    #1;
-    rst = 0;
-    htree_r_wr = 1;
-    new_node = 71'd695;
-    htreeindex = 7'd14;
-    #20;
-    rst = 1;
-    #1;
-    rst = 0;
-    $display("Test complete. Inspect signals in waveform.");
-    $finish;
-  end
+        translation = '0;
+
+        state = '0;
+
+        busy_o = 0;
+        data_o = '0;
+
+        #10
+        rst = 1;
+        #20
+        rst = 0;
+
+        #100
+
+        state = 1;
+        histogram = 20;
+        histgram_addr = 3;
+        hist_r_wr = 1;
+
+        #2
+
+        histogram = 25;
+        histgram_addr = 4;
+        hist_r_wr = 0;
+        
+        #2
+
+        #1 $finish;
+    end
 
 endmodule

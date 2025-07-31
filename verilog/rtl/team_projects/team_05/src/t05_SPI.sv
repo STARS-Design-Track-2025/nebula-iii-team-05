@@ -1,5 +1,20 @@
+`default_nettype none
+module t05_SPI (
+    input logic miso, // Read
+    input logic rst, // Reset
+    input logic serial_clk, clk,
+    input logic writebit,
+    input logic read_en, write_en, read_stop, nextCharEn,
+    input logic [31:0] read_address, write_address,
+    output logic slave_select,
+    output logic [7:0] read_output,
+    output logic [3:0] finish, 
+    output logic freq_flag, cmd_en,
+    output logic mosi // Write
+);
+
 typedef enum logic [5:0] {
-    INIT = 0,
+    INITIAL = 0,
     READ_SPI = 1,
     WRITE_SPI = 2,
     DONE = 3,
@@ -21,25 +36,12 @@ typedef enum logic [5:0] {
     CIDLE = 19
 }state_t;
 
-module t05_SPI (
-    input logic miso, // Read
-    input logic rst, // Reset
-    input logic serial_clk, clk,
-    input logic writebit,
-    input logic read_en, write_en, read_stop,
-    input logic [31:0] read_address, write_address,
-    output logic slave_select,
-    output logic [7:0] read_output,
-    output logic finish, freq_flag,
-    output logic mosi // Write
-);
-
 localparam
     CMD0 = 48'b010000000000000000000000000000000000000010010101, // To go into IDLE STATE
     CMD58 = 48'b011110100000000000000000000000000000000001110101, // OCR Conditions
     CMD55 = 48'b011101110000000000000000000000000000000001100101, // Prepares the SD Card for the next command
     ACMD41 = 48'b011010010100000000000000000000000000000000000001, // Exits initialization mode and begn the data transfer
-    CMD12 = 48'b010011000000000000000000000000000000000000000001, // Stop reading multiple blocks
+    CMD12 = 48'b010011000000000000000000000000000000000000000001, // Stop reading 
     CMD8 =  48'b010010000000000000000000000000011010101010000111; // Check the voltage range and if the card is compatible
 
 logic [47:0] cmd18;
@@ -59,14 +61,14 @@ logic [5:0] timer_50, timer_50_n;
 logic [6:0] read_in_timer, read_in_timer_n;
 logic read_in_40, read_in_40_n;
 logic read_cmd_en, read_cmd_en_n, write_cmd_en, write_cmd_en_n, warmup_enable, warmup_enable_n, freq_flag_n; // Used to enable the read command
-logic cmd_en, cmd_en_n; // Used to enable the command
+logic cmd_en_n; // Used to enable the command
 logic redo, redo_n; // Used to redo the command if the response is not valid
 logic read_stop_en, read_stop_en_n; // Used to enable the read stop
 
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
         cmd_line <= CMD0; // Reset with CMD0
-        state <= INIT;
+        state <= INITIAL;
         enables <= IDLE_SPI;
         command <= CIDLE; // Initialize the command to IDLE
         read_byte <= '0;
@@ -130,7 +132,7 @@ always_comb begin
     freq_flag_n = freq_flag;
 
     case (state)
-        INIT: begin
+        INITIAL: begin
             freq_flag_n = 0;
             if(warmup_enable) begin 
                 if (warmup_counter < 75) begin
@@ -279,24 +281,26 @@ always_comb begin
             end 
         end
         READ_SPI: begin  // Logic for reading data from MISO
-        freq_flag_n = 1;
-            if(read_en) begin
+            freq_flag_n = 1;
+            if(cmd_en) begin
+                slave_select = 0;
+                if (index_counter == 47) begin
+                    index_counter_n = 0; // Reset the index counter after sending the command
+                    cmd_en_n = 0;
+                    read_cmd_en_n = 0;
+                end
+                else if (index_counter < 47) begin
+                    index_counter_n = index_counter + 1; // Increment the index counter for each bit
+                end
+                mosi = cmd_line[47 - index_counter]; // Shift out the command bit
+            end
+            else if(read_en || nextCharEn) begin
                 read_output = read_byte; 
                 read_in_timer_n = 0;
                 if(read_cmd_en) begin
                     cmd_line_n = cmd18;
                     cmd_en_n = 1;
-                    if(cmd_en) begin
-                        if (index_counter == 47) begin
-                            index_counter_n = 0; // Reset the index counter after sending the command
-                            cmd_en_n = 0;
-                            read_cmd_en_n = 0;
-                        end
-                        else if (index_counter < 47) begin
-                            index_counter_n = index_counter + 1; // Increment the index counter for each bit
-                        end
-                        mosi = cmd_line[47 - index_counter]; // Shift out the command bit
-                    end
+                    read_stop_en_n = 1;
                 end
             end
             else if(write_en == 1 && read_stop == 1) begin
@@ -363,10 +367,10 @@ always_comb begin
                 warmup_counter_n = warmup_counter + 1; // Warmup counter variable is just used to stabilize the SD
             end 
             else if (warmup_counter == 8) begin
-                finish = 1; // Enable the first bit of the command
+                finish = 7; // Enable the first bit of the command
             end
         end
-        default: state_n = INIT; // Reset to INIT on unexpected state
+        default: state_n = INITIAL; // Reset to INIT on unexpected state
     endcase
 end
 endmodule

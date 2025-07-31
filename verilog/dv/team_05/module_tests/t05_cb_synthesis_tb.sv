@@ -414,11 +414,11 @@ module t05_cb_synthesis_tb;
 //       set_inputs(8, htree[curr_index]);
 //       $display("STATE: %d", state); 
 
-      #10;
+#10
 
 //       #1 $finish;
 
 //     end
   
-// endmodule
+endmodule
   

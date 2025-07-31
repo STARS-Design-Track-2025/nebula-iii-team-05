@@ -16,19 +16,20 @@ module t05_SPI_tb;
 
     // Instantiate the SPI module
     t05_SPI test(.clk(clk),
-                 .rst(rst),
-                 .miso(miso),
-                 .mosi(mosi),
-                 .read_output(read_output),
-                 .writebit(writebit),
-                 .read_en(read_en),
-                 .write_en(write_en),
-                 .slave_select(slave_select),
-                 .finish(finish),
-                 .read_address(read_address),
-                 .write_address(write_address),
-                 .read_stop(read_stop),
-                 .serial_clk(serialclk));
+        .rst(rst),
+        .miso(miso),
+        .mosi(mosi),
+        .read_output(read_output),
+        .writebit(writebit),
+        .read_en(read_en),
+        .write_en(write_en),
+        .slave_select(slave_select),
+        .finish(finish),
+        .read_address(read_address),
+        .write_address(write_address),
+        .read_stop(read_stop),
+        .serial_clk(serialclk)
+    );
 
     // Clock generation
     always begin

@@ -1,11 +1,13 @@
 `timescale 1ms/10ns
 module t05_translation_tb;
-    logic clk, rst, writeBin;
+    logic clk, rst, writeBin, nextCharEn, writeEn, fin_state;
     logic [31:0] totChar;
     logic [7:0] charIn;
     logic [127:0] path;
+    logic [3:0] en_state;
+    
 
-    t05_translation test (.clk(clk), .rst(rst), .totChar(totChar), .charIn(charIn), .writeBin(writeBin), .path(path));
+    t05_translation test (.clk(clk), .rst(rst), .en_state(en_state), .totChar(totChar), .charIn(charIn), .writeBin(writeBin), .path(path), .nextCharEn(nextCharEn), .writeEn(writeEn), .fin_state(fin_state));
 
     always begin
         #1
@@ -21,12 +23,14 @@ module t05_translation_tb;
         totChar = '0;
         path = '0;
         charIn = '0;
+        en_state = 0;
         totChar = 32'd35;
         #8
 
         rst = 1;
         #8
         rst = 0;
+        en_state = 5;
         #62
         
         charIn = 65;
@@ -47,7 +51,9 @@ module t05_translation_tb;
         #258
         charIn = 80;
         path = 128'b00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001010;
-        #256
+        #258
+        charIn = 8'b00011010;
+        path = 128'd0;
         #100
 
         #4 $finish;
