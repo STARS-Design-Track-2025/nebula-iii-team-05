@@ -21,7 +21,7 @@ module t05_hd_decode (
     output logic finished, // sent to controller
     output logic [31:0] tot_chars // read from compressed file and sent to translation to determine the finish condition
 );
-  state_hd curr_state, next_state; 
+  logic [2:0] curr_state, next_state; 
   logic [127:0] curr_path, next_path; 
   logic [3:0] offset, next_offset; // marker to keep track of which bit in byte of data_in to read next
   logic [7:0] count, next_count;
@@ -37,7 +37,7 @@ module t05_hd_decode (
   
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
-        curr_state <= INIT;
+        curr_state <= 0; // INIT
         curr_path <= 128'b1;
         offset <= 0;
         count <= 0;
@@ -58,8 +58,8 @@ always_ff @(posedge clk, posedge rst) begin
         count <= next_count;
         leading_bit <= next_leading_bit;
         curr_char <= next_char;
-        wait_cycle = next_wait_cycle;
-        backtracks = next_backtracks;
+        wait_cycle <= next_wait_cycle;
+        backtracks <= next_backtracks;
         first <= next_first;
         finished <= next_finished;
         tot_chars <= next_tot_chars;
@@ -90,32 +90,34 @@ always_comb begin
     SRAM_write_en = 0;
 
     case (curr_state)
-        INIT: begin // if the controller's enable is set high for hd_decode to start or not
+        0: begin // INIT if the controller's enable is set high for hd_decode to start or not
             if (hd_enable) begin
                  if (count < 2) begin
                     next_count = count + 1;
                  end
                  else if (count > 1) begin
                     next_count = 0;
+                    //next_count = count + 1;
                     SPI_read_en = 1;
-                    next_state = READ_LEADING_BIT; // SET_PATH;
+                    next_state = 1; // READ_LEADING_BIT
                  end
+                 //else if (count >)
             end
             else begin
-                next_state = INIT;
+                next_state = 0; // INIT
             end
         end
 
-        READ_LEADING_BIT: begin // parses leading bit(s) of a char (1 if no backtrack), (0 if backtrack)
+        1: begin // READ_LEADING_BIT parses leading bit(s) of a char (1 if no backtrack), (0 if backtrack)
           if (offset < 8) begin
             next_leading_bit = {1'b1, SPI_data_in[7-offset[2:0]]}; // add 1 to beginning to leading bit to show a leading bit was read (not none)
             next_offset = offset + 1;
             if (next_leading_bit[0] == 0) begin
-              next_state = READ_LEADING_BIT; // read the leading bit until a leading 1 is found
+              next_state = 1; // READ_LEADING BIT read the leading bit until a leading 1 is found
               next_backtracks = backtracks + 1; // keep track of the number of backtracks for curr char's path
             end
             else begin // first part of left char hasn't been read (num of lefts in path)
-              next_state = READ_CHAR; // READ_CHAR;
+              next_state = 3; // READ_CHAR;
             end
           end
           else begin // get next SPI byte
@@ -124,7 +126,7 @@ always_comb begin
           end
         end
       
-        READ_NUM_LEFTS: begin
+        2: begin // READ_NUM_LEFTS
           if (offset < 8) begin
             if (count < 8) begin // read 8 bits of the data into the char index
               next_num_lefts[7-count[2:0]] = SPI_data_in[7-offset[2:0]];
@@ -132,7 +134,7 @@ always_comb begin
               next_offset = offset + 1;
             end
             else begin
-              next_state = UPDATE_PATH; // after reading num_lefts of curr left char, read curr left char
+              next_state = 4; // UPDATE PATH after reading num_lefts of curr left char, read curr left char
               next_count = 0;
             end
           end
@@ -142,7 +144,7 @@ always_comb begin
           end
         end
 
-        READ_CHAR: begin
+        3: begin // READ_CHAR
           if (offset < 8) begin
             if (count < 8) begin // read 8 bits of the data into the char index
               next_char[7- count[2:0]] = SPI_data_in[7-offset[2:0]];
@@ -151,14 +153,14 @@ always_comb begin
             end
             else begin
               if (SPI_data_in[7-offset[2:0]] == 1 && curr_char != 8'b00001010) begin // read # lefts of left char first
-                next_state = READ_NUM_LEFTS;
+                next_state = 2; // READ_NUM_LEFTS
                 next_offset = offset + 1;
               end
               else if (curr_char == 8'b00001010 && leading_bit[0]) begin // if char is a newline, read total number of chars after it
-                next_state = READ_TOT_CHAR;
+                next_state = 6; // READ_TOT_CHAR
               end
               else begin
-                next_state = UPDATE_PATH; // after fetching the char, update the current path
+                next_state = 4; // UPDATE_PATH after fetching the char, update the current path
               end
               next_count = 0;
             end
@@ -169,13 +171,13 @@ always_comb begin
           end
         end
        
-        UPDATE_PATH: begin
+        4: begin // UPDATE_PATH
             if (offset < 8) begin
                     if (backtracks == 1) begin
                         next_path = {curr_path[127:1], 1'b1}; // if on the last backtrack, shift out last move and move right
                         next_backtracks = backtracks - 1;
                         if (SPI_data_in[7-offset[2:0]] == 0) begin // if the char is a right then write the path
-                            next_state = WRITE_PATH;
+                            next_state = 5; // WRITE_PATH
                         end
                     end
                     else if (backtracks > 0) begin // continue to backtrack until only one backtrack is left
@@ -193,13 +195,13 @@ always_comb begin
                                 next_num_lefts = num_lefts - 1; 
                               end
                               else begin // if the curr char is a left and the number of lefts to move is 0
-                                next_state = WRITE_PATH;
+                                next_state = 5; // WRITE_PATH
                                 next_count = 0;
                               end
                         end
                         else begin // add right once if the char is a right and there were no backtracks
                             next_path = {curr_path[126:0], 1'b1};
-                            next_state = WRITE_PATH;
+                            next_state = 5; // WRITE_PATH
                         end
 
                     end
@@ -210,7 +212,7 @@ always_comb begin
               end
           end
 
-        WRITE_PATH: begin
+        5: begin // WRITE_PATH
           if (first) begin // if first found char path is being written, reset next_first to 0 (finish condition of path being = to 128'b1 won't be false positive)
                 next_first = 0;
             end
@@ -223,11 +225,11 @@ always_comb begin
             end
             else begin // then shift out last move
                 next_path = {1'b0, curr_path[127:1]}; // shift out last move
-                next_state = READ_LEADING_BIT;
+                next_state = 1; // READ_LEADING_BIT
                 next_count = 0;
             end
         end
-        READ_TOT_CHAR: begin
+        6: begin // READ_TOT_CHAR
             if (count < 32) begin // read 4 bytes of data from SPI to get 32 bits of data for tot_chars
                 if (offset < 8) begin // if curr bit is within valid index of SPI read byte (0-7)
                     next_tot_chars[31-count] = SPI_data_in[7-offset];
@@ -241,10 +243,10 @@ always_comb begin
             end
             else begin
                 next_count = 0;
-                next_state = FINISH;
+                next_state = 7; // FINISH
             end
         end
-        FINISH: begin
+        7: begin // FINISH
             next_finished = 1;
         end
         default: begin next_state = curr_state; end
@@ -252,3 +254,4 @@ always_comb begin
 end
 
 endmodule;
+

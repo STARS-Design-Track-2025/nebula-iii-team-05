@@ -21,7 +21,7 @@ module t05_translation_decode (
     output logic SPI_write_en,
     output logic finished
 ); 
-state_tr curr_state, next_state;
+logic [2:0] curr_state, next_state;
 logic [3:0] SPI_count, next_SPI_count; // count to 7 and room incase of overflow
 logic [8:0] SRAM_count, next_SRAM_count; // count to 256 (for code paths for each char from SRAM)
 logic [7:0] next_char_index;
@@ -38,7 +38,7 @@ always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
         SPI_count <= 0;
         SRAM_count <= 0;
-        curr_state <= INIT;
+        curr_state <= 0; // INIT
         char_index <= 0;
         path_bit_count <= 0;
         SPI_path <= 0;
@@ -83,16 +83,16 @@ always_comb begin
     SPI_write_en = 0;
 
     case (curr_state)
-        INIT:begin
+        0:begin // INIT
              if (translation_enable) begin
                   SPI_read_en = 1;
-                 next_state = READ_SRAM_PATH;
+                 next_state = 1; //READ_SRAM_PATH
              end
              else begin
-                next_state = INIT;
+                next_state = 0; // INIT
              end
         end
-        READ_SRAM_PATH: begin
+        1: begin // READ_SRAM_PATH
           if (!wait_cycle) begin
             if (SRAM_count > 255) begin
                 next_SRAM_count = 0;
@@ -101,7 +101,7 @@ always_comb begin
                 next_char_index = SRAM_count[7:0];
                 next_SRAM_count = SRAM_count + 1;
               next_SRAM_read_en = 1;
-              next_state = READ_SPI_PATH;
+              next_state = 2; // READ_SPI_PATH
               next_wait_cycle = 1;
                 SPI_read_en = 1;
             end
@@ -111,7 +111,7 @@ always_comb begin
             next_wait_cycle = 0;
           end
         end
-        READ_SPI_PATH: begin
+        2: begin // READ_SPI_PATH
           if (!wait_cycle) begin
             next_SRAM_read_en = 0;
             if (path_bit_count < 128) begin
@@ -129,7 +129,7 @@ always_comb begin
               end
               else begin
                 next_path_bit_count = 0;
-                next_state = COMPARE_PATHS;
+                next_state = 3; // COMPARE_PATHS
                 next_wait_cycle = 1;
               end
             end
@@ -137,10 +137,10 @@ always_comb begin
             next_wait_cycle = 0;
           end
         end
-        COMPARE_PATHS: begin
+        3: begin // COMPARE_PATHS
           if (!wait_cycle) begin
             if (SPI_path != SRAM_data_in) begin
-              next_state = READ_SRAM_PATH; // if a nonmatching bit is found, read another SRAM path and compare it with
+              next_state = 1;// READ_SRAM_PATH // if a nonmatching bit is found, read another SRAM path and compare it with
               next_SPI_count = 0;
               next_wait_cycle = 1;
               next_path_bit_count = 0;
@@ -148,7 +148,7 @@ always_comb begin
             else begin // if all 128 bits of the two paths are the same, write the SRAM char index bit by bit
               next_path_bit_count = 0;
               next_wait_cycle = 1;
-              next_state = WRITE_PATH;
+              next_state = 4; // WRITE_PATH
             end
             if (SPI_count >= 8) begin        
               next_SPI_count = 0;
@@ -158,7 +158,7 @@ always_comb begin
             next_wait_cycle = 0;
           end
         end
-        WRITE_PATH: begin
+        4: begin // WRITE_PATH
           if (!wait_cycle) begin
               SPI_write_en = 1;
               if (SPI_count < 8) begin
@@ -170,10 +170,10 @@ always_comb begin
                   next_SPI_count = 0;
                   next_SPI_path = 128'b0;
                   next_wait_cycle = 1;
-                  next_state = READ_SRAM_PATH;
+                  next_state = 1; // READ_SRAM_PATH
                   next_chars_found = curr_chars_found + 1;
                 if (next_chars_found == tot_chars) begin
-                  next_state = FINISH;
+                  next_state = 5; // FINISH
                 end
               end
           end
@@ -181,7 +181,7 @@ always_comb begin
             next_wait_cycle = 0;
           end
         end
-        FINISH: begin
+        5: begin // FINISH
             next_finished = 1;
         end
         default: begin
@@ -192,4 +192,3 @@ always_comb begin
 end
 
 endmodule;
-
