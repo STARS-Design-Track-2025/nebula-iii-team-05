@@ -288,7 +288,8 @@ module t05_top (
     .word_cnt(word_cnt),
     .FLV_done(FLV_done),
     .wipe_the_char(wipe_the_char),
-    .HTREE_complete(HT_complete)
+    .HTREE_complete(HT_complete),
+    .HT_fin(HT_fin_reg)
     );
 
   t05_hTree hTree (

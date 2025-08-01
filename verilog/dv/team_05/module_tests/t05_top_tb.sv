@@ -102,6 +102,10 @@ module t05_top_tb;
         end
     endtask
 
+    // initial begin
+    //     #37000 $finish;
+    // end
+
     initial begin
         $dumpfile("t05_top.vcd");
         $dumpvars(0, t05_top_tb);
@@ -140,7 +144,18 @@ module t05_top_tb;
         pulseit (1, 49);
         pulseit (1, 18);
         pulseit (1, 8'h1A);
-
+        // while (en_state != 1) begin
+        //     #1;
+        // end
+        // $display("HISTOGRAM started %d", $time);
+        // while (en_state != 2) begin
+        //     #1;
+        // end
+        // $display("FIND LEAST VALUE started %d", $time);
+        // while (en_state != 3) begin
+        //     #1;
+        // end
+        // $display("HTREE started %d", $time);
         #100000 $finish;
     end
 

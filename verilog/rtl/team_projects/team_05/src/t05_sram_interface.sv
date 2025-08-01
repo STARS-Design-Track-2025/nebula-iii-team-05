@@ -110,6 +110,9 @@ module t05_sram_interface (
     logic [31:0] ht_index_1;
     assign ht_index_1 = {24'd0, htreeindex} + 32'd1;
 
+    logic [31:0] ht_index_1_over;
+    assign ht_index_1_over = {24'd0, htreeindex * 2'd2} + 32'd1;
+
 
     logic [2:0] zero_cnt, zero_cnt_n;
 
@@ -348,7 +351,7 @@ always_comb begin
         3: begin //HTREE
             case(word_cnt)
                 0: begin //IDLE
-                    if (htree_write == '0 && counter_HTREE == 2 && !busy_o) begin
+                    if ((htree_write == '0 && counter_HTREE == 2 && !busy_o) || ((HT_state == 5 || HT_state == 3) && counter_HTREE == 4 && !busy_o)) begin
                         HTREE_complete = 1;
                     end
                     else if(pulse_HTREE && !busy_o) begin
@@ -358,21 +361,28 @@ always_comb begin
                     else if(htree_r_wr) begin
                         word_cnt_n = 8;
                         counter_HTREE_n = 0;
-                    end else if(HT_state == 9 && !busy_o && counter_HTREE == 2) begin
+                    end else if((HT_state == 9 || HT_state == 11) && !busy_o && counter_HTREE == 2) begin
                         nulls_n[31:0] = data_o;
                         word_cnt_n = 8;
                         HT_read_complete = 1;
                     end
                 end
                 1: begin //DETERMINE
-                    if(!htree_r_wr) begin
+                    if (!htree_r_wr && write_HT_fin) begin //OVERWRITE
+                        addr = 32'h33001024 + (htreeindex * 2 * 4);
+                        wr_en = 1;
+                        word_cnt_n = 9;
+                        data_i = {new_node[63:46], 14'd0};
+                        counter_HTREE_n = counter_HTREE + 1;
+                    end
+                    else if(!htree_r_wr) begin //WRITE
                         addr = 32'h33001024 + (htree_write * 4);
                         wr_en = 1;
                         word_cnt_n = 6;
                         data_i = new_node[63:32];
                         counter_HTREE_n = counter_HTREE + 1;
-                    end
-                    else if(htree_r_wr) begin
+                    end 
+                    else if(htree_r_wr) begin //READ
                         addr = 32'h33001024 + (htreeindex * 4);
                         r_en = 1;
                         word_cnt_n = 4;
@@ -414,6 +424,21 @@ always_comb begin
                 end
                 8: begin
                     word_cnt_n = 1;
+                end
+                9: begin
+                    if(!busy_o) begin
+                        word_cnt_n = 10;
+                    end
+                end
+                10: begin
+                    word_cnt_n = 11;
+                end
+                11: begin //OVERWRITE
+                    addr = 32'h33001024 + (ht_index_1_over * 4);
+                    wr_en = 1;
+                    word_cnt_n = 0;
+                    data_i = '0;
+                    counter_HTREE_n = counter_HTREE + 1;
                 end
             endcase
         end

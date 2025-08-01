@@ -46,7 +46,9 @@ module t05_hTree (
         RESET=6,                                        // Reset state for special cases
         IDLE=7,
         L2SRAM_WAIT = 8,
-        L2SRAM_RUN = 9
+        L2SRAM_RUN = 9,
+        L1SRAM_WAIT = 10,
+        L1SRAM_RUN = 11
     } state_t;
 
     // Internal register declarations
@@ -62,8 +64,9 @@ module t05_hTree (
     logic [2:0] nullsum_delay_counter, nullsum_delay_counter_reg;   // Counter for NULLSUM state delays
     logic WorR;
     logic wait_cnt, wait_cnt_n;
+    logic closing, closing_n;
     // ASSUMING LEAST, SUM VALUES, SRAM_FINISHED ARE REGISTERD VALUES
-
+    logic pre_fin, pre_fin_n;
 // Sequential logic block - handles state and register updates
 always_ff @(posedge clk, posedge rst_n) begin
     if (rst_n) begin
@@ -78,6 +81,8 @@ always_ff @(posedge clk, posedge rst_n) begin
         nullsum_delay_counter_reg <= 3'b0;   
         WriteorRead <= '0;
         wait_cnt <= 0;
+        closing <= 0;
+        pre_fin <= 0;
     end else if (HT_en == 4'b0011) begin
         state <= next_state;
         clkCount <= clkCount_reg;
@@ -94,7 +99,8 @@ always_ff @(posedge clk, posedge rst_n) begin
         nullsum_delay_counter_reg <= nullsum_delay_counter;
         WriteorRead <= WorR; // Write or Read control signal
         wait_cnt <= wait_cnt_n;
-
+        closing <= closing_n;
+        pre_fin <= pre_fin_n;
     end
 end
 
@@ -114,27 +120,33 @@ end
         node = node_reg;                                    // Default to current node value
         nullsum_delay_counter = nullsum_delay_counter_reg;  // Default to current counter value
         wait_cnt_n = wait_cnt;
+        closing_n = closing;
+        pre_fin_n = pre_fin;
 
         // Main state machine logic based on HT enable signal
         if (HT_en == 4'b0011) begin
+            pre_fin_n = (least1 == 9'b110000000 && least2 == 9'b110000000);
             // Special case: single character file (one node with null)
             if (((least1[8] && least2 == 9'b110000000) || (least2[8] && least1 == 9'b110000000)) && least1 != least2) begin
                 if((least1[8] && least2 == 9'b110000000) && least1 != 9'b110000000) begin
                     tree = {clkCount, least1, 9'b110000000, sum[45:0]};
-                    pulse = 1;
+                    closing_n = 1;
+                    //next_state = NEWNODE;
                 end else if((least2[8] && least1 == 9'b110000000) && least2 != 9'b110000000) begin
                     tree = {clkCount, 9'b110000000, least2, sum[45:0]};
-                    pulse = 1;
+                    closing_n = 1;
+                    //next_state = NEWNODE;
                 end else begin
                     tree = {clkCount, 9'b110000000, 9'b110000000, sum[45:0]};
-                    pulse = 1;
+                    closing_n = 1;
+                    //next_state = NEWNODE;
                 end
-                clkCount_reg = clkCount + 1;
-                HT_finished = 1'b0;                                             // If both least are null nodes, finish immediately
-                next_state = RESET;                                             // Go to reset state
             // Special case: both nodes are null (NULL + NULL case)
-            end else if (least1 == 9'b110000000 && least2 == 9'b110000000 && !write_HT_fin) begin
+            end 
+
+            if (least1 == 9'b110000000 && least2 == 9'b110000000 && !write_HT_fin) begin
                 HT_finished = 1'b1;
+                tree = {clkCount, 9'b11000000, 9'b110000000, sum[45:0]};
             end else begin
                 // Regular Huffman tree construction state machine
                 case(state)
@@ -142,10 +154,13 @@ end
                         WorR = 1'b0; 
                         // Create new internal node from two least frequent nodes
                         // Tree format: {clkCount, least1, least2, sum}
-                        if(!write_HT_fin) begin
+                        if(!write_HT_fin && !closing) begin
                             tree = {clkCount, least1, least2, sum[45:0]};                   // Uses clkCount_reg, not clkCount
                             pulse = 1;
-                        end else if (write_HT_fin) begin
+                        end else if (!write_HT_fin) begin
+                            pulse = 1;
+                        end
+                        else if (write_HT_fin) begin
                             // Check if least1 is a sum node (not null) and needs SRAM access
                             if (least1[8] && least1 != 9'b110000000) begin
                                 next_state = L1SRAM;
@@ -154,7 +169,7 @@ end
                                 next_state = L2SRAM;
                             // Neither node needs SRAM access, go to finish
                             end else if (sram_complete) begin
-                                clkCount_reg = clkCount + 1;                                        // Output current count (will be incremented next cycle)
+                                clkCount_reg = clkCount + 2;                                        // Output current count (will be incremented next cycle)
                                 next_state = FIN;
                             end
                         end
@@ -162,38 +177,55 @@ end
                         node = tree;                                                        // tree was most recently updated
                     end
                     L1SRAM: begin
-                        // Access SRAM for least1 node data
+                        // Access SRAM for least2 node data
                         WorR = 1'b1;
-                        nullSumIndex_reg = least1[6:0]; 
-                        if (SRAM_finished) begin 
-                            next_state = NULLSUM1;
-
-                        end else begin
-                            next_state = L1SRAM;
+                        nullSumIndex_reg = least1[6:0];
+                        next_state = L1SRAM_WAIT;
+                        node = node_reg;                    // no update, keep previous value
+                        wait_cnt_n = 0;
+                    end
+                    L1SRAM_WAIT: begin
+                        WorR = 1;
+                        if(wait_cnt) begin
+                            next_state = L1SRAM_RUN;
                         end
-                        node = node_reg;                            // no update, keep previous value
+                        else begin
+                            next_state = L1SRAM_WAIT;
+                            wait_cnt_n = wait_cnt + 1;
+                        end
+                    end
+                    L1SRAM_RUN: begin
+                        WorR = 0;
+                        nullSumIndex_reg = least1[6:0];
+                        if (read_complete) begin
+                            next_state = NULLSUM1;
+                        end else begin
+                            next_state = L1SRAM_RUN;
+                        end
+                        node = node_reg;                    // no update, keep previous value
                     end
                     NULLSUM1: begin
                         // Process SRAM data for least1 and prepare null1
                         WorR = 1'b0;
                         null1 = {least1[6:0], nulls[63:46], 46'b0};
-                        nullSumIndex_reg = 7'b0;
+                        //nullSumIndex_reg = 7'b0;
                         
-                        // Multi-cycle delay within NULLSUM1 state
-                        if (nullsum_delay_counter_reg < 3'd3) begin
-                            // Still counting delay cycles
-                            nullsum_delay_counter = nullsum_delay_counter_reg + 1;
-                            next_state = NULLSUM1; // Stay in this state
-                        end else begin
-                            // Delay complete, reset counter and move to next state
-                            nullsum_delay_counter = 3'b0;
+                        // // Multi-cycle delay within NULLSUM1 state
+                        // if (nullsum_delay_counter_reg < 3'd3) begin
+                        //     // Still counting delay cycles
+                        //     nullsum_delay_counter = nullsum_delay_counter_reg + 1;
+                        //     next_state = NULLSUM1; // Stay in this state
+                        // end else begin
+                        //     // Delay complete, reset counter and move to next state
+                        //     nullsum_delay_counter = 3'b0;
                             // Check if least2 also needs SRAM access
-                            if (least2[8]) begin
-                                next_state = L2SRAM;
-                            end else if (sram_complete) begin
-                                next_state = FIN;
-                            end
+                        if (least2[8] && least2 != 9'b110000000) begin
+                            next_state = L2SRAM;
+                        end else if (sram_complete) begin
+                            clkCount_reg = clkCount + 2;
+                            next_state = FIN;
                         end
+                        // end
                         node = null1;                                                   // null1 was most recently updated
                     end
                     L2SRAM: begin
@@ -202,6 +234,7 @@ end
                         nullSumIndex_reg = least2[6:0];
                         next_state = L2SRAM_WAIT;
                         node = node_reg;                    // no update, keep previous value
+                        wait_cnt_n = 0;
                     end
                     L2SRAM_WAIT: begin
                         WorR = 1;
@@ -227,16 +260,17 @@ end
                         // Process SRAM data for least2 and prepare null2
                         WorR = 1'b0;
                         null2 = {least2[6:0], nulls[63:46], 46'b0};
-                        nullSumIndex_reg = 7'b0;
+                        //nullSumIndex_reg = 7'b0;
                         
                         // Multi-cycle delay within NULLSUM2 state
-                        if (nullsum_delay_counter_reg < 3'd3) begin
-                            // Still counting delay cycles
-                            nullsum_delay_counter = nullsum_delay_counter_reg + 1;
-                            next_state = NULLSUM2;                                      // Stay in this state
-                        end else if (sram_complete) begin
+                        // if (nullsum_delay_counter_reg < 3'd3) begin
+                        //     // Still counting delay cycles
+                        //     nullsum_delay_counter = nullsum_delay_counter_reg + 1;
+                        //     next_state = NULLSUM2;                                      // Stay in this state
+                        if (sram_complete) begin
                             // Delay complete, reset counter and move to next state
                             nullsum_delay_counter = 3'b0;
+                            clkCount_reg = clkCount + 2;
                             next_state = FIN;
                         end
                         node = null2;                                                   // null2 was most recently updated

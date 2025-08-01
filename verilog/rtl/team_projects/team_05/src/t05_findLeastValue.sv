@@ -12,7 +12,8 @@ module t05_findLeastValue (
     input logic nextChar,
     input logic [3:0] word_cnt,
     input logic FLV_done,
-    input logic HTREE_complete
+    input logic HTREE_complete,
+    input logic HT_fin
 );
 logic [8:0] least1_n, least2_n, count_n, sumCount;
 logic [63:0] val1, val2, val1_n, val2_n, sum_n;
