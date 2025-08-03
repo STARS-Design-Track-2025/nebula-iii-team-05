@@ -1,194 +1,258 @@
 `timescale 1ms/10ps
-// typedef enum logic [2:0] {
-//     INIT, // initial (set if enable for the translation_decode module isn't high)
-//     READ_SRAM_PATH, // read a codebook path for a char from the SRAM
-//     READ_SPI_PATH, // read a char path from the compressed file
-//     COMPARE_PATHS, // compare path read from SPI with path read from SRAM
-//     WRITE_PATH, // writes the char index of the matching path from SRAM to SPI decompressed file, increment chars found and compare tot chars
-//     FINISH
-// } state_tr;
-
 module t05_translation_decode (
-    input logic clk, rst,
-    input logic translation_enable,
-    input logic [31:0] tot_chars, // total characters read in the hd_decode
-    input logic [7:0] SPI_data_in, // read in char bytes from the SPI
-    input logic [127:0] SRAM_data_in, // read in path from the SRAM
-    output logic SPI_read_en,
-    output logic SRAM_read_en,
-    output logic [7:0] char_index, // char index for char path to get in SRAM
-    output logic SPI_data_out, // given an char index from SRAM, write the char (bit by bit) based on the corresponding code
-    output logic SPI_write_en,
-    output logic finished
-); 
-logic [2:0] curr_state, next_state;
-logic [3:0] SPI_count, next_SPI_count; // count to 7 and room incase of overflow
-logic [8:0] SRAM_count, next_SRAM_count; // count to 256 (for code paths for each char from SRAM)
+  input logic clk, rst,
+  input logic translation_enable, // enables translate_decode
+  input logic [127:0] SRAM_read_data, // read 128 bit path
+  output logic SRAM_read_en, // enable SRAM to read 4 words
+  input logic [7:0] SPI_read_data, // read byte from SPI
+  output logic SPI_read_en, // enable SPI to read a byte
+  input logic [31:0] tot_chars, // from compressed file header (hd_decode)
+  
+  output logic SPI_write_en,
+  output logic finished, // finished, sent to controller
+  output logic SPI_write_data, // 8 bits of char sent to SPI
+  output logic [7:0] char_index // keep track of char of SRAM path from codebook being compared to compressed file
+);
+
+logic [7:0] eof = 8'd26;
+logic [3:0] bit_count, next_bit_count; // current bit of SPI data being compared to SRAM path
+logic next_SRAM_read_en, next_SPI_read_en, next_SPI_write_en;
+logic [3:0] curr_state, next_state;
 logic [7:0] next_char_index;
-logic [127:0] SPI_path, next_SPI_path; // store 7 bytes from SPI in a path
-logic [7:0] path_bit_count, next_path_bit_count; // counter to 128
-logic match, next_match;
-logic [31:0] curr_chars_found, next_chars_found;
+logic [1:0] wait_count, next_wait_count;
+logic [6:0] path_start, next_path_start;
+logic [127:0] curr_path_SPI, next_path_SPI;
+logic [6:0] curr_path_SPI_start, next_path_SPI_start;
+logic [3:0] offset, next_offset;
+logic [8:0] SRAM_paths_compared, next_SRAM_paths_compared;
 logic next_finished;
-logic next_SPI_data_out;
-logic wait_cycle, next_wait_cycle;
-logic next_SRAM_read_en;
+logic [2:0] count, next_count;
+logic next_SPI_write_data;
+logic [31:0] next_chars_found, curr_chars_found;
+logic one_found, next_one_found;
+logic [3:0] prev_state, prev_state_n;
+logic full_bit_read, next_full_bit_read;
 
 always_ff @(posedge clk, posedge rst) begin
-    if (rst) begin
-        SPI_count <= 0;
-        SRAM_count <= 0;
-        curr_state <= 0; // INIT
-        char_index <= 0;
-        path_bit_count <= 0;
-        SPI_path <= 0;
-        match <= 0;
-        curr_chars_found <= 0;
-        finished <= 0;
-        SPI_data_out <= 0;
-      wait_cycle <= 1;
-      SRAM_read_en <= 0;
-    end
-    else if (translation_enable) begin
-        SPI_count <= next_SPI_count;
-        SRAM_count <= next_SRAM_count;
-        curr_state <= next_state;
-        char_index <= next_char_index;
-        path_bit_count <= next_path_bit_count;
-        SPI_path <= next_SPI_path;
-        match <= next_match;
-        curr_chars_found <= next_chars_found;
-        finished <= next_finished;
-        SPI_data_out <= next_SPI_data_out;
-      wait_cycle <= next_wait_cycle;
-      SRAM_read_en <= next_SRAM_read_en;
-    end
+  if (rst) begin
+    bit_count <= 0;
+    wait_count <= 0;
+    SRAM_read_en <= 0;
+    SPI_read_en <= 0;
+    SPI_write_en <= 0;
+    path_start <= 0;
+    curr_path_SPI <= 0;
+    curr_path_SPI_start <= 0;
+    offset <= 0;
+    SRAM_paths_compared <= 0;
+    curr_state <= 0;
+    finished <= 0;
+    count <= 0;
+    SPI_write_data <= 0;
+    curr_chars_found <= 0;
+    char_index <= 0;
+    one_found <= 0;
+    prev_state <= 0;
+    full_bit_read <= 1;
+
+  end
+  else if (translation_enable) begin
+    bit_count <= next_bit_count;
+    SRAM_read_en <= next_SRAM_read_en;
+    SPI_read_en <= next_SPI_read_en;
+    SPI_write_en <= next_SPI_write_en;
+    wait_count <= next_wait_count;
+    path_start <= next_path_start;
+    curr_path_SPI <= next_path_SPI;
+    curr_path_SPI_start <= next_path_SPI_start;
+    offset <= next_offset;
+    SRAM_paths_compared <= next_SRAM_paths_compared;
+    curr_state <= next_state;
+    finished <= next_finished;
+    count <= next_count;
+    SPI_write_data <= next_SPI_write_data;
+    curr_chars_found <= next_chars_found;
+    char_index <= next_char_index;
+    one_found <= next_one_found;
+    prev_state <= prev_state_n;
+    full_bit_read <= next_full_bit_read;
+  end
 end
 
 always_comb begin
-    next_SPI_count = SPI_count;
-    next_SRAM_count = SRAM_count;
-    next_state = curr_state;
-    next_char_index = char_index;
-    next_path_bit_count = path_bit_count;
-    next_SPI_path = SPI_path;
-    next_match = match;
-    next_chars_found = curr_chars_found;
-    next_finished = finished;
-    next_SPI_data_out = SPI_data_out;
-  next_wait_cycle = wait_cycle;
+  next_bit_count = bit_count;
   next_SRAM_read_en = SRAM_read_en;
-
-    SPI_read_en = 0;
-    SPI_write_en = 0;
-
-    case (curr_state)
-        0:begin // INIT
-             if (translation_enable) begin
-                  SPI_read_en = 1;
-                 next_state = 1; //READ_SRAM_PATH
-             end
-             else begin
-                next_state = 0; // INIT
-             end
+  next_SPI_read_en = SPI_read_en;
+  next_SPI_write_en = SPI_write_en;
+  next_wait_count = wait_count;
+  next_path_start = path_start;
+  next_path_SPI = curr_path_SPI;
+  next_path_SPI_start = curr_path_SPI_start;
+  next_offset = offset;
+  next_SRAM_paths_compared = SRAM_paths_compared;
+  next_finished = finished;
+  next_count = count;
+  next_SPI_write_data = SPI_write_data;
+  next_chars_found = curr_chars_found;
+  next_state = curr_state;
+  next_char_index = char_index;
+  next_one_found = one_found;
+  prev_state_n = prev_state;
+  next_full_bit_read = full_bit_read;
+  
+  case (curr_state)
+    0: begin // INIT
+      if (translation_enable) begin
+        next_state = 1;
+      end
+    end
+    1: begin // READ SRAM PATH
+      if (char_index >= 255) begin
+        next_char_index = 0;
+        next_SRAM_paths_compared = 0;
+      end
+        if (wait_count == 0) begin
+          next_wait_count = wait_count + 1;
+          next_SRAM_read_en = 1;
         end
-        1: begin // READ_SRAM_PATH
-          if (!wait_cycle) begin
-            if (SRAM_count > 255) begin
-                next_SRAM_count = 0;
-            end
-            else begin
-                next_char_index = SRAM_count[7:0];
-                next_SRAM_count = SRAM_count + 1;
-              next_SRAM_read_en = 1;
-              next_state = 2; // READ_SPI_PATH
-              next_wait_cycle = 1;
-                SPI_read_en = 1;
-            end
+        else if (wait_count == 1) begin
+          next_SRAM_read_en = 0;
+          next_wait_count = wait_count + 1;
+        end
+      else if (translation_enable) begin
+        if ((SRAM_read_data != 128'b0 && SRAM_paths_compared == 0 && full_bit_read)) begin// don't check empty paths
+            next_char_index = 0;
+              next_state = 2; // only get a new byte if creating a new SPI path to compare and no bits in current SPI byte haven't been used
+              prev_state_n = 3;
+          end
+        else if (SRAM_read_data != 128'b0) begin
+            next_state = 3; // find sram path length
+          end
+        else begin
+          next_char_index = char_index + 1;
+        end
+          next_wait_count = 0;
+        end
+      end
+      2: begin // READ SPI BYTE
+        if (wait_count == 0) begin
+          next_wait_count = wait_count + 1;
+          next_SPI_read_en = 1;
+        end
+        else if (wait_count == 1) begin
+          next_SPI_read_en = 0;
+          next_wait_count = wait_count + 1;
+        end
+        else if (translation_enable) begin
+          next_state = prev_state;
+          next_wait_count = 0;
+        end
+      end
+      3: begin // FIND BEGINNING OF SRAM PATH
+        if (SRAM_read_data[path_start] == 0) begin
+            next_path_start = path_start + 1;
+        end
+        else begin
+          if (SRAM_paths_compared != 0 && SRAM_paths_compared < 256) begin
+            //next_SRAM_paths_compared = SRAM_paths_compared + 1;
+            next_state = 6; // don't change SPI path until it is compared to all SRAM paths
           end
           else begin
-            next_SRAM_read_en = 0;
-            next_wait_cycle = 0;
-          end
+            next_SRAM_paths_compared = 0; // reset # SRAM paths compared and update the SPI path
+            next_state = 4;
+           end
+         end
+       end
+    4: begin
+      if (offset <= 7) begin
+        next_full_bit_read = 0;
+        if (SPI_read_data[7-offset] == 0 || (!one_found && SPI_read_data[7-offset] == 1)) begin
+          next_offset = offset + 1;
+          next_path_SPI = {curr_path_SPI[126:0], SPI_read_data[7-offset]};
+          next_path_SPI_start = curr_path_SPI_start + 1;
+          next_one_found = 1;
         end
-        2: begin // READ_SPI_PATH
-          if (!wait_cycle) begin
-            next_SRAM_read_en = 0;
-            if (path_bit_count < 128) begin
-                if (SPI_count < 8) begin
-                  next_SPI_path = SPI_path;
-                  next_SPI_path[127 - path_bit_count[6:0]] = SPI_data_in[7 - SPI_count[2:0]];
-                  next_SPI_count = SPI_count + 1;
-                  next_path_bit_count = path_bit_count + 1;
-                end
-                else begin
-                  SPI_read_en = 1;
-                  next_SPI_count = 0;
-                  next_wait_cycle = 1;
-                end
+        else if (SPI_read_data[7-offset] == 1 && curr_path_SPI_start > 0) begin
+          next_one_found = 0;
+          next_state = 6; // finished path, compare
+        end
+      end 
+      else begin
+        next_full_bit_read = 1;
+        next_offset = 0;
+        next_state = 2;
+        prev_state_n = 4;
+      end
+    end
+        
+      6: begin // COMPARE SRAM AND SPI PATHS
+            if (curr_path_SPI == SRAM_read_data) begin
+              //next_count = count + 1;
+              //next_path_SPI[curr_path_SPI_start - count] = SRAM_read_data[path_start - count];
+              next_state = 7;
+              next_count = 0;
+              next_path_SPI = 0;
+            end
+        else if (SRAM_paths_compared < 256) begin // still SRAM paths to search (current paths have same size but not equal)
+              next_char_index = SRAM_paths_compared[7:0];
+              next_SRAM_paths_compared = SRAM_paths_compared + 1;
+              next_state = 1;
+              next_count = 0;
+            end
+      end
+      7: begin // WRITE SPI PATH WITH CURRENT SRAM INDEX
+              next_SPI_write_en = 1;
+              if (bit_count < 8) begin
+                  if (count == 0) begin
+                    next_SPI_write_data = char_index[7-bit_count]; 
+                    next_bit_count = bit_count + 1;
+                    next_count = 1;
+                  end
+                  else if (count >= 1) begin
+                    next_SPI_write_en = 0;
+                    next_count = 0;
+                  end
               end
               else begin
-                next_path_bit_count = 0;
-                next_state = 3; // COMPARE_PATHS
-                next_wait_cycle = 1;
-              end
-            end
-          else begin
-            next_wait_cycle = 0;
-          end
-        end
-        3: begin // COMPARE_PATHS
-          if (!wait_cycle) begin
-            if (SPI_path != SRAM_data_in) begin
-              next_state = 1;// READ_SRAM_PATH // if a nonmatching bit is found, read another SRAM path and compare it with
-              next_SPI_count = 0;
-              next_wait_cycle = 1;
-              next_path_bit_count = 0;
-            end
-            else begin // if all 128 bits of the two paths are the same, write the SRAM char index bit by bit
-              next_path_bit_count = 0;
-              next_wait_cycle = 1;
-              next_state = 4; // WRITE_PATH
-            end
-            if (SPI_count >= 8) begin        
-              next_SPI_count = 0;
-            end
-          end
-          else begin
-            next_wait_cycle = 0;
-          end
-        end
-        4: begin // WRITE_PATH
-          if (!wait_cycle) begin
-              SPI_write_en = 1;
-              if (SPI_count < 8) begin
-                  next_SPI_data_out = char_index[7-SPI_count]; 
-                  next_SPI_count = SPI_count + 1;
-              end
-              else begin
-                  next_SPI_data_out = 0;
-                  next_SPI_count = 0;
-                  next_SPI_path = 128'b0;
-                  next_wait_cycle = 1;
-                  next_state = 1; // READ_SRAM_PATH
-                  next_chars_found = curr_chars_found + 1;
+                next_bit_count = 0;
+                next_SRAM_paths_compared = 0;
+                next_SPI_write_data = 0;
+                next_count = 0;
+                next_path_SPI = 128'b0;
+                next_state = 1; // READ_SRAM_PATH
+                next_SPI_write_en = 0;
+                next_chars_found = curr_chars_found + 1;
                 if (next_chars_found == tot_chars) begin
-                  next_state = 5; // FINISH
+                  next_state = 8; // ADD EOF
                 end
               end
-          end
-          else begin
-            next_wait_cycle = 0;
-          end
         end
-        5: begin // FINISH
-            next_finished = 1;
+        8: begin
+             next_SPI_write_en = 1;
+              if (bit_count < 8) begin
+                  if (count == 0) begin
+                    next_SPI_write_data = eof[7-bit_count]; 
+                    next_bit_count = bit_count + 1;
+                    next_count = 1;
+                  end
+                  else if (count >= 1) begin
+                    next_SPI_write_en = 0;
+                    next_count = 0;
+                  end
+              end
+              else begin
+                next_SPI_write_en = 0;
+                next_bit_count = 0;
+                next_state = 9; // FINISH
+              end
+
         end
-        default: begin
-            next_state = curr_state;
+    	9: begin
+          next_finished = 1;     
         end
-    endcase
+
+  endcase
 
 end
+endmodule
 
-endmodule;

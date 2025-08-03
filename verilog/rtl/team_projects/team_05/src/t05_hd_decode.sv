@@ -21,7 +21,7 @@ module t05_hd_decode (
     output logic finished, // sent to controller
     output logic [31:0] tot_chars // read from compressed file and sent to translation to determine the finish condition
 );
-  logic [2:0] curr_state, next_state; 
+  logic [3:0] curr_state, next_state; 
   logic [127:0] curr_path, next_path; 
   logic [3:0] offset, next_offset; // marker to keep track of which bit in byte of data_in to read next
   logic [7:0] count, next_count;
@@ -34,6 +34,10 @@ module t05_hd_decode (
   logic [31:0] next_tot_chars;
   logic [127:0] char_path, next_char_path;
   logic [7:0] num_lefts, next_num_lefts;
+  logic next_SPI_read_en;
+  logic next_SRAM_write_en;
+  logic [2:0] wait_count, next_wait_count;
+  logic [3:0] prev_state, prev_state_n;
   
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
@@ -50,6 +54,10 @@ always_ff @(posedge clk, posedge rst) begin
         tot_chars <= 0;
         char_path <= 0;
         num_lefts <= 0;
+        SPI_read_en <= 0;
+        SRAM_write_en <= 0;
+        wait_count <= 0;
+        prev_state <= 0;
     end
     else if (hd_enable) begin
         curr_state <= next_state;
@@ -65,6 +73,10 @@ always_ff @(posedge clk, posedge rst) begin
         tot_chars <= next_tot_chars;
         char_path <= next_char_path;
       	num_lefts <= next_num_lefts;
+        SPI_read_en <= next_SPI_read_en;
+        SRAM_write_en <= next_SRAM_write_en;
+        wait_count <= next_wait_count;
+        prev_state <= prev_state_n;
       
     end
 end
@@ -85,9 +97,11 @@ always_comb begin
     next_tot_chars = tot_chars;
     next_char_path = char_path;
     next_num_lefts = num_lefts;
+    prev_state_n = prev_state;
+    next_wait_count = wait_count;
 
-    SPI_read_en = 0;
-    SRAM_write_en = 0;
+    next_SRAM_write_en = SRAM_write_en;
+    next_SPI_read_en = SPI_read_en;
 
     case (curr_state)
         0: begin // INIT if the controller's enable is set high for hd_decode to start or not
@@ -97,14 +111,31 @@ always_comb begin
                  end
                  else if (count > 1) begin
                     next_count = 0;
-                    //next_count = count + 1;
-                    SPI_read_en = 1;
-                    next_state = 1; // READ_LEADING_BIT
+                    next_state = 8;
+                    prev_state_n = 0;
                  end
-                 //else if (count >)
             end
             else begin
                 next_state = 0; // INIT
+            end
+        end
+        8: begin // WAIT FOR CONTROLLER TO SEND ENABLE AFTER READING FROM SPI // GO TO READ_LEADING_BIT
+             if (wait_count == 0) begin
+              next_wait_count = wait_count + 1;
+              next_SPI_read_en = 1;
+            end
+            else if (wait_count == 1) begin
+              next_SPI_read_en = 0;
+              next_wait_count = wait_count + 1;
+            end
+            else if (hd_enable) begin
+              if (prev_state == 0) begin
+                next_state = 1;
+              end
+              else begin
+                next_state = prev_state;
+              end
+                next_wait_count = 0;
             end
         end
 
@@ -121,7 +152,8 @@ always_comb begin
             end
           end
           else begin // get next SPI byte
-            SPI_read_en = 1;
+            prev_state_n = 1;
+            next_state = 8;
             next_offset = offset - 8;
           end
         end
@@ -139,7 +171,8 @@ always_comb begin
             end
           end
           else begin // once 8 bits of SPI data is read, get a new chunk
-            SPI_read_en = 1;
+            prev_state_n = 2;
+            next_state = 8;
             next_offset = offset - 8;
           end
         end
@@ -166,7 +199,8 @@ always_comb begin
             end
           end
           else begin // once 8 bits of SPI data is read, get a new chunk
-            SPI_read_en = 1;
+            prev_state_n = 3;
+            next_state = 8;
             next_offset = offset - 8;
           end
         end
@@ -207,7 +241,9 @@ always_comb begin
                     end
               end
               else begin // if offset was >= 8, reset and get a new SPI byte
-                SPI_read_en = 1;
+                prev_state_n = 4;
+                next_state = 8;
+                //SPI_read_en = 1;
                 next_offset = offset - 8;
               end
           end
@@ -217,17 +253,31 @@ always_comb begin
                 next_first = 0;
             end
           if (count < 1) begin // wait one cycle for path to be set 
-                SRAM_write_en = 1;
                 char_index = curr_char;
                 SRAM_data_out = curr_path;
                 next_count = count + 1;
                 next_char_path = curr_path;
+                next_state = 10;
             end
             else begin // then shift out last move
                 next_path = {1'b0, curr_path[127:1]}; // shift out last move
                 next_state = 1; // READ_LEADING_BIT
                 next_count = 0;
             end
+        end
+        10: begin
+          if (wait_count == 0) begin
+              next_wait_count = wait_count + 1;
+              next_SRAM_write_en = 1;
+            end
+            else if (wait_count == 1) begin
+              next_SRAM_write_en = 0;
+              next_wait_count = wait_count + 1;
+            end
+            else if (hd_enable) begin
+              next_state = 5;
+              next_wait_count = 0;
+            end  
         end
         6: begin // READ_TOT_CHAR
             if (count < 32) begin // read 4 bytes of data from SPI to get 32 bits of data for tot_chars
@@ -237,7 +287,8 @@ always_comb begin
                     next_offset = offset + 1;
                 end
                 else begin // once 8 bits of SPI data is read, get a new chunk
-                    SPI_read_en = 1;
+                    prev_state_n = 6; 
+                    next_state = 8;
                     next_offset = offset - 8;
                 end
             end
@@ -253,5 +304,7 @@ always_comb begin
     endcase
 end
 
-endmodule;
+endmodule
+
+
 

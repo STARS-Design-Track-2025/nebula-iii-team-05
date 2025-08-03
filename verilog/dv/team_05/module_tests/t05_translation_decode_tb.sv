@@ -1,5 +1,4 @@
 `timescale 1ms/10ps
-//`include "typedefs.sv"
 typedef enum logic [2:0] {
     INIT, // initial (set if enable for the translation_decode module isn't high)
     READ_SRAM_PATH, // read a codebook path for a char from the SRAM
@@ -21,12 +20,14 @@ module t05_translation_decode_tb;
     logic SPI_data_out; // given an char index from SRAM, write the char (bit by bit) based on the corresponding code
     logic SPI_write_en;
     logic finished;
-  logic [1023:0] SPI_data_arr; // store 2 char paths (each path has 7 bytes)
+  logic [31:0] SPI_data_arr; // store 2 char paths (each path has 7 bytes)
     logic [127:0] SRAM_data_arr [255:0]; // store paths of all the ASCII chars
     logic [8:0] SRAM_count;
+  logic [3:0] state;
+  logic [127:0] curr_SPI_path;
 
     always #5 clk = ~clk;
-    t05_translation_decode tr1 (.clk(clk), .rst(reset), .finished(finished), .tot_chars(tot_chars), .translation_enable(1'b1), .char_index(char_index), .SPI_data_in(SPI_data_in), .SPI_read_en(read_en_SPI), .SRAM_data_in(SRAM_data_in), .SRAM_read_en(SRAM_read_en), .SPI_data_out(SPI_data_out), .SPI_write_en(SPI_write_en));
+    t05_translation_decode tr1 (.clk(clk), .rst(reset), .finished(finished), .tot_chars(tot_chars), .translation_enable(1'b1), .char_index(char_index), .SPI_read_data(SPI_data_in), .SPI_read_en(read_en_SPI), .SRAM_read_data(SRAM_data_in), .SRAM_read_en(SRAM_read_en), .SPI_write_data(SPI_data_out), .SPI_write_en(SPI_write_en));
     task reset_fsm();
       begin
         reset = 1;
@@ -44,14 +45,30 @@ module t05_translation_decode_tb;
       end
     endtask
 
-  task automatic feed_spi_stream(input logic [1023:0] spi_data, input int num_bytes);
+  task automatic feed_spi_stream(input logic [31:0] spi_data, input int num_bytes);
     //SPI_data_in = spi_data[255 -: 8];
-    for (int i = 0; i < num_bytes; i++) begin
+    for (int i = 0; i < 5; i++) begin
         @(posedge clk);
-        while (!read_en_SPI) @(posedge clk);
+      while (!read_en_SPI && !finished) begin
+        @(posedge clk);
+      end
 
-        SPI_data_in = spi_data[1023 - 8*i -: 8];
+      // if (state != 1) begin
+      //     $display("STATE: ", state);
+      //     $display("SRAM DATA IN: ", SRAM_data_in);
+      //     $display("SRAM DATA EN: ", SRAM_read_en);
+      //     $display("SPI BYTE: ", SPI_data_in);
+      //     $display("SPI READ EN: ", read_en_SPI);
+      //     $display("CHAR INDEX: ", char_index);
+      //   end
+
+      SPI_data_in = spi_data[31 - 8*i -: 8];
     end
+    // SPI_data_in = spi_data[15:8];
+    // #50000;
+    // SPI_data_in = spi_data[7:0];
+    // #10000;
+
 endtask
 
     initial begin
@@ -61,21 +78,20 @@ endtask
       clk = 0;
       reset = 0;
 
-      SPI_data_arr = {128'b10101, 128'b11111, 128'b10101, 128'b101011111111, 128'b00000001111111, 128'b10000000000000000001, 128'b011111111111110, 128'b101011111111};//, 128'b011111111111110, 128'b10000000000000000001};
-      SRAM_data_arr[0] = 128'b10101;
-      SRAM_data_arr[1] = 128'b11111;
+      SPI_data_arr = {6'b101011, 6'b100000, 6'b101011, 12'b101011111111, 2'b10}; //16'b0000000011111111, 6'b101111, 14'b01111111111101, 12'b101011111111};//, 128'b011111111111110, 128'b10000000000000000001};
+      SRAM_data_arr[0] = 128'b100000;
+      SRAM_data_arr[1] = 128'b101011;
       SRAM_data_arr[2] = 128'b101011111111;
-      SRAM_data_arr[3] = 128'b00000001111111;
-      SRAM_data_arr[4] = 128'b011111111111110;
-      SRAM_data_arr[5] = 128'b10000000000000000001;
-      for (integer i = 6; i < 255; i++) begin
+//       SRAM_data_arr[3] = 128'b0000000011111111;
+//       SRAM_data_arr[4] = 128'b01111111111101;
+//       SRAM_data_arr[5] = 128'b101111;
+      for (integer i = 3; i < 255; i++) begin
         SRAM_data_arr[i] = 0;
       end
-      tot_chars = 8;
+      tot_chars = 4;
 
       reset_fsm();
-      feed_spi_stream(SPI_data_arr, 128);
-    
+      feed_spi_stream(SPI_data_arr, 10);
         #500;
 
       #1 $finish;

@@ -1,8 +1,8 @@
-module sram_interface_decode (
+module t05_sram_interface_decode (
     input logic clk, rst,
 
     // CONTROLLER state
-    input logic [2:0] controller_state,
+    input logic [1:0] controller_state,
 
     // header decode write to SRAM
     input logic [7:0] char_index, // write path at char index
@@ -12,6 +12,8 @@ module sram_interface_decode (
     // translation read from SRAM
     input logic SRAM_read_en,
     output logic [127:0] SRAM_data_in,
+
+    //output logic SRAM_finished,
 
     // wishbone connects
     output logic wr_en, // write enable
@@ -37,10 +39,12 @@ logic [2:0] word_count, next_word_count;
 logic prev_busy_o;
 
 // hd_decode
-logic hd_decode_count, next_hd_decode_count;
+logic [7:0] hd_decode_count, next_hd_decode_count;
 
 // translation
 logic [127:0] next_SRAM_data_in;
+
+logic SRAM_finished, next_SRAM_finished;
 
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
@@ -51,6 +55,7 @@ always_ff @(posedge clk, posedge rst) begin
       prev_busy_o <= 0;
       hd_decode_count <= 0;
       word_count <= 0;
+      SRAM_finished <= 0;
     end
     else begin
       SRAM_data_in <= next_SRAM_data_in;
@@ -60,6 +65,7 @@ always_ff @(posedge clk, posedge rst) begin
       init_finished <= next_init_finished;
       prev_busy_o <= busy_o; // keep track of prev state/edge of busy_o
       word_count <= next_word_count;
+      SRAM_finished <= next_SRAM_finished;
     end
 end
 
@@ -108,6 +114,7 @@ always_comb begin
             0: begin 
               r_en = 0;
               wr_en = 0;
+              next_SRAM_finished = 0;
               if (SRAM_read_en && !busy_o) begin // write the 128 bit path
                   next_word_count = 1;
               end
@@ -148,6 +155,7 @@ always_comb begin
               else if (!busy_o && prev_busy_o) begin
                 next_word_count = 0;
                 next_hd_decode_count = hd_decode_count + 1; // add one to write count
+                next_SRAM_finished = 1;
               end
             end
         endcase
@@ -159,6 +167,7 @@ always_comb begin
             0: begin 
               r_en = 0;
               wr_en = 0;
+              next_SRAM_finished = 0;
               if (SRAM_write_en && !busy_o) begin // write the 128 bit path
                   next_word_count = 1;
               end
@@ -198,6 +207,7 @@ always_comb begin
               end
               else if (!busy_o && prev_busy_o) begin
                 next_word_count = 0;
+                next_SRAM_finished = 1;
               end
             end
         endcase
