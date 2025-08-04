@@ -118,7 +118,7 @@ logic [127:0] hd_SRAM_data_out; // write char path
   logic SPI_read_en_hd;
 logic SPI_read_en_tr;
 logic SPI_write_en;
-// module t05_SPI (
+// t05_SPI SPI1 (
 //     .miso(miso), // Read
 //     .rst(reset),
 //     .serial_clk(s_clk), .clk(hwclk),
