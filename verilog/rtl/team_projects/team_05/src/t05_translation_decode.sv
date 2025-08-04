@@ -1,4 +1,3 @@
-`timescale 1ms/10ps
 module t05_translation_decode (
   input logic clk, rst,
   input logic translation_enable, // enables translate_decode
@@ -154,7 +153,6 @@ always_comb begin
         end
         else begin
           if (SRAM_paths_compared != 0 && SRAM_paths_compared < 256) begin
-            //next_SRAM_paths_compared = SRAM_paths_compared + 1;
             next_state = 6; // don't change SPI path until it is compared to all SRAM paths
           end
           else begin
@@ -184,11 +182,10 @@ always_comb begin
         prev_state_n = 4;
       end
     end
+            
         
       6: begin // COMPARE SRAM AND SPI PATHS
             if (curr_path_SPI == SRAM_read_data) begin
-              //next_count = count + 1;
-              //next_path_SPI[curr_path_SPI_start - count] = SRAM_read_data[path_start - count];
               next_state = 7;
               next_count = 0;
               next_path_SPI = 0;
@@ -255,4 +252,3 @@ always_comb begin
 
 end
 endmodule
-

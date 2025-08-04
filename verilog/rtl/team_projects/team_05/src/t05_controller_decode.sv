@@ -1,5 +1,3 @@
-`timescale 1ms/10ps
-
 // typedef enum logic [2:0] {
 //     INIT,
 //     HEADER_DECODE,
@@ -16,7 +14,10 @@ module t05_controller_decode (
     output logic hd_enable,
     output logic tr_enable,
     output logic [1:0] curr_state,
-    output logic finished
+    output logic finished,
+  	output logic SPI_read_en,
+  	input logic SPI_read_en_hd,
+  	input logic SPI_read_en_tr
 ); 
 logic [1:0] next_state;
 logic next_finished;
@@ -24,9 +25,11 @@ logic next_finished;
 always_ff @(posedge clk, posedge rst) begin
     if (rst) begin
         curr_state <= 2'b0;
+      	finished <= 0;
     end
     else begin
         curr_state <= next_state;
+      	finished <= next_finished;
     end
 end
 
@@ -38,19 +41,23 @@ always_comb begin
         2'b0: begin // INIT
             hd_enable = 0;
             tr_enable = 0;
-            next_state = 0;
+            next_state = 1;
         end
         2'b1: begin // HEADER DECODE
             // SRAM is currently writing data for hd_decode
-            hd_enable = (SRAM_wr_en || SRAM_r_en) ? 0 : 1;
+            hd_enable = 1;
+          	//hd_enable = (SRAM_wr_en || SRAM_r_en) ? 0 : 1;
             tr_enable = 0;
+          	SPI_read_en = SPI_read_en_hd;
             if (hd_finished) begin
                 next_state = 2'b10;
             end
         end
         2'b10: begin // TRANSLATION
-            tr_enable = (SRAM_wr_en || SRAM_r_en)  ? 0 : 1;
+          	tr_enable = 1;
+            //tr_enable = (SRAM_wr_en || SRAM_r_en)  ? 0 : 1;
             hd_enable = 0;
+          	SPI_read_en = SPI_read_en_tr;
             if (tr_finished) begin
                 next_state = 2'b11;
             end

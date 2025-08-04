@@ -5,11 +5,12 @@ module t05_sram_interface_decode (
     input logic [1:0] controller_state,
 
     // header decode write to SRAM
-    input logic [7:0] char_index, // write path at char index
+  input logic [7:0] char_index_hd, // write path at char index
     input logic SRAM_write_en,
     input logic [127:0] SRAM_data_out,
 
     // translation read from SRAM
+  input logic [7:0] char_index_tr, // read path at char index
     input logic SRAM_read_en,
     output logic [127:0] SRAM_data_in,
 
@@ -122,7 +123,7 @@ always_comb begin
             1: begin 
               if (!busy_o && !prev_busy_o) begin // previous operation completely finished
                 wr_en = 1; 
-                addr = BASE_ADDR + (hd_decode_count * 16);
+                addr = BASE_ADDR + (char_index_hd * 16);
                 data_i = SRAM_data_in[127:96]; 
               end
               else if (!busy_o && prev_busy_o) begin // write first word is complete
@@ -131,7 +132,7 @@ always_comb begin
             end
             2: begin
               if (!busy_o && !prev_busy_o) begin
-                addr = BASE_ADDR + (hd_decode_count * 16 + 4);
+                addr = BASE_ADDR + (char_index_hd * 16 + 4);
                 data_i = SRAM_data_in[95:64];
               end
               else if (!busy_o && prev_busy_o) begin
@@ -140,7 +141,7 @@ always_comb begin
             end
             3: begin
               if (!busy_o && !prev_busy_o) begin
-                addr = BASE_ADDR + (hd_decode_count * 16 + 8);
+                addr = BASE_ADDR + (char_index_hd * 16 + 8);
                 data_i = SRAM_data_in[63:32];
               end
               else if (!busy_o && prev_busy_o) begin
@@ -149,12 +150,11 @@ always_comb begin
             end
             4: begin 
               if (!busy_o && !prev_busy_o) begin
-                addr = BASE_ADDR + (hd_decode_count * 16 + 12);
+                addr = BASE_ADDR + (char_index_hd * 16 + 12);
                 data_i = SRAM_data_in[31:0];
               end
               else if (!busy_o && prev_busy_o) begin
                 next_word_count = 0;
-                next_hd_decode_count = hd_decode_count + 1; // add one to write count
                 next_SRAM_finished = 1;
               end
             end
@@ -175,7 +175,7 @@ always_comb begin
             1: begin 
               if (!busy_o && !prev_busy_o) begin // previous operation completely finished
                 r_en = 1; 
-                addr = BASE_ADDR + (char_index * 16);
+                addr = BASE_ADDR + (char_index_tr * 16);
                 next_SRAM_data_in[127:96] = data_o; 
               end
               else if (!busy_o && prev_busy_o) begin // read first word is complete
@@ -184,7 +184,7 @@ always_comb begin
             end
             2: begin
               if (!busy_o && !prev_busy_o) begin
-                addr = BASE_ADDR + (char_index * 16 + 4);
+                addr = BASE_ADDR + (char_index_tr * 16 + 4);
                 next_SRAM_data_in[95:64] = data_o;
               end
               else if (!busy_o && prev_busy_o) begin
@@ -193,7 +193,7 @@ always_comb begin
             end
             3: begin
               if (!busy_o && !prev_busy_o) begin
-                addr =  BASE_ADDR + (char_index * 16 + 8);
+                addr =  BASE_ADDR + (char_index_tr * 16 + 8);
                 next_SRAM_data_in[63:32] = data_o;
               end
               else if (!busy_o && prev_busy_o) begin
@@ -202,7 +202,7 @@ always_comb begin
             end
             4: begin 
               if (!busy_o && !prev_busy_o) begin
-                addr = BASE_ADDR + (char_index * 16 + 12);
+                addr = BASE_ADDR + (char_index_tr * 16 + 12);
                 next_SRAM_data_in[31:0] = data_o;
               end
               else if (!busy_o && prev_busy_o) begin
@@ -216,3 +216,5 @@ always_comb begin
 end
 
 endmodule
+
+

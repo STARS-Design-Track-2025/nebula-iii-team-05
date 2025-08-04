@@ -5,7 +5,13 @@ module t05_top_decompression_tb;
     // SPI
     logic [7:0] SPI_data_in; // byte sent by SPI
     logic SPI_data_out; // bit sent to SPI
-    logic [944:0] SPI_data_arr;
+  logic [1079:0] SPI_data_arr;
+  	logic read_en_SPI;
+  logic [1:0] controller_state;
+  logic SRAM_read_en;
+  logic [127:0] SRAM_data_in;
+  logic SRAM_wr_en;
+  logic [7:0] char_index_tr;
 
     // CONTROLLER SIGNALS
     // input logic hd_finished,
@@ -22,42 +28,43 @@ module t05_top_decompression_tb;
 
 
     // //WRAPPER
-    logic wbs_stb_o;
-    logic wbs_cyc_o;
-    logic wbs_we_o;
-    logic [3:0] wbs_sel_o;
-    logic [31:0] wbs_dat_o;
-    logic [31:0] wbs_adr_o;
-    logic spi_confirm_out;
-    logic nextChar;
-    logic init;
-    logic wbs_ack_i;
-    logic [31:0] wbs_dat_i;
-    logic pulse_in;
+//     logic wbs_stb_o;
+//     logic wbs_cyc_o;
+//     logic wbs_we_o;
+//     logic [3:0] wbs_sel_o;
+//     logic [31:0] wbs_dat_o;
+//     logic [31:0] wbs_adr_o;
+//     logic spi_confirm_out;
+//     logic nextChar;
+//     logic init;
+//     logic wbs_ack_i;
+//     logic [31:0] wbs_dat_i;
+//     logic pulse_in;
 
-  sram_WB_Wrapper sramwb1 (
-    .wb_clk_i(clk),
-    .wb_rst_i(reset),
-    .wbs_stb_i(wbs_stb_i),
-    .wbs_cyc_i(wbs_cyc_i),
-    .wbs_we_i(wbs_we_i),
-    .wbs_sel_i(wbs_sel_i),
-    .wbs_dat_i(wbs_dat_i),
-    .wbs_adr_i(wbs_adr_i),
-    .wbs_ack_o(wbs_ack_o),
-    .wbs_dat_o(wbs_dat_o)
-  );
+//   sram_WB_Wrapper sramwb1 (
+//     .wb_clk_i(clk),
+//     .wb_rst_i(reset),
+//     .wbs_stb_i(wbs_stb_i),
+//     .wbs_cyc_i(wbs_cyc_i),
+//     .wbs_we_i(wbs_we_i),
+//     .wbs_sel_i(wbs_sel_i),
+//     .wbs_dat_i(wbs_dat_i),
+//     .wbs_adr_i(wbs_adr_i),
+//     .wbs_ack_o(wbs_ack_o),
+//     .wbs_dat_o(wbs_dat_o)
+//   );
 
     t05_top_decompression topd1 (
-      .clk(clk), .reset(reset), .SPI_data_in(SPI_data_in), .SPI_data_out(SPI_data_out),
-      .wbs_stb_i(wbs_stb_i),
-      .wbs_cyc_i(wbs_cyc_i),
-      .wbs_we_i(wbs_we_i),
-      .wbs_sel_i(wbs_sel_i),
-      .wbs_dat_i(wbs_dat_i),
-      .wbs_adr_i(wbs_adr_i),
-      .wbs_ack_o(wbs_ack_o),
-      .wbs_dat_o(wbs_dat_o)
+      .SRAM_r_en(SRAM_read_en), .tr_SRAM_data_in(SRAM_data_in), .SRAM_wr_en(SRAM_wr_en), .char_index_tr(char_index_tr), .curr_state(controller_state),
+      .clk(clk), .reset(reset), .SPI_data_in(SPI_data_in), .SPI_data_out(SPI_data_out), .SPI_read_en(read_en_SPI)
+//       .wbs_stb_i(wbs_stb_i),
+//       .wbs_cyc_i(wbs_cyc_i),
+//       .wbs_we_i(wbs_we_i),
+//       .wbs_sel_i(wbs_sel_i),
+//       .wbs_dat_i(wbs_dat_i),
+//       .wbs_adr_i(wbs_adr_i),
+//       .wbs_ack_o(wbs_ack_o),
+//       .wbs_dat_o(wbs_dat_o)
       );
 
     always #5 clk = ~clk;
@@ -80,19 +87,23 @@ module t05_top_decompression_tb;
       end
     endtask
 
-//     task feed_spi_stream(input logic [935:0] spi_data, input int num_bytes);
-//     //SPI_data_in = spi_data[263-: 8];
-//     //int i = 0;
-//       //while (!finished) begin
-//       for (int i = 0; i < 117; i++) begin
-//         @(posedge clk);
-//         while (!read_en_SPI) @(posedge clk);
+  task feed_spi_stream(input logic [1079:0] spi_data, input int num_bytes);
+    //SPI_data_in = spi_data[263-: 8];
+    //int i = 0;
+      //while (!finished) begin
+    for (int i = 0; i < 117; i++) begin
+        @(posedge clk);
+        while (!read_en_SPI) @(posedge clk);
+      if (SRAM_wr_en) begin
+        $display("%d", char_index_tr);
+      end
 
-//         SPI_data_in = spi_data[935 - 8*i -: 8];
-//         //i++;
-//         @(posedge clk);
-//     end
-// endtask
+      SPI_data_in = spi_data[1079 - 8*i -: 8];
+        //i++;
+        //@(posedge clk);
+    end
+    #1000;
+endtask
 
     initial begin
       $dumpfile("t05_top_decompression.vcd"); //change the vcd vile name to your source file name
@@ -100,6 +111,19 @@ module t05_top_decompression_tb;
       
       clk = 0;
       reset = 0;
+//       wbs_stb_o = 0;
+//       wbs_cyc_o = 0;
+//       wbs_we_o = 0;
+//       wbs_sel_o = 0;
+//       wbs_dat_o = 0;
+//       wbs_adr_o = 0;
+//       spi_confirm_out = 0;
+//       nextChar = 0;
+//       init = 0;
+//       wbs_ack_i = 0;
+//       wbs_dat_i = 0;
+//       pulse_in = 0;
+      
 
       //SPI_data_arr[263:0] = 264'b0;
       //SPI_data_arr[263:0] = {{1'b1, 8'd67, 9'b100000100}, {1'b1, 8'd66, 1'b0}, + {1'b1, 8'd65, 1'b0}, {1'b1, 8'd70, 9'b100000001}, {1'b1, 8'd71, 2'b0}, {1'b1, 8'd74, 9'b100000001}, {1'b1, 8'd68, 9'b100000011},{1'b1, 8'd69, 1'b0}, {1'b1, 8'd75, 1'b0}, {1'b1, 8'd72, 9'b100000001}, {1'b1, 8'd73, 4'b0}, {1'b1, 8'b00001010}, {32'd11}, {69'b0}};
@@ -134,10 +158,10 @@ module t05_top_decompression_tb;
       // htree[23] = {{7'd8}, {1'b0, 8'd118}, {1'b0, 8'd53}, {46'b0}};
       
       // FILE TEST
-        SPI_data_arr[944:0] = {895'b1011011111000001011001011100101110000100000001100101111001011100011000000101001100000101110010100000001100110001000101110011100000011100110010010111010010000000110011001100101110101100000010100110100010110111110000010110010111001011100001000000011001011110010111000110000001010011000001011100101000000011001100010001011100111000000111001100100101110100100000001100110011001011101011000000101001101000101110110100000001100110101000010101111110000010110001111001011000001000000011000111110010110000110000001010010000001011000101000000011001000010001011000111000000111001000100101100100100000001100100011001011001011000000101001001000101100110100000001100100101000010110011110000010010010011001011010001000000011001001110010110100110000001010010100001011010101000000011001010010001011010111000000111001010100101101100100000001100101011001011011011000000101001011000101101110100000001100101101000000
+      SPI_data_arr[1079:0] = {895'b1011011111000001011001011100101110000100000001100101111001011100011000000101001100000101110010100000001100110001000101110011100000011100110010010111010010000000110011001100101110101100000010100110100010110111110000010110010111001011100001000000011001011110010111000110000001010011000001011100101000000011001100010001011100111000000111001100100101110100100000001100110011001011101011000000101001101000101110110100000001100110101000010101111110000010110001111001011000001000000011000111110010110000110000001010010000001011000101000000011001000010001011000111000000111001000100101100100100000001100100011001011001011000000101001001000101100110100000001100100101000010110011110000010010010011001011010001000000011001001110010110100110000001010010100001011010101000000011001010010001011010111000000111001010100101101100100000001100101011001011011011000000101001011000101101110100000001100101101000000
         ,9'b100001010
         ,32'd50
-        ,9'b100001010
+        //,9'b100001010
         ,6'b100000
         ,6'b100010
         ,6'b100001
@@ -159,11 +183,12 @@ module t05_top_decompression_tb;
         ,6'b101110
         ,6'b101111
         ,7'b1100000
-        ,9'b100000000};
+        ,9'b100000000
+        ,8'b1000000                      };
 
     
-    //   reset_fsm();
-    //   feed_spi_stream(SPI_data_arr, 117);
+       reset_fsm();
+      feed_spi_stream(SPI_data_arr, 36);
       // SPI_data_arr[263:0] = {128'b10000, {1'b1, 8'd67}, {1'b1, 8'd66, 1'b0}, + {1'b1, 8'd65, 1'b0}, {1'b1, 8'd70}, {1'b1, 8'd71, 2'b0}, {1'b1, 8'd74}, {1'b1, 8'd68}, {1'b1, 8'd75}, {1'b1, 8'd69, 1'b0}, {1'b1, 8'd72}, {1'b1, 8'd73, 4'b0}, {32'd10}, {12'b0}};
 //       set_inputs(SPI_data_arr[263:256], read_en_SPI);
 //       while (!read_en_SPI) begin
@@ -331,5 +356,10 @@ module t05_top_decompression_tb;
       #1 $finish;
 
     end
+//    always @(posedge clk) begin
+//      if ((SRAM_read_en) && (controller_state == 2)) begin
+//         SRAM_data_in <= SRAM_data_arr[char_index];
+//     end
+// end
   
 endmodule
