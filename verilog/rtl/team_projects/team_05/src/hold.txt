@@ -1,0 +1,274 @@
+module t05_displayControl
+(
+    input logic clk, rst,
+    input logic bf, compDecomp, isFinished,
+    input logic [3:0] contState_n,
+    output logic [2:0] mode_o, // Display mode (INIT, TITLE, SELECT, COMP, DECOMP, FINISH, ERROR)
+    
+    // Interface to backpack module
+    output logic send_data,              // Trigger to start sending data
+    output logic send_mode,              // 0=send 10 bits, 1=send all 320 bits
+    output logic [319:0] full_display,   // Complete 320-bit display data
+
+    input logic backpack_busy,           // Backpack is transmitting
+    input logic backpack_done,           // Backpack transmission complete
+    input logic backpack_ready,          // Backpack ready for next operation
+    
+    // Legacy outputs (for compatibility)
+    output logic rs, rw, d7, d6, d5, d4, d3, d2, d1, d0, en,
+    output logic [319:0] data
+);
+
+    logic rs_n, rw_n, d7_n, d6_n, d5_n, d4_n, d3_n, d2_n, d1_n, d0_n, en_n, en_n2;
+    logic [319:0] data_reg;
+    logic [2:0] mode_n;
+    
+    // New signals for backpack interface
+    // logic send_trigger;               // UNUSED - Commented out
+    logic data_ready;
+    logic [319:0] current_display_data;
+    // logic mode_changed;               // UNUSED - Commented out
+
+   
+   typedef enum logic [3:0] {
+        IDLE=0,     // Waiting for start signal
+        HISTO=1,    // Histogram generation state
+        FLV=2,      // Frequency/Length/Value processing state  
+        HTREE=3,    // Huffman tree construction state
+        CBS=4,      // Code book generation state
+        TRN=5,      // Data transmission/encoding state
+        SPI=6,      // SPI communication state
+        ERROR=7,    // Error handling state
+        DONE=8      // Completion state
+    } state_t;
+
+    state_t contState;
+    assign contState = state_t'(contState_n);
+
+    typedef enum logic [2:0] {
+        INIT,
+        TITLE,
+        SELECT,
+        COMP,
+        DECOMP,
+        FINISH,
+        ERROR_STATE
+    } mode_t;
+    mode_t mode;
+
+    typedef enum logic [9:0] {
+        A = 10'b0001000001,
+        B = 10'b0001000010,
+        C = 10'b0001000011,
+        D = 10'b0001000100,
+        E = 10'b0001000101,
+        F = 10'b0001000110,
+        G = 10'b0001000111,
+        H = 10'b0001001000,
+        I = 10'b0001001001,
+        K = 10'b0001001011,
+        L = 10'b0001001100,
+        M = 10'b0001001101,
+        N = 10'b0001001110,
+        O = 10'b0001001111,
+        P = 10'b0001010000,
+        R = 10'b0001010010,
+        S = 10'b0001010011,
+        T = 10'b0001010100,
+        U = 10'b0001010101,
+        V = 10'b0001010110,
+        SPACE = 10'b1000100000,
+        BLOCK = 10'b001111111111,
+        CLEAR = 10'b0000000001,
+        HOME = 10'b0000000010
+        // NEWLINE =
+    } data_t;
+    // data_t keys;                      // UNUSED - Commented out
+   
+
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            rs <= 1'b0;
+            rw <= 1'b0;
+            d7 <= 1'b0;
+            d6 <= 1'b0;
+            d5 <= 1'b0;
+            d4 <= 1'b0;
+            d3 <= 1'b0;
+            d2 <= 1'b0;
+            d1 <= 1'b0;
+            d0 <= 1'b0;
+            en <= 1'b0;
+            mode <= INIT;
+            data_reg <= 320'b0;
+            send_data <= 1'b0;
+            // send_mode <= 1'b1;  // Removed assignment from always_ff
+            // data_ready <= 1'b0; // Removed assignment from always_ff
+        end else begin
+            rs <= rs_n;
+            rw <= rw_n;
+            d7 <= d7_n;
+            d6 <= d6_n;
+            d5 <= d5_n;  
+            d4 <= d4_n;
+            d3 <= d3_n;
+            d2 <= d2_n;
+            d1 <= d1_n;
+            d0 <= d0_n;
+            en <= en_n;
+            en_n <= en_n2;
+            mode <= mode_t'(mode_n);
+            data_reg <= data;
+            
+            // Handle backpack interface
+            if (data_ready && backpack_ready && !backpack_busy) begin
+                send_data <= 1'b1;
+            end else if (backpack_busy || backpack_done) begin
+                send_data <= 1'b0;
+            end
+            
+            // Update display data when ready
+            if (data_ready) begin
+                full_display <= current_display_data;
+            end
+        end
+    end
+
+
+    always_comb begin
+        mode_n = mode; // Initialize mode_n from registered mode to avoid circular dependency
+        mode_o = mode_n;
+        data = '0; // Initialize data to zero
+        current_display_data = '0; // Initialize display data
+        data_ready = 1'b0;
+        send_mode = 1'b1; // Default to full display mode
+       
+        
+        // Legacy signal defaults
+        en_n2 = 1'b0;
+        rs_n = 1'b0; 
+        rw_n = 1'b0;
+        d7_n = 1'b0;
+        d6_n = 1'b0;
+        d5_n = 1'b0; 
+        d4_n = 1'b0; 
+        d3_n = 1'b0;
+        d2_n = 1'b0;
+        d1_n = 1'b0;
+        d0_n = 1'b0;
+        
+        // Default assignments
+        case (mode)
+            INIT: begin
+                current_display_data = {10'b0000111000,10'b0000001100,10'b0000000110, 290'b0}; 
+                data = current_display_data;
+                data_ready = 1'b1;
+                
+                // Wait for backpack to complete before moving to next mode
+                if (backpack_done) begin
+                    mode_n = TITLE;
+                end else begin
+                    mode_n = INIT; // Stay in INIT until done
+                end
+            end
+            TITLE: begin
+                current_display_data = {SPACE, B, I, G, G, I, E, SPACE, SPACE, S, M, A, L, L, S, SPACE,/*NEWLINE*/ H, U, F, F, M, A, N, SPACE, E, N, C, O, D, I, N, G};
+                data = current_display_data;
+                data_ready = 1'b1;
+                
+                if (backpack_done) begin
+                    mode_n = SELECT;
+                end else begin
+                    mode_n = TITLE; 
+                end
+            end
+            SELECT: begin
+                current_display_data = {SPACE, SPACE, C, O, M, P, R, E, S, S, I, O, N, SPACE, SPACE, SPACE, SPACE, D, E, C, O, M, P, R, E, S, S, I, O, N, SPACE, SPACE};
+                data = current_display_data;
+                data_ready = 1'b1;
+                
+                if (backpack_done) begin
+                    if (compDecomp) begin
+                        mode_n = COMP;
+                    end else begin
+                        mode_n = DECOMP;
+                    end
+                end else begin
+                    mode_n = SELECT;
+                end
+            end
+            COMP: begin
+                case (contState)
+                    IDLE: begin
+                        current_display_data = {SPACE, SPACE, C, O, M, P, R, E, S, S, I, O, N, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE};
+                    end
+                    HISTO: begin
+                        current_display_data = {SPACE, SPACE, C, O, M, P, R, E, S, S, I, O, N, SPACE, BLOCK, BLOCK, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE};
+                    end
+                    FLV: begin
+                        current_display_data = {SPACE, SPACE, C, O, M, P, R, E, S, S, I, O, N, SPACE, BLOCK, BLOCK, BLOCK, BLOCK, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE};
+                    end
+                    HTREE: begin
+                        current_display_data = {SPACE, SPACE, C, O, M, P, R, E, S, S, I, O, N, SPACE, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE};
+                    end
+                    CBS: begin
+                        current_display_data = {SPACE, SPACE, C, O, M, P, R, E, S, S, I, O, N, SPACE, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE};
+                    end
+                    TRN: begin
+                        current_display_data = {SPACE, SPACE, C, O, M, P, R, E, S, S, I, O, N, SPACE, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE};
+                    end
+                    SPI: begin
+                        current_display_data = {SPACE, SPACE, C, O, M, P, R, E, S, S, I, O, N, SPACE, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, SPACE, SPACE, SPACE};
+                    end
+                    ERROR: begin
+                        current_display_data = {SPACE, SPACE, C, O, M, P, R, E, S, S, I, O, N, SPACE, SPACE, BLOCK, SPACE, BLOCK, SPACE, BLOCK, SPACE, BLOCK, SPACE, BLOCK, SPACE, BLOCK, SPACE, BLOCK, SPACE, BLOCK, SPACE, BLOCK};
+                    end
+                    DONE: begin
+                        current_display_data = {SPACE, SPACE, C, O, M, P, R, E, S, S, I, O, N, SPACE, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK, BLOCK};
+                    end
+                    default: begin
+                        current_display_data = '0;
+                    end
+                endcase
+                
+                data = current_display_data;
+                data_ready = 1'b1;
+                
+                if (isFinished) begin
+                    mode_n = FINISH;
+                end else begin
+                    mode_n = COMP;
+                end
+
+                if (contState == ERROR) begin
+                    mode_n = ERROR_STATE;
+                end
+            end
+            DECOMP: begin
+                current_display_data = {D, E, C, O, M, P, R, E, S, S, I, O, N, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE, SPACE};
+                data = current_display_data;
+                data_ready = 1'b1;
+                
+                if (backpack_done) begin
+                    mode_n = FINISH;
+                end else begin
+                    mode_n = DECOMP;
+                end
+            end
+            FINISH: begin
+                current_display_data = {F, I, N, I, S, H, 260'b0};
+                data = current_display_data;
+                data_ready = 1'b1;
+            end
+            ERROR_STATE: begin
+                current_display_data = {E, R, R, O, R, 270'b0};
+                data = current_display_data;
+                data_ready = 1'b1;
+            end
+            default: begin
+                current_display_data = '0;
+                data = '0;
+            end
+        endcase
+    end
+endmodule

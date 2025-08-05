@@ -8,3 +8,9 @@
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_controller.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_histogram.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_i2c.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/team_05_fpga_top.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_backpack.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_displayControl.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_delayClk.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_VGA_Driver_param.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_VGA_Control.sv
