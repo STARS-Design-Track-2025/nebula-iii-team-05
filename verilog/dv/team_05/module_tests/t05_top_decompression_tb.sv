@@ -5,13 +5,13 @@ module t05_top_decompression_tb;
     // SPI
     logic [7:0] SPI_data_in; // byte sent by SPI
     logic SPI_data_out; // bit sent to SPI
-  logic [1079:0] SPI_data_arr;
+  logic [1053:0] SPI_data_arr;
+  logic [127:0] SRAM_data_arr [255:0];
   	logic read_en_SPI;
   logic [1:0] controller_state;
   logic SRAM_read_en;
   logic [127:0] SRAM_data_in;
   logic SRAM_wr_en;
-  logic [7:0] char_index_tr;
 
     // CONTROLLER SIGNALS
     // input logic hd_finished,
@@ -28,43 +28,39 @@ module t05_top_decompression_tb;
 
 
     // //WRAPPER
-//     logic wbs_stb_o;
-//     logic wbs_cyc_o;
-//     logic wbs_we_o;
-//     logic [3:0] wbs_sel_o;
-//     logic [31:0] wbs_dat_o;
-//     logic [31:0] wbs_adr_o;
-//     logic spi_confirm_out;
-//     logic nextChar;
-//     logic init;
-//     logic wbs_ack_i;
-//     logic [31:0] wbs_dat_i;
-//     logic pulse_in;
+    logic wbs_stb_i;
+    logic wbs_cyc_i;
+    logic wbs_we_i;
+    logic [3:0] wbs_sel_i;
+    logic [31:0] wbs_dat_i;
+    logic [31:0] wbs_adr_i;
+    logic wbs_ack_o;
+    logic [31:0] wbs_dat_o;
 
-//   sram_WB_Wrapper sramwb1 (
-//     .wb_clk_i(clk),
-//     .wb_rst_i(reset),
-//     .wbs_stb_i(wbs_stb_i),
-//     .wbs_cyc_i(wbs_cyc_i),
-//     .wbs_we_i(wbs_we_i),
-//     .wbs_sel_i(wbs_sel_i),
-//     .wbs_dat_i(wbs_dat_i),
-//     .wbs_adr_i(wbs_adr_i),
-//     .wbs_ack_o(wbs_ack_o),
-//     .wbs_dat_o(wbs_dat_o)
-//   );
+  sram_WB_Wrapper sramwb1 (
+    .wb_clk_i(clk),
+    .wb_rst_i(reset),
+    .wbs_stb_i(wbs_stb_i),
+    .wbs_cyc_i(wbs_cyc_i),
+    .wbs_we_i(wbs_we_i),
+    .wbs_sel_i(wbs_sel_i),
+    .wbs_dat_i(wbs_dat_i),
+    .wbs_adr_i(wbs_adr_i),
+    .wbs_ack_o(wbs_ack_o),
+    .wbs_dat_o(wbs_dat_o)
+  );
 
     t05_top_decompression topd1 (
-      .SRAM_r_en(SRAM_read_en), .tr_SRAM_data_in(SRAM_data_in), .SRAM_wr_en(SRAM_wr_en), .char_index_tr(char_index_tr), .curr_state(controller_state),
-      .clk(clk), .reset(reset), .SPI_data_in(SPI_data_in), .SPI_data_out(SPI_data_out), .SPI_read_en(read_en_SPI)
-//       .wbs_stb_i(wbs_stb_i),
-//       .wbs_cyc_i(wbs_cyc_i),
-//       .wbs_we_i(wbs_we_i),
-//       .wbs_sel_i(wbs_sel_i),
-//       .wbs_dat_i(wbs_dat_i),
-//       .wbs_adr_i(wbs_adr_i),
-//       .wbs_ack_o(wbs_ack_o),
-//       .wbs_dat_o(wbs_dat_o)
+      .SRAM_r_en(SRAM_read_en), /*.tr_SRAM_data_in(SRAM_data_in),*/ .SRAM_wr_en(SRAM_wr_en), .curr_state(controller_state),
+      .clk(clk), .reset(reset), .SPI_data_in(SPI_data_in), .SPI_data_out(SPI_data_out), .SPI_read_en(read_en_SPI),
+      .wbs_stb_o(wbs_stb_i),
+      .wbs_cyc_o(wbs_cyc_i),
+      .wbs_we_o(wbs_we_i),
+      .wbs_sel_o(wbs_sel_i),
+      .wbs_dat_o(wbs_dat_i),
+      .wbs_adr_o(wbs_adr_i),
+      .wbs_ack_i(wbs_ack_o),
+      .wbs_dat_i(wbs_dat_o)
       );
 
     always #5 clk = ~clk;
@@ -87,22 +83,23 @@ module t05_top_decompression_tb;
       end
     endtask
 
-  task feed_spi_stream(input logic [1079:0] spi_data, input int num_bytes);
+  task feed_spi_stream(input logic [855:0] spi_data, input int num_bytes);
     //SPI_data_in = spi_data[263-: 8];
     //int i = 0;
       //while (!finished) begin
-    for (int i = 0; i < 117; i++) begin
+      //while (!read_en_SPI) @(posedge clk);
+    for (int i = 0; i < 105; i++) begin // 132
         @(posedge clk);
-        while (!read_en_SPI) @(posedge clk);
-      if (SRAM_wr_en) begin
-        $display("%d", char_index_tr);
-      end
+      while (!read_en_SPI) @(posedge clk);
+      // if (SRAM_wr_en) begin
+      //   $display("%d", char_index_tr);
+      // end
 
-      SPI_data_in = spi_data[1079 - 8*i -: 8];
+      SPI_data_in = spi_data[855 - 8*i -: 8];
         //i++;
         //@(posedge clk);
     end
-    #1000;
+    #10000;
 endtask
 
     initial begin
@@ -111,6 +108,7 @@ endtask
       
       clk = 0;
       reset = 0;
+      $display("TEST");
 //       wbs_stb_o = 0;
 //       wbs_cyc_o = 0;
 //       wbs_we_o = 0;
@@ -158,9 +156,9 @@ endtask
       // htree[23] = {{7'd8}, {1'b0, 8'd118}, {1'b0, 8'd53}, {46'b0}};
       
       // FILE TEST
-      SPI_data_arr[1079:0] = {895'b1011011111000001011001011100101110000100000001100101111001011100011000000101001100000101110010100000001100110001000101110011100000011100110010010111010010000000110011001100101110101100000010100110100010110111110000010110010111001011100001000000011001011110010111000110000001010011000001011100101000000011001100010001011100111000000111001100100101110100100000001100110011001011101011000000101001101000101110110100000001100110101000010101111110000010110001111001011000001000000011000111110010110000110000001010010000001011000101000000011001000010001011000111000000111001000100101100100100000001100100011001011001011000000101001001000101100110100000001100100101000010110011110000010010010011001011010001000000011001001110010110100110000001010010100001011010101000000011001010010001011010111000000111001010100101101100100000001100101011001011011011000000101001011000101101110100000001100101101000000
+      SPI_data_arr[855:0] = {696'b10110111110000010110010111001011100001000000011001011110010111000110000001010011000001011100101000000011001100010001011100111000000111001100100101110100100000001100110011001011101011000000101001101000101110110100000001100110101000010101111110000010110001111001011000001000000011000111110010110000110000001010010000001011000101000000011001000010001011000111000000111001000100101100100100000001100100011001011001011000000101001001000101100110100000001100100101000010110011110000010010010011001011010001000000011001001110010110100110000001010010100001011010101000000011001010010001011010111000000111001010100101101100100000001100101011001011011011000000101001011000101101110100000001100101101000000
         ,9'b100001010
-        ,32'd50
+        ,32'd18
         //,9'b100001010
         ,6'b100000
         ,6'b100010
@@ -178,16 +176,85 @@ endtask
         ,6'b100110
         ,6'b101010
         ,6'b101011
-        ,6'b101101
-        ,6'b101100
-        ,6'b101110
-        ,6'b101111
-        ,7'b1100000
-        ,9'b100000000
-        ,8'b1000000                      };
+        ,6'b100110
+          ///,6'b100000
+          ,11'b10111111000
+          ,6'b100000};
+        // ,10'b1011100000
+        // ,10'b1011101100
+        // ,11'b10111111000
+        // ,11'b10111111111
+        // ,2'b10                      };
 
+        SRAM_data_arr[0] = 128'b100000;
+        SRAM_data_arr[1] = 128'b100001;
+        SRAM_data_arr[2] = 128'b100010;
+        SRAM_data_arr[3] = 128'b100011;
+        SRAM_data_arr[4] = 128'b100100;
+        SRAM_data_arr[5] = 128'b100101;
+        SRAM_data_arr[6] = 128'b100110;
+        SRAM_data_arr[7] = 128'b100111;
+        SRAM_data_arr[8] = 128'b101000;
+        SRAM_data_arr[9] = 128'b101001;
+        SRAM_data_arr[10] = 128'b00000101010;
+        SRAM_data_arr[11] = 128'b0000101011;
+        SRAM_data_arr[12] = 128'b0000101100;
+        SRAM_data_arr[13] = 128'b0000101101;
+        SRAM_data_arr[14] = 128'b1011100000;
+        SRAM_data_arr[15] = 128'b1011100001;
+        SRAM_data_arr[16] = 128'b1011100010;
+        SRAM_data_arr[17] = 128'b1011100011;
+        SRAM_data_arr[18] = 128'b1011100100;
+        SRAM_data_arr[19] = 128'b1011100101;
+        SRAM_data_arr[20] = 128'b1011100110;
+        SRAM_data_arr[21] = 128'b1011100111;
+        SRAM_data_arr[22] = 128'b1011101000;
+        SRAM_data_arr[23] = 128'b1011101001;
+        SRAM_data_arr[24] = 128'b1011101010;
+        SRAM_data_arr[25] = 128'b1011101011;
+        SRAM_data_arr[26] = 128'b1011101100;
+        SRAM_data_arr[27] = 128'b1011101101;
+        SRAM_data_arr[28] = 128'b1011101110;
+        SRAM_data_arr[29] = 128'b1011101111;
+        SRAM_data_arr[30] = 128'b10111100000;
+        SRAM_data_arr[31] = 128'b10111100001;
+        SRAM_data_arr[32] = 128'b10111100010;
+        SRAM_data_arr[33] = 128'b10111100011;
+        SRAM_data_arr[34] = 128'b10111100100;
+        SRAM_data_arr[35] = 128'b10111100101;
+        SRAM_data_arr[36] = 128'b10111100110;
+        SRAM_data_arr[37] = 128'b10111100111;
+        SRAM_data_arr[38] = 128'b10111101000;
+        SRAM_data_arr[39] = 128'b10111101001;
+        SRAM_data_arr[40] = 128'b10111101010;
+        SRAM_data_arr[41] = 128'b10111101011;
+        SRAM_data_arr[42] = 128'b10111101100;
+        SRAM_data_arr[43] = 128'b10111101101;
+        SRAM_data_arr[44] = 128'b10111101110;
+        SRAM_data_arr[45] = 128'b10111101111;
+        SRAM_data_arr[46] = 128'b10111110000;
+        SRAM_data_arr[47] = 128'b10111110001;
+        SRAM_data_arr[48] = 128'b10111110010;
+        SRAM_data_arr[49] = 128'b10111110011;
+        SRAM_data_arr[50] = 128'b10111110100;
+        SRAM_data_arr[51] = 128'b10111110101;
+        SRAM_data_arr[52] = 128'b10111110110;
+        SRAM_data_arr[53] = 128'b10111110111;
+        SRAM_data_arr[54] = 128'b10111111000;
+        SRAM_data_arr[55] = 128'b10111111001;
+        SRAM_data_arr[56] = 128'b10111111010;
+        SRAM_data_arr[57] = 128'b10111111011;
+        SRAM_data_arr[58] = 128'b10111111100;
+        SRAM_data_arr[59] = 128'b10111111101;
+        SRAM_data_arr[60] = 128'b10111111110;
+        SRAM_data_arr[61] = 128'b10111111111;
+
+           for (integer i = 62; i < 255; i++) begin
+                SRAM_data_arr[i] = 0;
+           end
     
        reset_fsm();
+       $display("TEST 2");
       feed_spi_stream(SPI_data_arr, 36);
       // SPI_data_arr[263:0] = {128'b10000, {1'b1, 8'd67}, {1'b1, 8'd66, 1'b0}, + {1'b1, 8'd65, 1'b0}, {1'b1, 8'd70}, {1'b1, 8'd71, 2'b0}, {1'b1, 8'd74}, {1'b1, 8'd68}, {1'b1, 8'd75}, {1'b1, 8'd69, 1'b0}, {1'b1, 8'd72}, {1'b1, 8'd73, 4'b0}, {32'd10}, {12'b0}};
 //       set_inputs(SPI_data_arr[263:256], read_en_SPI);
@@ -358,7 +425,7 @@ endtask
     end
 //    always @(posedge clk) begin
 //      if ((SRAM_read_en) && (controller_state == 2)) begin
-//         SRAM_data_in <= SRAM_data_arr[char_index];
+//         SRAM_data_in <= SRAM_data_arr[char_index_tr];
 //     end
 // end
   

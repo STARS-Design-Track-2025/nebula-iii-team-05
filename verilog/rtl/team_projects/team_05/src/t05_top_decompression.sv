@@ -18,9 +18,8 @@ module t05_top_decompression (
     output logic SPI_read_en,
     output logic [1:0] curr_state,
     output logic SRAM_r_en,
-    input logic [127:0] tr_SRAM_data_in,
+    //input logic [127:0] tr_SRAM_data_in,
     output logic SRAM_wr_en,
-    output logic [7:0] char_index_tr
     
     // SRAM START & FINISH
     // input SRAM_pulse,
@@ -43,18 +42,14 @@ module t05_top_decompression (
     // output logic [8:0] fin_State,
 
     // //WRAPPER
-//     output logic wbs_stb_o,
-//     output logic wbs_cyc_o,
-//     output logic wbs_we_o,
-//     output logic [3:0] wbs_sel_o,
-//     output logic [31:0] wbs_dat_o,
-//     output logic [31:0] wbs_adr_o,
-//     //output spi_confirm_out,
-//     output logic nextChar,
-//     //output logic init,
-//     input logic wbs_ack_i,
-//     input logic [31:0] wbs_dat_i
-    //input logic pulse_in
+    output logic wbs_stb_o,
+    output logic wbs_cyc_o,
+    output logic wbs_we_o,
+    output logic [3:0] wbs_sel_o,
+    output logic [31:0] wbs_dat_o,
+    output logic [31:0] wbs_adr_o,
+    input logic wbs_ack_i,
+    input logic [31:0] wbs_dat_i
 );
 // WISHBONE SIGNALS
   logic write_i, read_i;
@@ -63,56 +58,60 @@ module t05_top_decompression (
   logic busy_o;
   logic [31:0] data_i_wish, data_o_wish;
 
-//   wishbone_manager WB (
-//     .nRST(!reset),
-//     .CLK(clk),
-//     .DAT_I(wbs_dat_i),
-//     .ACK_I(wbs_ack_i),
-//     .CPU_DAT_I(data_i_wish),
-//     .ADR_I(addr_i),
-//     .SEL_I(sel_i),
-//     .WRITE_I(write_i),
-//     .READ_I(read_i),
-//     .ADR_O(wbs_adr_o),
-//     .DAT_O(wbs_dat_o),
-//     .SEL_O(wbs_sel_o),
-//     .WE_O(wbs_we_o),
-//     .STB_O(wbs_stb_o),
-//     .CYC_O(wbs_cyc_o),
-//     .CPU_DAT_O(data_o_wish),
-//     .BUSY_O(busy_o)
-//   );
+  wishbone_manager WB (
+    .nRST(!reset),
+    .CLK(clk),
+    .DAT_I(wbs_dat_i),
+    .ACK_I(wbs_ack_i),
+    .CPU_DAT_I(data_i_wish),
+    .ADR_I(addr_i),
+    .SEL_I(sel_i),
+    .WRITE_I(write_i),
+    .READ_I(read_i),
+    .ADR_O(wbs_adr_o),
+    .DAT_O(wbs_dat_o),
+    .SEL_O(wbs_sel_o),
+    .WE_O(wbs_we_o),
+    .STB_O(wbs_stb_o),
+    .CYC_O(wbs_cyc_o),
+    .CPU_DAT_O(data_o_wish),
+    .BUSY_O(busy_o)
+  );
 
 // SRAM
 logic [127:0] hd_SRAM_data_out; // write char path
-//logic [127:0] tr_SRAM_data_in; // read char path
+logic [127:0] tr_SRAM_data_in; // read char path
   logic [7:0] char_index_hd;
-  //logic [7:0] char_index_tr;
+  logic init;
+  logic [7:0] char_index_tr;
+  logic SRAM_finished;
 
-//   t05_sram_interface_decode sramd1 (
-//     .clk(clk), .rst(reset),
+  t05_sram_interface_decode sramd1 (
+    .clk(clk), .rst(reset),
 
-//     .controller_state(curr_state), // controller state
+    .controller_state(curr_state), // controller state
+    .init(init),
 
-//     .char_index_hd(char_index_hd), // index to store path at
-//     // write paths from hd_decode to SRAM
-//     .char_index_tr(char_index_tr),
-//     .SRAM_write_en(SRAM_wr_en),
-//     .SRAM_data_out(hd_SRAM_data_out),
+    .char_index_hd(char_index_hd), // index to store path at
+    // write paths from hd_decode to SRAM
+    .char_index_tr(char_index_tr),
+    .SRAM_write_en(SRAM_wr_en),
+    .SRAM_data_out(hd_SRAM_data_out),
 
-//     // translation read from SRAM
-//     .SRAM_read_en(SRAM_r_en),
-//     .SRAM_data_in(tr_SRAM_data_in),
+    // translation read from SRAM
+    .SRAM_read_en(SRAM_r_en),
+    .SRAM_data_in(tr_SRAM_data_in),
+    .SRAM_finished(SRAM_finished),
 
-//     // wishbone connects
-//     .wr_en(write_i),
-//     .r_en(read_i),
-//     .select(sel_i),
-//     .addr(addr_i),
-//     .data_i(data_i_wish),
-//     .data_o(data_o_wish),
-//     .busy_o(busy_o)
-// );
+    // wishbone connects
+    .wr_en(write_i),
+    .r_en(read_i),
+    .select(sel_i),
+    .addr(addr_i),
+    .data_i(data_i_wish),
+    .data_o(data_o_wish),
+    .busy_o(busy_o)
+);
 
 // SPI SIGNALS
   logic SPI_read_en_hd;
@@ -144,6 +143,7 @@ logic decompress_finished;
 
 t05_controller_decode cd1 (
     .clk(clk), .rst(reset),
+    .init(init),
     .SRAM_r_en(SRAM_r_en), .SRAM_wr_en(SRAM_wr_en), 
     .hd_finished(hd_finished_controller),
     .tr_finished(tr_finished_controller),
@@ -153,7 +153,8 @@ t05_controller_decode cd1 (
     .finished(decompress_finished),
     .SPI_read_en_hd(SPI_read_en_hd),
     .SPI_read_en_tr(SPI_read_en_tr),
-    .SPI_read_en(SPI_read_en)
+    .SPI_read_en(SPI_read_en),
+    .SRAM_finished(SRAM_finished)
 );
 
 // INTERNAL (HD_DECODE to TRANSLATION)

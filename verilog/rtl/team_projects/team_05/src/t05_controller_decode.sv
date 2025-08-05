@@ -1,3 +1,4 @@
+`timescale 1ms/10ps
 // typedef enum logic [2:0] {
 //     INIT,
 //     HEADER_DECODE,
@@ -11,6 +12,8 @@ module t05_controller_decode (
     input logic tr_finished,
     input logic SRAM_r_en,
     input logic SRAM_wr_en,
+    input logic init,
+    input logic SRAM_finished,
     output logic hd_enable,
     output logic tr_enable,
     output logic [1:0] curr_state,
@@ -41,12 +44,15 @@ always_comb begin
         2'b0: begin // INIT
             hd_enable = 0;
             tr_enable = 0;
-            next_state = 1;
+            SPI_read_en = 0;
+            if (!init) begin
+              next_state = 1;
+            end
         end
         2'b1: begin // HEADER DECODE
             // SRAM is currently writing data for hd_decode
-            hd_enable = 1;
-          	//hd_enable = (SRAM_wr_en || SRAM_r_en) ? 0 : 1;
+            //hd_enable = 1;
+          	hd_enable = (SRAM_wr_en && !SRAM_finished) ? 0 : 1;
             tr_enable = 0;
           	SPI_read_en = SPI_read_en_hd;
             if (hd_finished) begin
@@ -54,8 +60,8 @@ always_comb begin
             end
         end
         2'b10: begin // TRANSLATION
-          	tr_enable = 1;
-            //tr_enable = (SRAM_wr_en || SRAM_r_en)  ? 0 : 1;
+          	//tr_enable = 1;
+            tr_enable = (SRAM_r_en && !SRAM_finished)  ? 0 : 1;
             hd_enable = 0;
           	SPI_read_en = SPI_read_en_tr;
             if (tr_finished) begin
@@ -63,11 +69,13 @@ always_comb begin
             end
         end
         2'b11: begin // FINISH
+            SPI_read_en = 0;
             hd_enable = 0;
             tr_enable = 0;
             next_finished = 1;
         end
         default: begin 
+          SPI_read_en = 0;
           next_state = curr_state; 
           hd_enable = 0;
           tr_enable = 0;
