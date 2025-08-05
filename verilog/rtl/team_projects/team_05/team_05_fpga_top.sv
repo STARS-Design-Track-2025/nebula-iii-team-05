@@ -16,82 +16,46 @@ module top (
   output logic txclk, rxclk,
   input  logic txready, rxready
 );
-
-  // GPIOs
-  // Don't forget to assign these to the ports above as needed
-  logic [33:0] gpio_in, gpio_out;
-  
-  logic serial_clk;
-  logic sclk;
-  logic flag;
-  logic [7:0] read_out;
-  logic [8:0] least1, least2;
-  logic [45:0] sum;
-  logic [7:0] index_of_root;
-  
-  //CB To Header Syn
-  logic char_found;
-  logic [7:0] char;
-  logic [2:0] CB_state;
-
-  //To SPI
-  logic writeBit;
-  
-  // Team 05 Design Instance
-  t05_controller controller (.clk(hwclk), .rst_n(reset), .cont_en(), .restart_en(), .finState(), .op_fin(), .state_reg(), .finished_signal());
-
-  t05_histogram histogram (.clk(hwclk), .rst(reset), .addr_i(), .sram_addr_in(), .sram_in(), .eof(), .complete(), .total(), .sram_out(), .hist_addr());
-
-  t05_findLeastValue findLeastValue (.clk(hwclk), .rst(reset), .compVal(), .state(), .sum(sum), .charWipe1(), .charWipe2(), 
-    .least1(least1), .least2(least2), .count(), .fin(), .nextCharEn());
-
-  t05_hTree hTree (.clk(hwclk), .rst_n(reset), .least1(least1), .least2(least2), .sum(sum), .nulls(), .HT_en(), .SRAM_finished(),
-   .tree_reg(), .null1_reg(), .null2_reg(), .clkCount(), .nullSumIndex(), .HT_Finished(), .HT_fin_reg(),
-   .error(), .WorR());
-
-  //Curr_state should be changed to logic can not pass typedefs through instantiation
-  t05_cb_synthesis cb_syn (.clk(hwclk), .rst(reset), .max_index(index_of_root), .h_element(), .write_finish(), .char_found(char_found),
-   .char_path(), .char_index(), .curr_state(), .curr_index(), .curr_path(), .least1(least1), .least2(least2), .finished(), .track_length(), .pos());
-
-  t05_header_synthesis header_synthesis (.clk(hwclk), .rst(reset), .char_index(), .char_found(char_found), .least1(least1),
-   .least2(least2), .char_path(), .header(), .enable(), .bit1(writeBit), .write_finish());
-
-  t05_translation translation (.clk(hwclk), .rst(reset), .totChar(), .charIn(), .path(), .writeBin(writeBit), .nextCharEn(), .outEn());
-
-  t05_spiClockDivider spiClockDivider (
-    .current_clock_signal(hwclk), .reset(reset), .divided_clock_signal(serial_clk), .sclk(sclk), .freq_flag(flag));
-
-  t05_SPI SPI (.mosi(right[6]), .miso(pb[18]), .rst(pb[19]), .serial_clk(serial_clk), 
-    .clk(hwclk), .slave_select(green), .read_output(read_out), .writebit(writeBit), .read_en(pb[4]), 
-    .write_en(pb[6]), .read_stop(pb[1]), .read_address(32'd0), .write_address(32'd0), .finish(ss0[0]), .freq_flag(flag));
-
-  assign ss1[6] = sclk; // Connect the serial clock to one of the slave select lines for debugging
-  team_05 team_05_inst (
-    .clk(hwclk),
-    .nrst(~reset),
-    .en(1'b1),
-
-    .gpio_in(gpio_in),
-    .gpio_out(gpio_out),
-    .gpio_oeb(),  // don't really need it here since it is an output
-
-    // Uncomment only if using LA
-    // .la_data_in(),
-    // .la_data_out(),
-    // .la_oenb(),
-
-    // Uncomment only if using WB Master Ports (i.e., CPU teams)
-    // You could also instantiate RAM in this module for testing
-    // .ADR_O(ADR_O),
-    // .DAT_O(DAT_O),
-    // .SEL_O(SEL_O),
-    // .WE_O(WE_O),
-    // .STB_O(STB_O),
-    // .CYC_O(CYC_O),
-    // .ACK_I(ACK_I),
-    // .DAT_I(DAT_I),
-
-    // Add other I/O connections to WB bus here
+  logic [9:0] out;
+  logic out_valid;
+  // logic lcd_en, lcd_rw, lcd_rs;
+  t05_driver_1602 #(
+    .clk_div(24_000)
+  ) lcd1602 (
+  .clk(hwclk),
+  .rst(~reset),      // active-high reset
+  // 16 characters per row, each character is 8 bits, total 128 bits (row_1[127:120] is first char)
+  .row_1(127'h42_49_47_47_49_45_20_73_6D_61_6C_6C_73_20_20_20),
+  .row_2(127'h48_75_66_66_6D_61_6E_20_43_6F_6D_70_72_65_73_73),
+  // LCD interface signals
+  .out(out),
+  .out_valid(out_valid)
   );
+
+  logic start, sdo, sclk, cs_n, busy, done;
+  logic [9:0] data_in;
+
+  assign start = out_valid;
+  assign data_in = out;
+
+  t05_1602_spi #(
+    .WIDTH(10),                    // Number of bits to transmit
+    .CLK_DIV(40)                   // Clock divider (system_clk / CLK_DIV = spi_clk)
+  ) spi (
+    .clk    (hwclk),    // System clock
+    .rst_n  (~reset),   // Active low reset
+    .start  (start),    // Start transmission (pulse)
+    .data_in(data_in),  // Data to transmit
+    .sdo    (sdo),      // Serial data out (MOSI)
+    .sclk   (sclk),     // SPI clock
+    .cs_n   (cs_n),     // Chip select (active low)
+    .busy   (busy),     // Transmission in progress
+    .done   (done)      // Transmission complete (pulse)
+);
+
+  assign {ss0[6], ss0[5], ss0[0], ss7[4], ss0[2], ss0[1], right[0], ss0[7]} = {cs_n, sdo, sclk};
+  assign ss0[3] = out[8];
+  assign ss0[4] = out[9];
+  // assign  ss1[7] = lcd_en;
 
 endmodule

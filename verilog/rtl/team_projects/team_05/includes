@@ -4,3 +4,6 @@
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/team_05.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_findLeastValue.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_translation.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/team_05_fpga_top.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_driver_1602.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_1602_spi.sv
