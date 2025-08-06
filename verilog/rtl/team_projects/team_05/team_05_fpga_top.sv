@@ -18,6 +18,10 @@ module top (
 );
   logic [9:0] out;
   logic out_valid;
+  logic [127:0] in_1, in_2;
+  t05_lcd ld(
+    .compDecomp(pb[0]), .enstate(pb[1:4]), .row_1(in_1), .row_2(in_2)
+  );
   // logic lcd_en, lcd_rw, lcd_rs;
   t05_driver_1602 #(
     .clk_div(24_000)
@@ -25,8 +29,8 @@ module top (
   .clk(hwclk),
   .rst(~reset),      // active-high reset
   // 16 characters per row, each character is 8 bits, total 128 bits (row_1[127:120] is first char)
-  .row_1(127'h42_49_47_47_49_45_20_73_6D_61_6C_6C_73_20_20_20),
-  .row_2(127'h48_75_66_66_6D_61_6E_20_43_6F_6D_70_72_65_73_73),
+  .row_1(in_1),
+  .row_2(in_2),
   // LCD interface signals
   .out(out),
   .out_valid(out_valid)
@@ -53,7 +57,7 @@ module top (
     .done   (done)      // Transmission complete (pulse)
 );
 
-  assign {ss0[6], ss0[5], ss0[0], ss7[4], ss0[2], ss0[1], right[0], ss0[7]} = {cs_n, sdo, sclk};
+  assign right[2:0] = {cs_n, sdo, sclk};
   assign ss0[3] = out[8];
   assign ss0[4] = out[9];
   // assign  ss1[7] = lcd_en;
