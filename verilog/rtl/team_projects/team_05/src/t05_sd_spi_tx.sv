@@ -24,7 +24,7 @@ module t05_sd_spi_tx #(
     assign data_in = {2'b01, command, argument, crc, 1'b1};
     logic [$clog2(CLK_DIV)-1:0] clk_counter_q, clk_counter_d;
     logic [$clog2(WIDTH + 2)-1:0]   bit_counter_q, bit_counter_d;
-    logic [9:0] serial_bit_count_q, serial_bit_count_d;
+    logic [12:0] serial_bit_count_q, serial_bit_count_d;
     logic [WIDTH:0]           shift_reg_q, shift_reg_d;
     logic                       spi_clk_q, spi_clk_d;
     logic                       spi_clk_en;
@@ -55,7 +55,7 @@ module t05_sd_spi_tx #(
             cs_low_counter_d = cs_low_counter_q + 1;
         end
         
-        if (state_q == ACTIVE || is_ser && serial_bit_count_q < 601) begin //also clock in serial write mode
+        if (state_q != CS_LOW && state_q != CS_LOW1) begin //also clock in serial write mode
             if (clk_counter_q == CLK_DIV/2 - 1) begin
                 clk_counter_d = '0;
                 spi_clk_d = ~spi_clk_q;
@@ -146,19 +146,19 @@ module t05_sd_spi_tx #(
             SER_WRITE: begin
               //serial write code in here
 
-              if ((!write_mode && serial_bit_count_q > 511) || serial_bit_count_q > 511) begin
+              if ((!write_mode && serial_bit_count_q > 512*8-1) || serial_bit_count_q > 512*8-1) begin
                 state_d = WRITE_CRC;
               end
               cs_n = 0;
             end
             WRITE_CRC: begin
-              if (serial_bit_count_q > 527) begin //send dummy 2-byte CRC
+              if (serial_bit_count_q > 514*8-1) begin //send dummy 2-byte CRC
                 state_d = RESPONSE_WAIT;
               end
               cs_n = 0;
             end
             RESPONSE_WAIT: begin
-              if (serial_bit_count_q > 600) begin
+              if (serial_bit_count_q > 512*8+100) begin
                 if (write_mode) begin
                   state_d = SER_WRITE;
                 end else begin
@@ -231,7 +231,7 @@ module t05_sd_spi_tx #(
             shift_reg_q <= shift_reg_d;
         end
     end
-    
+
     logic ser_w_data_q, ser_w_data_d;
     always_ff @(posedge clk, negedge rst_n) begin
       if (!rst_n) begin
@@ -252,11 +252,11 @@ module t05_sd_spi_tx #(
     assign is_ser = (state_q == SER_WRITE || state_q == WRITE_CRC || state_q == RESPONSE_WAIT);
     // Output assignments (combinational)
     assign sclk_1 = (state_q == ACTIVE || is_ser) ? spi_clk_q : 1;
-    assign sclk = (state_q == RESPONSE_WAIT) || serial_bit_count_q > 527 ? 1 : sclk_1;
+    assign sclk = (state_q == RESPONSE_WAIT) || (serial_bit_count_q == 0 && is_ser) ? 1 : sclk_1;
     assign sdo  = is_ser ? write_mode ? ser_w_data_q : 0 : shift_reg_q[WIDTH];  // Always output MSB
     assign busy = !cs_n;
     assign done = (state_q == FINISH);
     assign ser_pulse_1 = spi_clk_q && !spi_clk_d && is_ser; //on negedge
-    assign ser_pulse = state_q == SER_WRITE ? ser_pulse_1 : 0;
+    assign ser_pulse = (state_q == SER_WRITE) ? ser_pulse_1 : 0;
 
 endmodule

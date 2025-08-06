@@ -60,7 +60,7 @@ module t05_sd_spi_tx_tb;
                 $display("[%0t] %s: Transmission completed", $time, test_name);
             end
             begin
-                #50000; // Timeout after 50us
+                #5000000; // Timeout after 50us
                 $error("[%0t] %s: Timeout waiting for transmission completion", $time, test_name);
                 error_count++;
             end
@@ -68,9 +68,9 @@ module t05_sd_spi_tx_tb;
         disable fork;
     endtask
 
-    task serial_tx(logic [511:0] data);
+    task serial_tx(logic [4095:0] data);
       begin
-        for (int i = 0; i < 512; i ++) begin
+        for (int i = 0; i < 4096; i ++) begin
           @(posedge ser_pulse);
           ser_w_data = data[i];
           @(negedge clk);
@@ -277,9 +277,16 @@ module t05_sd_spi_tx_tb;
 
         @(negedge clk);
         write_mode = 1;
-        serial_tx(512'h928359861254ACDE528BE);
-        serial_tx(512'h90913845098357624509867);
-        serial_tx(512'h984578977409576309586723045873405);
+        serial_tx(4096'h928359861254ACDE528BE);
+        serial_tx(4096'h90913845098357624509867);
+        serial_tx(4096'h984578977409576309586723045873405);
+
+        wait_for_done("Back-to-back 1st");
+        data_in = 45'hFF; //cmd 12 (find actual command)
+        @(posedge clk);
+        start = 1;
+        @(posedge clk);
+        start = 0;
         repeat(10000) @(posedge clk);
         
         $display("Testbench completed at time %0t", $time);
@@ -287,7 +294,7 @@ module t05_sd_spi_tx_tb;
     end
     
     always begin
-      #100000
+      #700000
       write_mode = 0;
     end
 
@@ -299,7 +306,7 @@ module t05_sd_spi_tx_tb;
     
     // Timeout watchdog
     initial begin
-        #200000; // 200us timeout
+        #2000000; // 200us timeout
         $error("Global timeout reached!");
         $finish;
     end
