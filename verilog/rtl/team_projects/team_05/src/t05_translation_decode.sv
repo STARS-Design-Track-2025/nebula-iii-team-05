@@ -7,6 +7,7 @@ module t05_translation_decode (
   input logic [7:0] SPI_read_data, // read byte from SPI
   output logic SPI_read_en, // enable SPI to read a byte
   input logic [31:0] tot_chars, // from compressed file header (hd_decode)
+  input logic [3:0] hd_offset, // keep track of position left off by hd_decode
   
   output logic SPI_write_en,
   output logic finished, // finished, sent to controller
@@ -104,6 +105,7 @@ always_comb begin
     0: begin // INIT
       if (translation_enable) begin
         next_state = 1;
+        next_offset = hd_offset;
       end
     end
     1: begin // READ SRAM PATH
@@ -122,6 +124,7 @@ always_comb begin
       else if (translation_enable) begin
         if ((SRAM_read_data != 128'b0 && SRAM_paths_compared == 0 && full_bit_read)) begin// don't check empty paths
             //next_char_index = 0;
+          
               next_state = 2; // only get a new byte if creating a new SPI path to compare and no bits in current SPI byte haven't been used
               prev_state_n = 3;
           end
@@ -135,7 +138,10 @@ always_comb begin
         end
       end
       2: begin // READ SPI BYTE
-        if (wait_count == 0) begin
+        if (offset != 0) begin // don't read a new byte if the offset isn't 0
+          next_state = prev_state;
+        end
+        else if (wait_count == 0) begin
           next_wait_count = wait_count + 1;
           next_SPI_read_en = 1;
         end
@@ -164,7 +170,7 @@ always_comb begin
          end
        end
     4: begin
-      if (offset <= 7) begin
+      if (offset <= 7) begin // update spi path
         next_full_bit_read = 0;
         if (SPI_read_data[7-offset] == 0 || (!one_found && SPI_read_data[7-offset] == 1)) begin
           next_offset = offset + 1;
@@ -201,9 +207,9 @@ always_comb begin
             end
       end
       7: begin // WRITE SPI PATH WITH CURRENT SRAM INDEX
-              next_SPI_write_en = 1;
-              if (bit_count < 8) begin
+              if (bit_count < 8 && bit_count > 0) begin
                   if (count == 0) begin
+                    next_SPI_write_en = 1;
                     next_SPI_write_data = char_index[7-bit_count]; 
                     next_bit_count = bit_count + 1;
                     next_count = 1;
@@ -213,10 +219,14 @@ always_comb begin
                     next_count = 0;
                   end
               end
+              else if (bit_count < 1) begin
+                next_bit_count = bit_count + 1;
+              end
               else begin
                 next_bit_count = 0;
                 next_SRAM_paths_compared = 0;
                 next_SPI_write_data = 0;
+                next_path_SPI_start = 0;
                 next_count = 0;
                 next_path_SPI = 128'b0;
                 next_state = 1; // READ_SRAM_PATH
@@ -228,9 +238,9 @@ always_comb begin
               end
         end
         8: begin
-             next_SPI_write_en = 1;
-              if (bit_count < 8) begin
+              if (bit_count < 8 && bit_count > 0) begin
                   if (count == 0) begin
+                    next_SPI_write_en = 1;
                     next_SPI_write_data = eof[7-bit_count]; 
                     next_bit_count = bit_count + 1;
                     next_count = 1;
@@ -239,6 +249,9 @@ always_comb begin
                     next_SPI_write_en = 0;
                     next_count = 0;
                   end
+              end
+              else if (bit_count < 1) begin
+                next_bit_count = bit_count + 1;
               end
               else begin
                 next_SPI_write_en = 0;

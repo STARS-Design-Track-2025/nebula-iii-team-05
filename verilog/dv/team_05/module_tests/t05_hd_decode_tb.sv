@@ -18,7 +18,7 @@ module t05_hd_decode_tb;
     logic read_en_SPI;
     logic [127:0] SRAM_data_out; // write a char path to SRAM
     logic SRAM_write_en;
-    logic [935:0] SPI_data_arr; // enough for 256 characters and an average of 2 zeroes per char
+    logic [1599:0] SPI_data_arr; // enough for 256 characters and an average of 2 zeroes per char
     logic [31:0] tot_chars;
     logic finished;
 
@@ -42,11 +42,11 @@ module t05_hd_decode_tb;
       end
     endtask
 
-    task automatic feed_spi_stream(input logic [935:0] spi_data, input int num_bytes);
+    task automatic feed_spi_stream(input logic [191:0] spi_data, input int num_bytes);
     //SPI_data_in = spi_data[263-: 8];
     //int i = 0;
       //while (!finished) begin
-      for (int i = 0; i < 117; i++) begin
+      for (int i = 0; i < 24; i++) begin
         @(posedge clk);
         while (!read_en_SPI) begin
           if (SRAM_write_en) begin 
@@ -56,7 +56,7 @@ module t05_hd_decode_tb;
 
         end
 
-        SPI_data_in = spi_data[935 - 8*i -: 8];
+        SPI_data_in = spi_data[191 - 8*i -: 8];
         //i++;
         @(posedge clk);
     end
@@ -71,179 +71,30 @@ endtask
       //SPI_data_arr[263:0] = 264'b0;
       //SPI_data_arr[263:0] = {{1'b1, 8'd67, 9'b100000100}, {1'b1, 8'd66, 1'b0}, + {1'b1, 8'd65, 1'b0}, {1'b1, 8'd70, 9'b100000001}, {1'b1, 8'd71, 2'b0}, {1'b1, 8'd74, 9'b100000001}, {1'b1, 8'd68, 9'b100000011},{1'b1, 8'd69, 1'b0}, {1'b1, 8'd75, 1'b0}, {1'b1, 8'd72, 9'b100000001}, {1'b1, 8'd73, 4'b0}, {1'b1, 8'b00001010}, {32'd11}, {69'b0}};
       
+      // TEST 1
+      SPI_data_arr[191:0] = {145'b101000011100000100101000010010100000101010001101000000011010001110010100101010000000110100010010000001010100010101010010001000000011010010010000
+      ,9'b100001010
+      ,32'd50
+      ,6'b100000};
+
+      reset_fsm();
+      feed_spi_stream(SPI_data_arr, 24);
+
       //LONG HTREE
-      // SPI_data_arr[911:0] = {880'b101011110100000001101011101100000001101011100100000001101011011100000001101011010100000001101011001100000001101011000100000001101010111100000001101010110100000001101010101100000001101010100100000001101010011100000001101010010100000001101010001100000001101010000100000001101011110100000001101011101100000001101011100100000001101011011100000001101011010100000001101011001100000001101011000100000001101010111100000001101010110100000001101010101100000001101010100100000001101010011100000001101010010100000001101010001100000001101010000100000001101001111100000001101001110100000001101001101100000001101001100100000001101001011100000001101001010100000001101001001100000001101001000100000001101000111100000001101000110100000001101000101100000001101000100100000001101000011100000001101000010100000001101000001100000001100000000100000001100000001000000000000000000000000000100001010, 32'd666};
+
+      // SPI_data_arr[639:0] = {599'b1010111101000000011010111011000000011010111001000000011010110111000000011010110101000000011010110011000000011010110001000000011010101111000000011010101101000000011010101011000000011010101001000000011010100111000000011010100101000000011010100011000000011010100001000000011010011111000000011010011101000000011010011011000000011010011001000000011010010111000000011010010101000000011010010011000000011010010001000000011010001111000000011010001101000000011010001011000000011010001001000000011010000111000000011010000101000000011010000011000000011000000001000000011000000010000000000000000000000000000000, 9'b100001010, 32'd50};
       // reset_fsm();
       // feed_spi_stream(SPI_data_arr, 114);
 
-      SPI_data_arr[935:0] = {895'b1011011111000001011001011100101110000100000001100101111001011100011000000101001100000101110010100000001100110001000101110011100000011100110010010111010010000000110011001100101110101100000010100110100010110111110000010110010111001011100001000000011001011110010111000110000001010011000001011100101000000011001100010001011100111000000111001100100101110100100000001100110011001011101011000000101001101000101110110100000001100110101000010101111110000010110001111001011000001000000011000111110010110000110000001010010000001011000101000000011001000010001011000111000000111001000100101100100100000001100100011001011001011000000101001001000101100110100000001100100101000010110011110000010010010011001011010001000000011001001110010110100110000001010010100001011010101000000011001010010001011010111000000111001010100101101100100000001100101011001011011011000000101001011000101101110100000001100101101000000
-        ,9'b100001010
-        ,32'd50};
+      // TEST 4
+
+      // SPI_data_arr[935:0] = {895'b1011011111000001011001011100101110000100000001100101111001011100011000000101001100000101110010100000001100110001000101110011100000011100110010010111010010000000110011001100101110101100000010100110100010110111110000010110010111001011100001000000011001011110010111000110000001010011000001011100101000000011001100010001011100111000000111001100100101110100100000001100110011001011101011000000101001101000101110110100000001100110101000010101111110000010110001111001011000001000000011000111110010110000110000001010010000001011000101000000011001000010001011000111000000111001000100101100100100000001100100011001011001011000000101001001000101100110100000001100100101000010110011110000010010010011001011010001000000011001001110010110100110000001010010100001011010101000000011001010010001011010111000000111001010100101101100100000001100101011001011011011000000101001011000101101110100000001100101101000000
+      //   ,9'b100001010
+      //   ,32'd50};
       
-      // SPI_data_arr[935:0] = {904'b1011011111000001011001011100101110000100000001100101111001011100011000000101001100000101110010100000001100110001000101110011100000011100110010010111010010000000110011001100101110101100000010100110100010110111110000010110010111001011100001000000011001011110010111000110000001010011000001011100101000000011001100010001011100111000000111001100100101110100100000001100110011001011101011000000101001101000101110110100000001100110101000010101111110000010110001111001011000001000000011000111110010110000110000001010010000001011000101000000011001000010001011000111000000111001000100101100100100000001100100011001011001011000000101001001000101100110100000001100100101000010110011110000010010010011001011010001000000011001001110010110100110000001010010100001011010101000000011001010010001011010111000000111001010100101101100100000001100101011001011011011000000101001011000101101110100000001100101101000000100001010, 32'd2626};
-      reset_fsm();
-      feed_spi_stream(SPI_data_arr, 117);
-      // SPI_data_arr[263:0] = {128'b10000, {1'b1, 8'd67}, {1'b1, 8'd66, 1'b0}, + {1'b1, 8'd65, 1'b0}, {1'b1, 8'd70}, {1'b1, 8'd71, 2'b0}, {1'b1, 8'd74}, {1'b1, 8'd68}, {1'b1, 8'd75}, {1'b1, 8'd69, 1'b0}, {1'b1, 8'd72}, {1'b1, 8'd73, 4'b0}, {32'd10}, {12'b0}};
-//       set_inputs(SPI_data_arr[263:256], read_en_SPI);
-//       while (!read_en_SPI) begin
-//         set_inputs(SPI_data_arr[263:256], read_en_SPI);
-//       end
-//       set_inputs(SPI_data_arr[255:248], read_en_SPI);
-//       while (!read_en_SPI) begin
-//         set_inputs(SPI_data_arr[255:248], read_en_SPI);
-//       end
-//        set_inputs(SPI_data_arr[247:240], read_en_SPI);
-//       while (!read_en_SPI) begin
-//         set_inputs(SPI_data_arr[247:240], read_en_SPI);
-//       end
-//       set_inputs(SPI_data_arr[239:232], read_en_SPI);
-//       while (!read_en_SPI) begin
-//         set_inputs(SPI_data_arr[239:232], read_en_SPI);
-//       end
-//       set_inputs(SPI_data_arr[231:224], read_en_SPI);
-//       while (!read_en_SPI) begin
-//         set_inputs(SPI_data_arr[231:224], read_en_SPI);
-//       end
-//       set_inputs(SPI_data_arr[223:216], read_en_SPI);
-//       while (!read_en_SPI) begin
-//         set_inputs(SPI_data_arr[223:216], read_en_SPI);
-//       end
-//       set_inputs(SPI_data_arr[215:208], read_en_SPI);
-//       while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[215:208], read_en_SPI);
-//       end
-
-//       set_inputs(SPI_data_arr[207:200], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[207:200], read_en_SPI);
-//     end
-
+      // reset_fsm();
+      // feed_spi_stream(SPI_data_arr, 117);
     
-//       set_inputs(SPI_data_arr[199:192], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[199:192], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[191:184], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[191:184], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[183:176], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[183:176], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[175:168], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[175:168], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[167:160], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[167:160], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[159:152], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[159:152], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[151:144], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[151:144], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[143:136], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[143:136], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[135:128], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[135:128], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[127:120], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[127:120], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[119:112], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[119:112], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[111:104], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[111:104], read_en_SPI);
-//     end
-      
-//       set_inputs(SPI_data_arr[103:96], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[103:96], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[95:88], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[95:88], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[87:80], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[87:80], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[79:72], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[79:72], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[71:64], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[71:64], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[63:56], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[63:56], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[55:48], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[55:48], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[47:40], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[47:40], read_en_SPI);
-//     end
-      
-//       set_inputs(SPI_data_arr[39:32], read_en_SPI);
-//      // #500
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[39:32], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[31:24], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[31:24], read_en_SPI);
-//     end
- 
-//       set_inputs(SPI_data_arr[23:16], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[23:16], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[15:8], read_en_SPI);
-//     while (!read_en_SPI) begin
-//       set_inputs(SPI_data_arr[15:8], read_en_SPI);
-//     end
-
-//       set_inputs(SPI_data_arr[7:0], read_en_SPI);
-    // while (!read_en_SPI) begin
-    //   set_inputs(SPI_data_arr[7:0], read_en_SPI);
-    // end
     
       #100;
 

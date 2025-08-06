@@ -19,7 +19,8 @@ module t05_hd_decode (
     output logic [7:0] char_index, // set to SRAM to store address
     output logic SRAM_write_en, // sent to SRAM to enable writing a char path
     output logic finished, // sent to controller
-    output logic [31:0] tot_chars // read from compressed file and sent to translation to determine the finish condition
+    output logic [31:0] tot_chars, // read from compressed file and sent to translation to determine the finish condition
+    output logic [3:0] hd_offset
 );
   logic [3:0] curr_state, next_state; 
   logic [127:0] curr_path, next_path; 
@@ -102,6 +103,7 @@ always_comb begin
 
     next_SRAM_write_en = SRAM_write_en;
     next_SPI_read_en = SPI_read_en;
+    hd_offset = offset;
 
     case (curr_state)
         0: begin // INIT if the controller's enable is set high for hd_decode to start or not
@@ -265,7 +267,7 @@ always_comb begin
                 next_count = 0;
             end
         end
-        10: begin
+        10: begin // SRAM WRITING
           if (wait_count == 0) begin
               next_wait_count = wait_count + 1;
               next_SRAM_write_en = 1;
@@ -298,6 +300,7 @@ always_comb begin
             end
         end
         7: begin // FINISH
+            hd_offset = offset;
             next_finished = 1;
         end
         default: begin next_state = curr_state; end

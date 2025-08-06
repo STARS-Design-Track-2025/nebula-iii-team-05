@@ -4,6 +4,8 @@
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/team_05.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_findLeastValue.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_translation.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_cb_synthesis.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_header_synthesis.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_hd_decode.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_top_decompression.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_controller_decode.sv

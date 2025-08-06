@@ -4,14 +4,15 @@ module t05_sram_interface_decode (
 
     // CONTROLLER state
     input logic [1:0] controller_state,
+    input logic SRAM_controller_en,
 
     // header decode write to SRAM
-  input logic [7:0] char_index_hd, // write path at char index
+    input logic [7:0] char_index_hd, // write path at char index
     input logic SRAM_write_en,
     input logic [127:0] SRAM_data_out,
 
     // translation read from SRAM
-  input logic [7:0] char_index_tr, // read path at char index
+    input logic [7:0] char_index_tr, // read path at char index
     input logic SRAM_read_en,
     output logic [127:0] SRAM_data_in,
     output logic SRAM_finished,
@@ -66,7 +67,7 @@ always_ff @(posedge clk, posedge rst) begin
       test <= 0;
       wait_count <= 0;
     end
-    else begin
+    else if (SRAM_controller_en) begin
       SRAM_data_in <= next_SRAM_data_in;
       hd_decode_count <= next_hd_decode_count;
       init <= next_init;
@@ -97,6 +98,7 @@ always @(*) begin
   next_init_finished = init_finished;
   next_wait_count = wait_count;
 
+  if (SRAM_controller_en) begin
   case (controller_state)
     0: begin // HD_DECODE
       // INITIALIZATION OF MEMORY
@@ -286,8 +288,13 @@ always @(*) begin
               end
             end
         endcase
-      end      
+      end 
+      // 3: begin
+
+
+      // end     
   endcase
+  end
 end
 
 endmodule

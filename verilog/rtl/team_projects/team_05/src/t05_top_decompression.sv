@@ -14,6 +14,7 @@ module t05_top_decompression (
     input logic clk, reset,
     // SPI
     input logic [7:0] SPI_data_in, // byte sent by SPI
+    input logic controller_enable,
     output logic SPI_data_out, // bit sent to SPI
     output logic SPI_read_en,
     output logic [1:0] curr_state,
@@ -86,9 +87,12 @@ logic [127:0] tr_SRAM_data_in; // read char path
   logic [7:0] char_index_tr;
   logic SRAM_finished;
 
+  logic SRAM_controller_en;
+
   t05_sram_interface_decode sramd1 (
     .clk(clk), .rst(reset),
 
+    .SRAM_controller_en(SRAM_controller_en),
     .controller_state(curr_state), // controller state
     .init(init),
 
@@ -142,6 +146,7 @@ logic hd_finished_controller;
 logic decompress_finished;
 
 t05_controller_decode cd1 (
+    .controller_enable(controller_enable),
     .clk(clk), .rst(reset),
     .init(init),
     .SRAM_r_en(SRAM_r_en), .SRAM_wr_en(SRAM_wr_en), 
@@ -154,11 +159,13 @@ t05_controller_decode cd1 (
     .SPI_read_en_hd(SPI_read_en_hd),
     .SPI_read_en_tr(SPI_read_en_tr),
     .SPI_read_en(SPI_read_en),
-    .SRAM_finished(SRAM_finished)
+    .SRAM_finished(SRAM_finished),
+    .SRAM_controller_en(SRAM_controller_en)
 );
 
 // INTERNAL (HD_DECODE to TRANSLATION)
 logic [31:0] tot_chars; // total # of chars in decompressed file (end condtion for translation, read by hd_decode)
+logic [3:0] hd_offset;
 
 t05_hd_decode hdd1 (.clk(clk), .rst(reset),
     .hd_enable(hd_en_controller),
@@ -168,7 +175,8 @@ t05_hd_decode hdd1 (.clk(clk), .rst(reset),
     .char_index(char_index_hd), // set to SRAM to store address
     .SRAM_write_en(SRAM_wr_en), // sent to SRAM to enable writing a char path
     .finished(hd_finished_controller), // sent to controller
-    .tot_chars(tot_chars) // read from compressed file and sent to translation to determine the finish condition)
+    .tot_chars(tot_chars), // read from compressed file and sent to translation to determine the finish condition)
+    .hd_offset(hd_offset)
 );
 t05_translation_decode trd1 (
     .clk(clk), .rst(reset),
@@ -181,6 +189,7 @@ t05_translation_decode trd1 (
     .char_index(char_index_tr), // char index for char path (written by hd_decode) to get in SRAM
     .SPI_write_data(SPI_data_out), // given an char index from SRAM, write the char (bit by bit) based on the corresponding code
     .SPI_write_en(SPI_write_en),
-    .finished(tr_finished_controller)
+    .finished(tr_finished_controller),
+    .hd_offset(hd_offset)
 ); 
 endmodule
