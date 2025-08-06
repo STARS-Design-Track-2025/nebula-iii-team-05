@@ -28,6 +28,9 @@ module t05_controller (
         TRN_FIN=6,
         SPI_FIN=7,
         ERROR_FIN=8
+
+
+        
     } finState_t;
     
     typedef enum logic [3:0] {
