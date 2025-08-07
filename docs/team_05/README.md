@@ -21,15 +21,15 @@ The first number represents the GPIO on the physical chip, while the second numb
 * **Pin 03 [--]** - NOT ALLOWED
 * **Pin 04 [--]** - NOT ALLOWED
 * **Pin 05 [01]** - Input or Output? - Pin Function?
-* **Pin 06 [02]** - Input or Output? - Pin Function? 
-* **Pin 07 [03]** - Input or Output? - Pin Function? 
-* **Pin 08 [04]** - Input or Output? - Pin Function? 
-* **Pin 09 [05]** - Input or Output? - Pin Function? 
-* **Pin 10 [06]** - Input or Output? - Pin Function?
-* **Pin 11 [07]** - Input or Output? - Pin Function?
-* **Pin 12 [08]** - Input or Output? - Pin Function?
-* **Pin 13 [09]** - Input or Output? - Pin Function? 
-* **Pin 14 [10]** - Input or Output? - Pin Function? 
+* **Pin 06 [02]** - Input - esp_ack 
+* **Pin 07 [03]** - Input - read_in_pulse
+* **Pin 08 [04]** - Input - in[0]
+* **Pin 09 [05]** - Input - in[1] 
+* **Pin 10 [06]** - Input - in[2]
+* **Pin 11 [07]** - Input - in[3]
+* **Pin 12 [08]** - Input - in[4]
+* **Pin 13 [09]** - Input - in[5] 
+* **Pin 14 [10]** - Input - in[6] 
 * **Pin 15 [11]** - Input or Output? - Pin Function? 
 * **Pin 16 [12]** - Input or Output? - Pin Function? 
 * **Pin 17 [13]** - Input or Output? - Pin Function? 

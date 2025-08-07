@@ -23,6 +23,7 @@ module top (
   
   logic serial_clk;
   logic sclk;
+  logic freq_flag;
 
   //FLV hTREE
   logic [8:0] least1, least2;
@@ -209,7 +210,7 @@ module top (
 
     .gpio_in(gpio_in),
     .gpio_out(gpio_out),
-    .gpio_oeb()  // don't really need it here since it is an output
+    .gpio_oeb(),  // don't really need it her since it is an output
 
     // Uncomment only if using LA
     // .la_data_in(),
