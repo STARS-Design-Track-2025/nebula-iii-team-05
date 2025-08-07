@@ -134,6 +134,7 @@ always @(*) begin
             next_bit1 = 1'b0;
         end
         else begin // once all zeroes have been added, set all enables low and indicate that write has been finished to cb synthesis
+        else begin // once all zeroes have been added, set all enables low and indicate that write has been finished to cb synthesis
             next_bit1 = 1'b0;
             next_enable = 0;
             next_count = 0;
