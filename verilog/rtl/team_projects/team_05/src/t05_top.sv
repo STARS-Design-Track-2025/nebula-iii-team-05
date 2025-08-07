@@ -167,6 +167,61 @@ module t05_top (
   logic pulse_TRN;
   logic TRN_sram_complete;
 
+
+
+  opfin opfin (
+    .clk(hwclk), .rst(reset | restart_en), .cont_en(cont_en), .restart_en(restart_en), .compDecomp(compDeComp),
+    .comp_state(comp_state), 
+    .decomp_state(decomp_state),
+    .opFin(opFin),
+    .finished_signal(finished_signal), .compEN_reg(compEN_reg), .decompEN_reg(decompEN_reg)
+  );
+
+  logic [3:0] opFin;
+  logic finished_signal, compEN_reg, decompEN_reg;
+
+  lcd lcd_dut(
+    .clk(hwclk), .rst(reset), .select(finished_signal), .comp(compEN_reg), .decomp(decompEN_reg), .enstate(opFin), .row_1(in_1), .row_2(in_2)
+  );
+
+  // logic lcd_en, lcd_rw, lcd_rs;
+  driver #(
+    .clk_div(24_000)
+  ) lcd1602 (
+  .clk(hwclk),
+  .rst(~reset),      // active-high reset
+  // 16 characters per row, each character is 8 bits, total 128 bits (row_1[127:120] is first char)
+  .row_1(in_1),
+  .row_2(in_2),
+  // LCD interface signals
+  .out(out),
+  .out_valid(out_valid)
+  );
+
+  logic start, sdo, sclk, cs_n, busy, done;
+  logic [9:0] data_in;
+
+  assign start = out_valid;
+  assign data_in = out;
+
+  t05_1602_spi #(
+    .WIDTH(10),                    // Number of bits to transmit
+    .CLK_DIV(40)                   // Clock divider (system_clk / CLK_DIV = spi_clk)
+  ) spi (
+    .clk    (hwclk),    // System clock
+    .rst_n  (~reset),   // Active low reset
+    .start  (start),    // Start transmission (pulse)
+    .data_in(data_in),  // Data to transmit
+    .sdo    (sdo),      // Serial data out (MOSI)
+    .sclk   (sclk),     // SPI clock
+    .cs_n   (cs_n),     // Chip select (active low)
+    .busy   (busy),     // Transmission in progress
+    .done   (done)      // Transmission complete (pulse)
+);
+
+  assign {right[2], right[1], right[0]} = {cs_n, sdo, sclk};
+
+
   t05_sram_interface sram_interface (
     .clk(hwclk),
     .rst(reset),
@@ -255,6 +310,7 @@ module t05_top (
     // .restart_en('0), 
     // .op_fin(ctrl_state), 
     .finState(fin_State), 
+    .comp(compEN_reg),
     .fin_idle(fin_state_idle),
     .fin_HG(fin_state_HG),
     .fin_FLV(fin_state_FLV),

@@ -3,7 +3,7 @@
 module t05_controller (
  input logic clk, rst, /*cont_en, restart_en,*/
  input logic [7:0] finState,
- //input logic comp,
+ input logic comp,
 //  input logic [5:0] op_fin, // assumed to be registered - from SRAM
  input logic fin_idle, fin_HG, fin_FLV, fin_HT, fin_FINISHED, fin_CBS, fin_TRN, fin_SPI,
  output logic [3:0] state_reg
@@ -45,7 +45,7 @@ module t05_controller (
     // logic finished;
     logic [7:0] fin_reg;
     logic [7:0] finState_next;// signal modules send when they are done
-    state_t next_state;
+    logic [3:0] next_state;
     logic [7:0] fin_signal;
     assign fin_signal = {fin_idle, fin_HG, fin_FLV, fin_HT, fin_FINISHED, fin_CBS, fin_TRN, fin_SPI};
 
@@ -63,8 +63,9 @@ module t05_controller (
     end
    
     always_comb begin
+        next_state = state_reg;
         // finished = finished_signal;
-        
+        if(comp) begin
             //finState_next = fin_reg;
             case (fin_reg)
                 IDLE_FIN: begin
@@ -95,6 +96,7 @@ module t05_controller (
                     next_state = IDLE;
                 end
             endcase
+        end
             // case (state_reg)
             //     IDLE: begin
             //         if (cont_en) begin

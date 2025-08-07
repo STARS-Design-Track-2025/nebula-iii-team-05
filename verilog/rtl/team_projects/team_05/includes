@@ -9,8 +9,9 @@
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_header_synthesis.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_histogram.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_hTree.sv
--v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_SPI.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_top.sv
--v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_spiClockDivider.sv
+# -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_spiClockDivider.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_sram_interface.sv
 -v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_bytecount.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_OPFIN.sv
+-v $(USER_PROJECT_VERILOG)/rtl/team_projects/team_05/src/t05_lcd.sv

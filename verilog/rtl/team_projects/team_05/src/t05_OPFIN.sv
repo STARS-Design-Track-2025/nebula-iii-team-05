@@ -1,5 +1,5 @@
  `default_nettype none
-module t05_OPFIN (
+module opfin (
  input logic clk, rst, cont_en,restart_en,compDecomp,
  input logic [3:0] comp_state, 
  input logic [1:0]decomp_state, // assumed to be registered
@@ -33,7 +33,7 @@ module t05_OPFIN (
     logic finished;
 
     always_ff @(posedge clk or posedge rst) begin
-        if (rst || restart_en) begin
+        if (rst) begin
             state <= IDLE;
             compDecomp_reg <= 0;
             compEN_reg <= 1'b0;
