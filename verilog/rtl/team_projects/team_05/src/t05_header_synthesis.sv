@@ -19,6 +19,8 @@ logic next_enable;
 logic [7:0] count;
 logic [7:0] next_count;
 logic next_bit1;
+logic next_enable;
+logic [3:0] next_zeroes;
 logic next_char_added;
 logic next_write_finish;
 logic start;
@@ -131,7 +133,7 @@ always @(*) begin
             next_count = count + 1;
             next_bit1 = 1'b0;
         end
-        else begin
+        else begin // once all zeroes have been added, set all enables low and indicate that write has been finished to cb synthesis
             next_bit1 = 1'b0;
             next_enable = 0;
             next_count = 0;
