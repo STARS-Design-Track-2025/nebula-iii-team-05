@@ -1,6 +1,7 @@
 `default_nettype none
 
 module t05_controller (
+ input logic compEN_reg,
  input logic clk, rst, /*cont_en, restart_en,*/
  input logic [7:0] finState,
  //input logic comp,
@@ -68,7 +69,9 @@ module t05_controller (
             //finState_next = fin_reg;
             case (fin_reg)
                 IDLE_FIN: begin
+                    if (compEN_reg) begin
                         next_state = HISTO;
+                    end
                 end
                 HFIN: begin
                     next_state = FLV;

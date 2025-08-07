@@ -26,19 +26,19 @@ module t05_top (
     output logic [31:0] wbs_dat_o,
     output logic [31:0] wbs_adr_o,
     input logic wbs_ack_i,
-    input logic [31:0] wbs_dat_i
+    input logic [31:0] wbs_dat_i,
     //input logic pulse_in
 
 
     // DECOMPRESSION
-    // input logic [7:0] SPI_data_in, // byte sent by SPI
-    // input logic controller_enable,
-    // output logic SPI_data_out, // bit sent to SPI
-    // output logic SPI_read_en,
-    // output logic [1:0] curr_state,
-    // output logic SRAM_r_en,
-    // //input logic [127:0] tr_SRAM_data_in,
-    // output logic SRAM_wr_en
+    input logic [7:0] SPI_data_in, // byte sent by SPI
+    input logic controller_enable,
+    output logic SPI_data_out, // bit sent to SPI
+    output logic SPI_read_en,
+    output logic [1:0] curr_state,
+    output logic SRAM_r_en,
+    //input logic [127:0] tr_SRAM_data_in,
+    output logic SRAM_wr_en
 );
   logic serial_clk;
 
@@ -133,21 +133,21 @@ module t05_top (
   logic [3:0] sel_i;
   //logic busy_o;
 
-  // logic [3:0] comp_state;
-  // logic [1:0] decomp_state;
-  // logic [3:0] opFin;
-  // logic finished_signal;
-  // logic compEN_reg;
-  // logic decompEN_reg;
+  logic [3:0] comp_state;
+  logic [1:0] decomp_state;
+  logic [3:0] opFin;
+  logic finished_signal;
+  logic compEN_reg;
+  logic decompEN_reg;
 
-  // OPFIN opfin1 ( // top level controller 
-  //   .clk(hwclk), .rst(reset), .cont_en(cont_en), .restart_en(restart_en), .compDecomp(compDecomp),
-  //   .comp_state(comp_state), 
-  //   .decomp_state(decomp_state), // assumed to be registered
-  //   .opFin(opFin), // NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO (lol stop pls Van)
-  //   .finished_signal(finished_signal), 
-  //   .compEN_reg(compEN_reg), .decompEN_reg(decompEN_reg)
-  // );
+  OPFIN opfin1 ( // top level controller 
+    .clk(hwclk), .rst(reset), .cont_en(cont_en), .restart_en(restart_en), .compDecomp(compDecomp),
+    .comp_state(comp_state), 
+    .decomp_state(decomp_state), // assumed to be registered
+    .opFin(opFin), // NOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO (lol stop pls Van)
+    .finished_signal(finished_signal), 
+    .compEN_reg(compEN_reg), .decompEN_reg(decompEN_reg)
+  );
 
   wishbone_manager WB (
     .nRST(!reset),
@@ -271,7 +271,7 @@ module t05_top (
   logic [3:0] word_cnt;
 
   t05_controller controller (
-    //.compEN_reg(compEN_reg),
+    .compEN_reg(compEN_reg),
     .clk(hwclk),
     .rst(reset), 
     // .cont_en(1),  // // TODO: Seems like this is not used anywhere inside. Set to 1.
@@ -520,118 +520,118 @@ module t05_top (
     // DECOMPRESSION
 
     // SRAM
-//   logic [127:0] hd_SRAM_data_out; // write char path
-//   logic [127:0] tr_SRAM_data_in; // read char path
-//   logic [7:0] char_index_hd;
-//   //logic init1;
-//   logic [7:0] char_index_tr;
-//   //logic SRAM_finished1;
+  logic [127:0] hd_SRAM_data_out; // write char path
+  logic [127:0] tr_SRAM_data_in; // read char path
+  logic [7:0] char_index_hd;
+  //logic init1;
+  logic [7:0] char_index_tr;
+  //logic SRAM_finished1;
 
-//   logic SRAM_controller_en;
+  logic SRAM_controller_en;
 
-//   t05_sram_interface_decode sramd1 (
-//     .clk(hwclk), .rst(reset),
+  t05_sram_interface_decode sramd1 (
+    .clk(hwclk), .rst(reset),
 
-//     .SRAM_controller_en(SRAM_controller_en),
-//     .controller_state(curr_state), // controller state
-//     .init(init),
+    .SRAM_controller_en(SRAM_controller_en),
+    .controller_state(curr_state), // controller state
+    .init(init),
 
-//     .char_index_hd(char_index_hd), // index to store path at
-//     // write paths from hd_decode to SRAM
-//     .char_index_tr(char_index_tr),
-//     .SRAM_write_en(SRAM_wr_en),
-//     .SRAM_data_out(hd_SRAM_data_out),
+    .char_index_hd(char_index_hd), // index to store path at
+    // write paths from hd_decode to SRAM
+    .char_index_tr(char_index_tr),
+    .SRAM_write_en(SRAM_wr_en),
+    .SRAM_data_out(hd_SRAM_data_out),
 
-//     // translation read from SRAM
-//     .SRAM_read_en(SRAM_r_en),
-//     .SRAM_data_in(tr_SRAM_data_in),
-//     .SRAM_finished(SRAM_finished),
+    // translation read from SRAM
+    .SRAM_read_en(SRAM_r_en),
+    .SRAM_data_in(tr_SRAM_data_in),
+    .SRAM_finished(SRAM_finished),
 
-//     // wishbone connects
-//     .wr_en(write_i),
-//     .r_en(read_i),
-//     .select(sel_i),
-//     .addr(addr_i),
-//     .data_i(data_i_wish),
-//     .data_o(data_o_wish),
-//     .busy_o(busy_o)
+    // wishbone connects
+    .wr_en(write_i),
+    .r_en(read_i),
+    .select(sel_i),
+    .addr(addr_i),
+    .data_i(data_i_wish),
+    .data_o(data_o_wish),
+    .busy_o(busy_o)
+);
+
+// SPI SIGNALS
+  logic SPI_read_en_hd;
+logic SPI_read_en_tr;
+logic SPI_write_en;
+// t05_SPI SPI1 (
+//     .miso(miso), // Read
+//     .rst(reset),
+//     .serial_clk(s_clk), .clk(hwclk),
+//     .writebit(SPI_data_out),
+//     .read_en(SPI_read_en), .write_en(SPI_write_en), read_stop, nextCharEn,
+//     .read_address, write_address,
+//     output logic slave_select,
+//     output logic [7:0] read_output,
+//     output logic [3:0] finish, 
+//     output logic freq_flag, cmd_en,
+//     output logic mosi // Write
 // );
 
-// // SPI SIGNALS
-//   logic SPI_read_en_hd;
-// logic SPI_read_en_tr;
-// logic SPI_write_en;
-// // t05_SPI SPI1 (
-// //     .miso(miso), // Read
-// //     .rst(reset),
-// //     .serial_clk(s_clk), .clk(hwclk),
-// //     .writebit(SPI_data_out),
-// //     .read_en(SPI_read_en), .write_en(SPI_write_en), read_stop, nextCharEn,
-// //     .read_address, write_address,
-// //     output logic slave_select,
-// //     output logic [7:0] read_output,
-// //     output logic [3:0] finish, 
-// //     output logic freq_flag, cmd_en,
-// //     output logic mosi // Write
-// // );
 
+// CONTROLLER SIGNALS (enables and finish signals)
+logic tr_en_controller; 
+logic hd_en_controller;
+logic tr_finished_controller;
+logic hd_finished_controller;
+//logic SRAM_wr_en;
+//logic [1:0] curr_state;
+logic decompress_finished;
 
-// // CONTROLLER SIGNALS (enables and finish signals)
-// logic tr_en_controller; 
-// logic hd_en_controller;
-// logic tr_finished_controller;
-// logic hd_finished_controller;
-// //logic SRAM_wr_en;
-// //logic [1:0] curr_state;
-// logic decompress_finished;
+t05_controller_decode cd1 (
+    .controller_enable(decompEN_reg),
+    .clk(hwclk), .rst(reset),
+    .init(init),
+    .SRAM_r_en(SRAM_r_en), .SRAM_wr_en(SRAM_wr_en), 
+    .hd_finished(hd_finished_controller),
+    .tr_finished(tr_finished_controller),
+    .hd_enable(hd_en_controller),
+    .tr_enable(tr_en_controller),
+    .curr_state(curr_state),
+    .finished(decompress_finished),
+    .SPI_read_en_hd(SPI_read_en_hd),
+    .SPI_read_en_tr(SPI_read_en_tr),
+    .SPI_read_en(SPI_read_en),
+    .SRAM_finished(SRAM_finished),
+    .SRAM_controller_en(SRAM_controller_en)
+);
 
-// t05_controller_decode cd1 (
-//     .controller_enable(decompEN_reg),
-//     .clk(hwclk), .rst(reset),
-//     .init(init),
-//     .SRAM_r_en(SRAM_r_en), .SRAM_wr_en(SRAM_wr_en), 
-//     .hd_finished(hd_finished_controller),
-//     .tr_finished(tr_finished_controller),
-//     .hd_enable(hd_en_controller),
-//     .tr_enable(tr_en_controller),
-//     .curr_state(curr_state),
-//     .finished(decompress_finished),
-//     .SPI_read_en_hd(SPI_read_en_hd),
-//     .SPI_read_en_tr(SPI_read_en_tr),
-//     .SPI_read_en(SPI_read_en),
-//     .SRAM_finished(SRAM_finished),
-//     .SRAM_controller_en(SRAM_controller_en)
-// );
+// INTERNAL (HD_DECODE to TRANSLATION)
+logic [31:0] tot_chars; // total # of chars in decompressed file (end condtion for translation, read by hd_decode)
+logic [3:0] hd_offset;
 
-// // INTERNAL (HD_DECODE to TRANSLATION)
-// logic [31:0] tot_chars; // total # of chars in decompressed file (end condtion for translation, read by hd_decode)
-// logic [3:0] hd_offset;
-
-// t05_hd_decode hdd1 (.clk(hwclk), .rst(reset),
-//     .hd_enable(hd_en_controller),
-//     .SPI_data_in(SPI_data_in), // read byte of header from SPI
-//     .SPI_read_en(SPI_read_en_hd), // sent to SPI to enable a new byte to be read
-//     .SRAM_data_out(hd_SRAM_data_out), // write a char path to SRAM
-//     .char_index(char_index_hd), // set to SRAM to store address
-//     .SRAM_write_en(SRAM_wr_en), // sent to SRAM to enable writing a char path
-//     .finished(hd_finished_controller), // sent to controller
-//     .tot_chars(tot_chars), // read from compressed file and sent to translation to determine the finish condition)
-//     .hd_offset(hd_offset)
-// );
-// t05_translation_decode trd1 (
-//     .clk(hwclk), .rst(reset),
-//     .translation_enable(tr_en_controller),
-//     .tot_chars(tot_chars), // total characters read in the hd_decode
-//     .SPI_read_data(SPI_data_in), // read in char bytes from the SPI
-//     .SRAM_read_data(tr_SRAM_data_in), // read in path from the SRAM
-//     .SPI_read_en(SPI_read_en_tr),
-//     .SRAM_read_en(SRAM_r_en),
-//     .char_index(char_index_tr), // char index for char path (written by hd_decode) to get in SRAM
-//     .SPI_write_data(SPI_data_out), // given an char index from SRAM, write the char (bit by bit) based on the corresponding code
-//     .SPI_write_en(SPI_write_en),
-//     .finished(tr_finished_controller),
-//     .hd_offset(hd_offset)
-// ); 
+t05_hd_decode hdd1 (.clk(hwclk), .rst(reset),
+    .hd_enable(hd_en_controller),
+    .SPI_data_in(SPI_data_in), // read byte of header from SPI
+    .SPI_read_en(SPI_read_en_hd), // sent to SPI to enable a new byte to be read
+    .SRAM_data_out(hd_SRAM_data_out), // write a char path to SRAM
+    .char_index(char_index_hd), // set to SRAM to store address
+    .SRAM_write_en(SRAM_wr_en), // sent to SRAM to enable writing a char path
+    .finished(hd_finished_controller), // sent to controller
+    .tot_chars(tot_chars), // read from compressed file and sent to translation to determine the finish condition)
+    .hd_offset(hd_offset)
+);
+t05_translation_decode trd1 (
+    .clk(hwclk), .rst(reset),
+    .translation_enable(tr_en_controller),
+    .tot_chars(tot_chars), // total characters read in the hd_decode
+    .SPI_read_data(SPI_data_in), // read in char bytes from the SPI
+    .SRAM_read_data(tr_SRAM_data_in), // read in path from the SRAM
+    .SPI_read_en(SPI_read_en_tr),
+    .SRAM_read_en(SRAM_r_en),
+    .char_index(char_index_tr), // char index for char path (written by hd_decode) to get in SRAM
+    .SPI_write_data(SPI_data_out), // given an char index from SRAM, write the char (bit by bit) based on the corresponding code
+    .SPI_write_en(SPI_write_en),
+    .finished(tr_finished_controller),
+    .hd_offset(hd_offset)
+); 
 
 
 
