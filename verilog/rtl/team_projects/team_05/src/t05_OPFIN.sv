@@ -48,6 +48,7 @@ module t05_OPFIN (
     //                -> decomp -> state0 -> state 1 -> state 2 -> state 3 -> done
     always_comb begin
         // Default values to avoid latches
+        opFin = state;
         if (compEN)begin 
             case(comp_state)
                 0: begin
