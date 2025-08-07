@@ -30,25 +30,36 @@ module t05_OPFIN (
     } state_t;
 
     state_t state, next_state;
-    // logic [3:0] state_reg, next_state_reg;
-    logic finished, next_finished, compEN, decompEN;
+    logic finished;
 
     always_ff @(posedge clk or posedge rst) begin
         if (rst || restart_en) begin
             state <= IDLE;
             compDecomp_reg <= 0;
+            compEN_reg <= 1'b0;
+            decompEN_reg <= 1'b0;
         end else begin
             state <= next_state;
             compDecomp_reg <= compDecomp;
-            compEN_reg <= compEN;
-            decompEN_reg <= decompEN;
+            // Only set enable signals when transitioning to enabled state
+            if (state == COMP && cont_en) begin
+                compEN_reg <= 1'b1;
+            end
+            if (state == DECOMP && cont_en) begin
+                decompEN_reg <= 1'b1;
+            end
+            finished_signal <= finished;
         end
     end
     // idle -> select -> comp -> Hist -> FLV <-> HTREE -> CBS -> TRN -> SPI -> done
     //                -> decomp -> state0 -> state 1 -> state 2 -> state 3 -> done
     always_comb begin
         // Default values to avoid latches
-        if (compEN)begin 
+        opFin = state;
+        finished = 1'b0;
+        next_state = state; // Default: stay in current state
+        
+        if (compEN_reg) begin 
             case(comp_state)
                 0: begin
                     next_state = IDLE;
@@ -81,7 +92,7 @@ module t05_OPFIN (
                     next_state = IDLE;
                 end
             endcase
-        end else if (decompEN) begin
+        end else if (decompEN_reg) begin
             case(decomp_state)
                 2'd0: begin
                     next_state = STATE0;
@@ -100,49 +111,48 @@ module t05_OPFIN (
                 end
             endcase
         end else begin
-            next_state = state; // latch signal
+            // Handle normal state machine transitions when not enabled
+            case (state)
+                IDLE: begin
+                    finished = 1'b0;
+                    if (cont_en) begin
+                        next_state = SELECT;
+                    end
+                end
+
+                SELECT: begin
+                    if (compDecomp_reg) begin
+                        next_state = COMP;
+                    end else begin
+                        next_state = DECOMP;
+                    end
+                end
+
+                COMP: begin
+                    if (!compDecomp_reg) begin
+                        next_state = DECOMP;
+                    end
+                    // compEN_reg will be set in the clocked block when cont_en is high
+                end
+
+                DECOMP: begin
+                    if (compDecomp_reg) begin
+                        next_state = COMP;
+                    end
+                    // decompEN_reg will be set in the clocked block when cont_en is high
+                end
+
+                DONE: begin
+                    finished = 1'b1; // Indicate operation is done
+                    if (restart_en) begin
+                        next_state = IDLE; // Go back to IDLE on restart
+                    end
+                end
+
+                default: begin
+                    next_state = IDLE;
+                end
+            endcase
         end
-        compEN = 1'b0;
-        decompEN = 1'b0;
-
-        case (state)
-            IDLE: begin
-                if (cont_en) begin
-                    next_state = SELECT;
-                end
-            end
-
-            SELECT: begin
-                if (compDecomp_reg ) begin
-                    next_state = COMP;
-                end else begin
-                    next_state = DECOMP;
-                end
-            end
-
-            COMP: begin
-                if(!compDecomp_reg) begin
-                    next_state = DECOMP;
-                end else if (cont_en) begin
-                    compEN = 1'b1;
-                end else begin 
-                    next_state = COMP;
-                end
-            end
-
-            DECOMP: begin
-                if(!compDecomp_reg) begin
-                    next_state = COMP;
-                end else if (cont_en) begin
-                    decompEN = 1'b1;
-                end else begin 
-                    next_state = DECOMP;
-                end
-            end
-
-            default: begin
-                next_state = IDLE;
-            end
-        endcase
     end
 endmodule
