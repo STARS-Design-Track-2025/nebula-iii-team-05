@@ -129,141 +129,186 @@ module t05_OPFIN_tb;
 
         $display("Starting t05_OPFIN testbench...");
         
-        // Test 1: Initial reset
-        $display("\n=== Test 1: Reset Functionality ===");
+        // Test 1: Complete Compression Flow
+        $display("\n=== Test 1: Complete Compression Flow ===");
         apply_reset();
         #20;
-        $display("State after reset: opFin=%0d, compEN_reg=%b, decompEN_reg=%b", 
-                 opFin, compEN_reg, decompEN_reg);
-
-        // Test 2: IDLE to SELECT transition
-        $display("\n=== Test 2: IDLE to SELECT Transition ===");
-        pulse_continue();
-        #20;
-        $display("After cont_en pulse: opFin=%0d", opFin);
-
-        // Test 3: SELECT to COMP (compression mode)
-        $display("\n=== Test 3: SELECT to COMP (Compression Mode) ===");
-        compDecomp = 1; // Select compression
-        #20;
-        $display("After compDecomp=1: opFin=%0d", opFin);
-
-        // Test 4: Compression state testing
-        $display("\n=== Test 4: Compression State Testing ===");
-        test_comp_state(1, HISTO, "HISTO");
-        test_comp_state(2, FLV, "FLV");
-        test_comp_state(3, HTREE, "HTREE");
-        test_comp_state(4, CBS, "CBS");
-        test_comp_state(5, TRN, "TRN");
-        test_comp_state(6, SPI, "SPI");
-        test_comp_state(7, ERROR, "ERROR");
-        test_comp_state(8, DONE, "DONE");
-
-        // Test 5: Enable signal testing
-        $display("\n=== Test 5: Enable Signal Testing ===");
-        comp_state = 1;
-        pulse_continue();
+        check_opFin(IDLE, "IDLE_AFTER_RESET");
+        
+        // Set compression mode BEFORE going to SELECT
+        compDecomp = 1; // Choose compression
         #10;
+        
+        // IDLE -> SELECT (wait for cont_en)
+        $display("Step 1: IDLE -> SELECT");
+        pulse_continue();
+        #20;
+        check_opFin(SELECT, "SELECT_STATE");
+        
+        // SELECT automatically goes to COMP because compDecomp = 1
+        #10;
+        check_opFin(COMP, "COMP_STATE");
+        
+        // COMP -> Enable compression (wait for cont_en again)
+        $display("Step 2: Enable compression mode");
+        pulse_continue();
+        #20;
         if (compEN_reg) begin
             $display("✓ compEN_reg correctly asserted");
         end else begin
             $display("✗ compEN_reg not asserted");
         end
-
-        // Test 6: Switch to decompression mode
-        $display("\n=== Test 6: Switch to Decompression Mode ===");
+        
+        // Now comp_state controls opFin - simulate compression flow
+        $display("Step 3: Compression states controlled by comp_state");
+        comp_state = 1; // HISTO
+        #20;
+        check_opFin(HISTO, "HISTO_STATE");
+        
+        comp_state = 2; // FLV
+        #20;
+        check_opFin(FLV, "FLV_STATE");
+        
+        comp_state = 3; // HTREE
+        #20;
+        check_opFin(HTREE, "HTREE_STATE");
+        
+        comp_state = 4; // CBS
+        #20;
+        check_opFin(CBS, "CBS_STATE");
+        
+        comp_state = 5; // TRN
+        #20;
+        check_opFin(TRN, "TRN_STATE");
+        
+        comp_state = 6; // SPI
+        #20;
+        check_opFin(SPI, "SPI_STATE");
+        
+        comp_state = 8; // DONE
+        #20;
+        check_opFin(DONE, "DONE_STATE");
+        
+        // DONE -> IDLE (with restart_en)
+        $display("Step 4: DONE -> IDLE with restart");
         apply_restart();
-        pulse_continue(); // IDLE to SELECT
         #20;
-        compDecomp = 0; // Select decompression
-        #20;
-        $display("Switched to decompression mode: opFin=%0d", opFin);
+        check_opFin(IDLE, "BACK_TO_IDLE");
 
-        // Test 7: Decompression state testing
-        $display("\n=== Test 7: Decompression State Testing ===");
-        test_decomp_state(2'd0, STATE0, "STATE0");
-        test_decomp_state(2'd1, STATE1, "STATE1");
-        test_decomp_state(2'd2, STATE2, "STATE2");
-        test_decomp_state(2'd3, STATE3, "STATE3");
-
-        // Test 8: Decompression enable signal testing
-        $display("\n=== Test 8: Decompression Enable Signal Testing ===");
-        decomp_state = 2'd1;
-        pulse_continue();
+        // Test 2: Complete Decompression Flow
+        $display("\n=== Test 2: Complete Decompression Flow ===");
+        
+        // Set decompression mode BEFORE going to SELECT
+        compDecomp = 0; // Choose decompression
         #10;
+        
+        // IDLE -> SELECT
+        $display("Step 1: IDLE -> SELECT");
+        pulse_continue();
+        #20;
+        check_opFin(SELECT, "SELECT_STATE");
+        
+        // SELECT automatically goes to DECOMP because compDecomp = 0
+        #10;
+        check_opFin(DECOMP, "DECOMP_STATE");
+        
+        // DECOMP -> Enable decompression
+        $display("Step 2: Enable decompression mode");
+        pulse_continue();
+        #20;
         if (decompEN_reg) begin
             $display("✓ decompEN_reg correctly asserted");
         end else begin
             $display("✗ decompEN_reg not asserted");
         end
-
-        // Test 9: Mode switching
-        $display("\n=== Test 9: Mode Switching Test ===");
-        apply_restart();
-        pulse_continue(); // IDLE to SELECT
-        #20;
         
-        // Start with compression
-        compDecomp = 1;
+        // Now decomp_state controls opFin
+        $display("Step 3: Decompression states controlled by decomp_state");
+        decomp_state = 2'd0; // STATE0
         #20;
-        $display("Compression mode: opFin=%0d", opFin);
+        check_opFin(STATE0, "STATE0");
         
-        // Switch to decompression
-        compDecomp = 0;
+        decomp_state = 2'd1; // STATE1
         #20;
-        $display("Decompression mode: opFin=%0d", opFin);
+        check_opFin(STATE1, "STATE1");
         
-        // Switch back to compression
-        compDecomp = 1;
+        decomp_state = 2'd2; // STATE2
         #20;
-        $display("Back to compression: opFin=%0d", opFin);
-
-        // Test 10: Edge cases
-        $display("\n=== Test 10: Edge Cases ===");
-        apply_restart();
+        check_opFin(STATE2, "STATE2");
         
-        // Test default case in compression states
-        pulse_continue(); // IDLE to SELECT
-        compDecomp = 1; // Select compression
-        #20;
-        comp_state = 4'hF; // Invalid compression state
-        pulse_continue();
-        #20;
-        check_opFin(IDLE, "IDLE_DEFAULT");
-
-        // Test default case in decompression states  
-        apply_restart();
-        pulse_continue(); // IDLE to SELECT
-        compDecomp = 0; // Select decompression
-        #20;
-        decomp_state = 2'd3; // This should map to STATE3, but let's test edge
-        pulse_continue();
+        decomp_state = 2'd3; // STATE3
         #20;
         check_opFin(STATE3, "STATE3");
-
-        // Test 11: Rapid switching
-        $display("\n=== Test 11: Rapid Mode Switching ===");
-        apply_restart();
-        for (int i = 0; i < 5; i++) begin
-            pulse_continue();
-            #5;
-            compDecomp = ~compDecomp;
-            #5;
-            $display("Rapid switch %0d: compDecomp=%b, opFin=%0d", i, compDecomp, opFin);
-        end
-
-        // Test 12: Restart functionality
-        $display("\n=== Test 12: Restart Functionality ===");
-        pulse_continue(); // Set some state
-        compDecomp = 1;
-        comp_state = 3;
-        pulse_continue();
-        #20;
-        $display("Before restart: opFin=%0d", opFin);
         
+        // Note: In a real system, the decompression controller would eventually
+        // signal completion and transition to DONE. For this testbench, we're only
+        // testing that decomp_state properly controls the opFin output.
+        $display("Decompression flow complete - decomp_state controls opFin correctly");
+        
+        // Test restart from decompression mode
+        $display("Step 4: Restart from decompression mode");
         apply_restart();
         #20;
-        $display("After restart: opFin=%0d", opFin);
+        check_opFin(IDLE, "BACK_TO_IDLE_FROM_DECOMP");
+
+        // Test 3: Error State Testing
+        $display("\n=== Test 3: Error State Testing ===");
+        pulse_continue(); // IDLE -> SELECT
+        #20;
+        compDecomp = 1; // Choose compression
+        #10;
+        pulse_continue(); // Enable compression
+        #20;
+        
+        comp_state = 7; // ERROR state
+        #20;
+        check_opFin(ERROR, "ERROR_STATE");
+        
+        // Test restart from error
+        apply_restart();
+        #20;
+        check_opFin(IDLE, "RESTART_FROM_ERROR");
+
+        // Test 4: Mode Switching Before Enable
+        $display("\n=== Test 4: Mode Switching in SELECT State ===");
+        pulse_continue(); // IDLE -> SELECT
+        #20;
+        check_opFin(SELECT, "SELECT_STATE");
+        
+        // Switch modes in SELECT state
+        compDecomp = 1; // Compression
+        #10;
+        check_opFin(COMP, "SWITCHED_TO_COMP");
+        
+        compDecomp = 0; // Decompression
+        #10;
+        check_opFin(DECOMP, "SWITCHED_TO_DECOMP");
+        
+        compDecomp = 1; // Back to compression
+        #10;
+        check_opFin(COMP, "BACK_TO_COMP");
+
+        // Test 5: Invalid States
+        $display("\n=== Test 5: Invalid State Testing ===");
+        pulse_continue(); // Enable compression
+        #20;
+        
+        comp_state = 4'hF; // Invalid state (15)
+        #20;
+        check_opFin(IDLE, "INVALID_COMP_STATE_DEFAULT");
+        
+        // Switch to decompression and test invalid decomp_state
+        apply_restart();
+        pulse_continue(); // IDLE -> SELECT
+        compDecomp = 0; // Decompression
+        #10;
+        pulse_continue(); // Enable decompression
+        #20;
+        
+        // All decomp_state values (0-3) are valid, so test edge case
+        decomp_state = 2'd3; // Maximum valid value
+        #20;
+        check_opFin(STATE3, "MAX_VALID_DECOMP_STATE");
 
         $display("\n=== All Tests Completed ===");
         #100;
