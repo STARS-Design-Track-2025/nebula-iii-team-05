@@ -10,25 +10,31 @@ module t05_SPI_tb;
     logic slave_select;
     logic finish;
     logic serialclk;
-    logic [31:0] read_address;
-    logic [31:0] write_address;
     logic read_stop;
+    logic write_stop;
+    logic reading;
+    logic freq_flag;
+    logic nextCharEn;
 
     // Instantiate the SPI module
-    t05_SPI test(.clk(clk),
-                 .rst(rst),
-                 .miso(miso),
-                 .mosi(mosi),
-                 .read_output(read_output),
-                 .writebit(writebit),
-                 .read_en(read_en),
-                 .write_en(write_en),
-                 .slave_select(slave_select),
-                 .finish(finish),
-                 .read_address(read_address),
-                 .write_address(write_address),
-                 .read_stop(read_stop),
-                 .serial_clk(serialclk));
+    t05_SPI test(
+        .clk(clk),
+        .rst(rst),
+        .serial_clk(serialclk),
+        .miso(miso),
+        .mosi(mosi),
+        .read_output(read_output),
+        .writebit(writebit),
+        .read_en(read_en),
+        .write_en(write_en),
+        .write_stop(write_stop),
+        .read_stop(read_stop),
+        .nextCharEn(nextCharEn),
+        .reading(reading),
+        .slave_select(slave_select),
+        .freq_flag(freq_flag),
+        .finish(finish)
+    );
 
     // Clock generation
     always begin
@@ -52,8 +58,7 @@ module t05_SPI_tb;
         writebit = 0;
         read_en = 0;
         write_en = 0;
-        read_address = '0;
-        write_address = '0;
+        write_stop = 0;
         read_stop = 0;
         rst = 1; // Start with reset high
         #2 
@@ -93,12 +98,11 @@ module t05_SPI_tb;
         miso = 0;
 
         #5000; // Run for 5ms
-        read_en = 1;
-        read_address = 32'd64;
-        
+        write_en = 1;
+                
         // Test for READ state
         #500
-        read_en = 0;
+        write_en = 0;
         miso = 1; 
         #10
         miso = 0;
@@ -107,18 +111,22 @@ module t05_SPI_tb;
         #10
         miso = 0;
         #40
-        read_en = 1;
+        //read_en = 1;
         #10
-        read_en = 0;
+        //read_en = 0;
         #10
-        #260
+        #1000
+        write_stop = 1;
+        #10 
+        write_stop = 0;
+        #100000
         rst = 1;
         #10 
         rst = 0;
         #10
-        read_en = 1;
+        write_en = 1;
         #10
-        read_en = 0;
+        write_en = 0;
         #10
 
         read_stop = 1;
@@ -137,6 +145,6 @@ module t05_SPI_tb;
         write_en = 0;
         #100
 
-        $finish; // End simulation
+        #1000 $finish; // End simulation
     end
 endmodule

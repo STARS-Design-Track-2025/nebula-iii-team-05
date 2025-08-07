@@ -1,237 +1,646 @@
-module t05_sram_interface(
-    input logic clk, rst, busy_o, trn_nxt_char,//enable for when the data has been read
-    input logic [31:0] histogram, //new histogram value to write
-    input logic [7:0] histgram_addr, //address from the histogram
-    input logic hist_r_wr,
-    input logic [8:0] find_least,  //count 
-    input logic [70:0] new_node,
+module t05_sram_interface (
+    input logic clk,
+    input logic rst,
+    //histogram inputs
+    input logic [31:0] histogram,
+    input logic [7:0] histgram_addr,
+    input logic [1:0] hist_r_wr,
+    input logic hist_read_latch,
+    //flv inputs
+    input logic [8:0] find_least,
+    input logic [7:0] charwipe1, charwipe2,
+    input logic flv_r_wr,
+    input logic pulse_FLV,
+    input logic wipe_the_char_1,
+    input logic wipe_the_char_2,
+    //htree inputs
+    input logic [71:0] new_node,
     input logic [6:0] htreeindex,
+    input logic [7:0] htree_write,
+    input logic pulse_HTREE,
     input logic htree_r_wr,
-    input logic [7:0] codebook, 
-    input logic [127:0] codebook_path, 
-    input logic [7:0] translation, 
-    input logic [2:0] state,  // the state bit of which module the data is from
-    input logic [31:0] sram_data_out_his,
-    input logic [63:0] sram_data_out_flv,
-    input logic [128:0] sram_data_out_trn,
-    input logic [70:0] sram_data_out_cb,
-    input logic [31:0] sram_data_out_ht,
-    output logic wr_en, r_en,
+    input logic [3:0] HT_state,
+    input logic [8:0] least1_HTREE,
+    input logic [8:0] least2_HTREE,
+    //codebook inputs
+    input logic [7:0] curr_index, //addr of data wanting to be pulled from the htree
+    input logic [7:0] char_index, //addr for writing data in
+    input logic [127:0] codebook_path, //store this data 
+    input logic cb_r_wr,
+    input logic pulse_CB,
+    //translation input
+    input logic [7:0] translation,
+    input logic pulse_TRN,
+    //controller input
+    input logic [3:0] state,
+    //wishbone connects
+    output logic wr_en,
+    output logic r_en,
+    input logic busy_o,  
     output logic [3:0] select,
-    output logic [31:0] old_char,
-    output logic [31:0] addr, sram_data_in,//output value to read from sram
-    output logic [63:0] comp_val, //find least value
-    output logic [70:0] h_element, 
-    output logic [128:0] char_code
+    output logic [31:0] addr,
+    output logic [31:0] data_i,
+    input logic [31:0] data_o,
+    //htree outputs
+    output logic [63:0] nulls, //data going to htree
+    output logic ht_done,
+    output logic write_HT_fin,
+    output logic HTREE_complete,
+    output logic HT_read_complete,
+    output logic sum_2,
+    output logic HT_over_complete,
+    // histogram output
+    output logic [31:0] old_char, //data going to histogram
+    output logic init,
+    output logic nextChar,
+    //flv outputs
+    output logic [63:0] comp_val, //going to find least value
+    output logic nextChar_FLV,
+    output logic [3:0] word_cnt,
+    output logic FLV_done,
+    //codebook outputs
+    output logic [70:0] h_element, //from the htree going to codebook
+    output logic cb_done,
+    output logic CB_read_complete,
+    output logic CB_write_complete,
+    //translation outputs
+    output logic [127:0] path,
+    output logic TRN_complete
+    //controller output
+    // output logic [5:0] ctrl_done
 );
-//the goal of the sraminterface is to input data from different addresses and either store the data that is given to it or output the data that the address pulls
-//the goal of the sram interface is to communicate with the sram to wither read of write data using specific addresses assigned by the sram interface.
-    logic ready_his;  //histogram ready
-    logic ready_flv; //flv ready
-    logic ready_trn; //translation
-    logic ready_cb;  //codebook
-    logic ready_ht;  //htree
 
-    logic [31:0] base_addr;
+    logic nextChar_n;
+    logic [3:0] word_cnt_n;
 
-    typedef enum logic [2:0] { 
-        A_IDLE = 3'b000,
-        HIST = 3'b001,
-        FLV = 3'b010,
-        HTREE = 3'b011,
-        CODEBOOK = 3'b101,
-        TRANSLATION = 3'b110
-    } name;
-   
+    logic [63:0] comp_val_n, nulls_n;
+    logic [70:0] h_element_n;
+    logic [127:0] path_n;
+    logic init_n;
+    logic [23:0] init_counter, init_counter_n;
 
-    always_comb begin  
-        wr_en = 0;
-        r_en = 0;
-        ready_his = 0;
-        ready_flv = 0;
-        ready_trn = 0;
-        ready_cb = 0;
-        // ready_ht =0;
-        select = 4'b1111;
-        if (state == A_IDLE) begin
-            wr_en = 0;
-            r_en = 0;
-            ready_his = 0;
-            ready_flv = 0;
-            ready_trn = 0;
-            ready_cb = 0;
-            ready_ht =0;
-        end else if (state == HIST) begin
-            if (hist_r_wr == 0) begin
-                wr_en = 0;  //the histogram should write for the histogram
-                r_en =1;  //the sram should read for the histogram
-                ready_his = 1;  //data from the histogram has been inputted
-                base_addr = 32'b0;
+    logic busy_o_last;
 
-                ready_flv = 0;
-                ready_trn = 0;
-                ready_cb = 0;
-                ready_ht =0;
-            end
-            if (hist_r_wr == 1) begin
-                wr_en = 1;  //the histogram should write for the histogram
-                r_en =0;  //the sram should read for the histogram
-                ready_his = 1;  //data from the histogram has been inputted
-                base_addr = 32'b0;
+    logic [31:0] old_char_n;
+    logic check, check_n;
 
-                ready_flv = 0;
-                ready_trn = 0;
-                ready_cb = 0;
-                ready_ht =0;
-            end
-        end else if (state == HTREE) begin
-            if (htree_r_wr == 0) begin
-                r_en = 1;
-                wr_en = 0;  //the histogram should write for the histogram
-                ready_ht = 1;// specific ready input to the htree that the data has been inputted 
-                base_addr = 12'b100000000;   
-            end 
-            if (htree_r_wr == 1) begin
-                r_en = 0;
-                wr_en = 1;  //the histogram should write for the histogram
-                ready_ht = 1;// specific ready input to the htree that the data has been inputted 
-                base_addr = 12'b100000000;   
-            end
-        end else if (state == FLV) begin
-            r_en = 1;  //the sram should read for the histogram
-            ready_flv = 1; // specific ready input to the flv that the data has been inputted
-            base_addr = 32'b0;
+    logic [31:0] HTREE_log;
 
-            ready_his = 0;
-            ready_trn = 0;
-            ready_cb = 0;
-            ready_ht =0; 
+    // assign ctrl_done = '0;
+    assign cb_done = 0;
+    assign ht_done = 0;
 
-        end else if (state == CODEBOOK) begin
-            wr_en = 1;  //the histogram should write for the histogram
-            ready_cb = 1; // specific ready input to the flv that the data has been inputted
-            base_addr = 32'b1000000000;
+    assign HTREE_log = {23'd0, find_least} - 32'd128;
 
-            ready_his = 0;
-            ready_flv = 0;
-            ready_trn = 0;
-            ready_ht = 0;
-        end else if (state == TRANSLATION) begin
-            r_en =1;  //the sram should read for the histogram
-            ready_trn = 1;// specific ready input to the flv that the data has been inputted
-            base_addr = 32'b0;
+    logic [31:0] ht_write_1;
+    assign ht_write_1 = {24'd0, htree_write} + 32'd1;
 
-            ready_his = 0;
-            ready_flv = 0;
-            ready_ht = 0;
-            ready_cb = 0;
-        end               
+    logic [31:0] ht_index_1_over;
+    assign ht_index_1_over = ({25'd0, htreeindex} * 2'd2) + 32'd1;
 
+
+    logic [2:0] zero_cnt, zero_cnt_n;
+
+    logic FLV_done_n;
+
+    logic [2:0] write_counter_FLV, write_counter_FLV_n;
+
+    logic write_HT_fin_n;
+    logic [3:0] counter_HTREE, counter_HTREE_n;
+
+    logic [31:0] char_index_1, char_index_2, char_index_3;
+    assign char_index_1 = ({25'd0, char_index[6:0]} * 3'd4) + 32'd1;
+    assign char_index_2 = ({25'd0, char_index[6:0]} * 3'd4) + 32'd2;
+    assign char_index_3 = ({25'd0, char_index[6:0]} * 3'd4) + 32'd3;
+
+    logic [31:0] curr_index_1;
+    assign curr_index_1 = {24'd0, curr_index} + 32'd1;
+
+    logic CB_read_counter, CB_read_counter_n;
+    logic [1:0] CB_write_counter, CB_write_counter_n;
+
+    logic CB_read_complete_n, CB_write_complete_n;
+
+    logic [2:0] TRN_counter, TRN_counter_n;
+    logic TRN_complete_n;
+
+    logic [31:0] trn_1, trn_2, trn_3;
+
+    assign trn_1 = ({25'd0, translation[6:0]} * 3'd4) + 32'd1;
+    assign trn_2 = ({25'd0, translation[6:0]} * 3'd4) + 32'd2;
+    assign trn_3 = ({25'd0, translation[6:0]} * 3'd4) + 32'd3;
+
+always_ff @( posedge clk, posedge rst) begin
+    if (rst) begin
+        word_cnt <= 6;
+        comp_val <= '0;
+        nulls <= '0;
+        h_element <= '0;
+        path <= '0;
+        init <= 1;
+        init_counter <= '0;
+        busy_o_last <= 0;
+        old_char <= '0;
+        check <= 0;
+        zero_cnt <= 0;
+        FLV_done <= '0;
+        write_counter_FLV <= 0;
+        write_HT_fin <= 0;
+        counter_HTREE <= 0;
+        CB_read_counter <= 0;
+        CB_write_counter <= 0;
+        CB_read_complete <= 0;
+        CB_write_complete <= 0;
+        TRN_counter <= 0;
+        TRN_complete <= 0;
+        nextChar <= 0;
+    end else begin
+        word_cnt <= word_cnt_n;
+        comp_val <= comp_val_n;
+        nulls <= nulls_n;
+        h_element <= h_element_n;
+        path <= path_n;
+        init <= init_n;
+        init_counter <= init_counter_n;
+        busy_o_last <= busy_o;
+        old_char <= old_char_n;
+        check <= check_n;
+        write_counter_FLV <= write_counter_FLV_n;
+        busy_o_last <= busy_o;
+        zero_cnt <= zero_cnt_n;
+        FLV_done <= FLV_done_n;
+        write_HT_fin <= write_HT_fin_n;
+        counter_HTREE <= counter_HTREE_n;
+        CB_read_counter <= CB_read_counter_n;
+        CB_write_counter <= CB_write_counter_n;
+        CB_read_complete <= CB_read_complete_n;
+        CB_write_complete <= CB_write_complete_n;
+        TRN_counter <= TRN_counter_n;
+        TRN_complete <= TRN_complete_n;
+        nextChar <= nextChar_n;
     end
-    //state machine with wr, r and busy o
-
-    //idle > read > readwait > idle
-    //idel > write > writewait > idle\
-    typedef enum logic[2:0] { 
-        IDLE,
-        READ,
-        WRITE,
-        WAITREAD, 
-        WAITWRITE,
-        DONE_R,
-        DONE_WR
-     } name;
+end
 
 always_comb begin
-    case ()
-        IDLE: begin
-            if (busy_o) begin
-            if () begin
-                next_state = READ;
-            end else if () begin 
-                next_state = WRITE;
+    select   = 4'b1111;
+    addr = 32'h33000000;
+    wr_en = 0;
+    r_en = 0;
+    nextChar_n = nextChar;
+    nextChar_FLV = 0;
+    data_i = 0;
+    HTREE_complete = 0;
+    HT_read_complete = 0;
+    HT_over_complete = 0;
+    sum_2 = 0;
+
+    old_char_n = old_char;
+    check_n = check;
+    write_HT_fin_n = write_HT_fin;
+    comp_val_n = comp_val;
+    word_cnt_n = word_cnt;
+    nulls_n = nulls;
+    h_element_n = h_element;
+    path_n = path;
+    init_n = init;
+    init_counter_n = init_counter;
+    zero_cnt_n = zero_cnt;
+    FLV_done_n = FLV_done;
+    write_counter_FLV_n = write_counter_FLV;
+
+    counter_HTREE_n = counter_HTREE;
+
+    CB_read_counter_n = CB_read_counter;
+    CB_write_counter_n = CB_write_counter;
+    CB_read_complete_n = CB_read_complete;
+    CB_write_complete_n = CB_write_complete;
+    TRN_counter_n = TRN_counter;
+    TRN_complete_n = TRN_complete;
+
+    case(state) 
+        1: begin //HISTOGRAM
+            if(init) begin
+                addr = (init_counter < 2048) ? 32'h33001024 + (init_counter * 4) : 32'h33001FFC;
+                data_i = '0;
+                wr_en = (~check);
+                r_en = 0;
+                if (init_counter == 2048 && !check && (busy_o_last == 1 && busy_o == 0)) begin
+                    check_n = 1;
+                end
+                else if(init_counter <= 2047 && (busy_o_last == 1 && busy_o == 0)) begin
+                    init_counter_n = init_counter + 1;
+                end
+                else if (check) begin
+                    init_n = 0;
+                end
+            end else begin
+                data_i = histogram;
+                addr = 32'h33001024 + (histgram_addr * 4);
+
+                if(hist_r_wr == 1 && busy_o == 0) begin //(busy_o_last == 1 && busy_o == 0)) begin
+                    wr_en = 1;
+                    r_en = 0;
+                    nextChar_n = 1; 
+                    // addr = 32'h33000000 + (histgram_addr * 4);
+                end else if (hist_r_wr == 0 && busy_o == 0) begin // (busy_o_last == 1 && busy_o == 0)) begin
+                    wr_en = 0;
+                    r_en = 1;
+                    // addr = 32'h33000000 + (histgram_addr * 4);
+                end
+                else if(!busy_o) begin
+                    nextChar_n = 0;
+                end
             end
+            if (hist_read_latch) old_char_n = data_o;
         end
-        READ: begin
-            next_state = WAITREAD
-        end 
-        WRITE: begin
-            next_state = WAITWRITE
+        2: begin //FLV
+            write_HT_fin_n = 0;
+            case(word_cnt)
+                0: begin //IDLE
+                    addr = '0;
+                    if(find_least == 256 && write_counter_FLV == 4) begin
+                        FLV_done_n = 1;
+                        word_cnt_n = 0;
+                        write_counter_FLV_n = 0;
+                    end
+                    else if(pulse_FLV && !busy_o) begin
+                        FLV_done_n = 0;
+                        word_cnt_n = 1;
+                        comp_val_n = '0;
+                    end else if (pulse_FLV && find_least == 0) begin
+                        FLV_done_n = 0;
+                        word_cnt_n = 1;
+                        comp_val_n = '0;
+                    end
+                end
+                1: begin //Determining histogram or htree
+                    if(find_least == 256 && wipe_the_char_1) begin
+                        addr = 32'h33001024 + (charwipe1 * 4);
+                        data_i = '0;
+                        write_counter_FLV_n = write_counter_FLV + 1;
+                        wr_en = 1;
+                        word_cnt_n = 9;
+                    end else if (find_least == 256) begin
+                        write_counter_FLV_n = write_counter_FLV + 1;
+                        word_cnt_n = 9;
+                    end else if (find_least < 128) begin
+                        addr = 32'h33001024 + (find_least * 4);
+                        if(!flv_r_wr) begin
+                            r_en = 1;
+                        end
+                        word_cnt_n = 2;
+                        nextChar_FLV = 1;
+                    end else if (find_least > 127) begin
+                        addr = 32'h33000000 + (HTREE_log * 2 * 4);
+                        if(!flv_r_wr) begin
+                            r_en = 1;
+                        end
+                        word_cnt_n = 7;
+                        nextChar_FLV = 1;
+                    end
+                end
+                2: begin //Read in histogram state
+                    if(!busy_o) begin
+                            comp_val_n [31:0] = data_o;
+                            comp_val_n [63:32] = '0;
+                            nextChar_FLV = 1;
+                            word_cnt_n = 0; //Back to idle
+                    end
+                    else if (find_least == 0 && zero_cnt == 3) begin
+                        word_cnt_n = 0;
+                    end
+
+                    if(zero_cnt != 3) begin
+                        zero_cnt_n = zero_cnt + 1;
+                    end
+                end
+                3: begin //First HTREE read state
+                    if(!busy_o) begin
+                        addr = 32'h33000000 + (((HTREE_log * 2) + 1) * 4);
+                        if(!flv_r_wr) begin
+                            r_en = 1;
+                        end
+                        word_cnt_n = 4;
+                    end
+                end
+                7: begin
+                    if(!busy_o) begin
+                        word_cnt_n = 8;
+                    end
+                end
+                8: begin
+                    comp_val_n [63:32] = {18'd0, data_o[13:0]};
+                    word_cnt_n = 3;
+                end
+                4: begin //Second HTREE read state
+                    if(!busy_o) begin
+                        comp_val_n [31:0] = data_o;
+                        nextChar_FLV = 1;
+                        word_cnt_n = 0;
+                    end
+                end
+                5: begin //Finish overwriting histogram state
+                    if(!busy_o && wipe_the_char_2) begin
+                        addr = 32'h33001024 + (charwipe2 * 4);
+                        data_i = '0;
+                        wr_en = 1;
+                        write_counter_FLV_n = write_counter_FLV + 1;
+                        nextChar_FLV = 1;
+                        word_cnt_n = 11; 
+                    end
+                    else if (!busy_o) begin
+                        write_counter_FLV_n = write_counter_FLV + 1;
+                        nextChar_FLV = 1;
+                        word_cnt_n = 11; 
+                    end
+                end
+                9: begin
+                    if(!busy_o) begin
+                        word_cnt_n = 10;
+                    end
+                end
+                10: begin
+                    if(!busy_o) begin
+                        word_cnt_n = 5;
+                    end
+                end
+                6: begin
+                    word_cnt_n = 1;
+                end
+                11: begin
+                    word_cnt_n = 12;
+                end
+                12: begin
+                    word_cnt_n = 13;
+                end
+                13: begin
+                    word_cnt_n = 14;
+                end
+                14: begin
+                    if(write_counter_FLV != 4) begin
+                        word_cnt_n = 1;
+                    end else if (write_counter_FLV == 4) begin
+                        word_cnt_n = 0;
+                    end
+                end
+            endcase
         end
-        WAITREAD: begin
-            next_state = DONE_R
+        3: begin //HTREE
+            case(word_cnt)
+                0: begin //IDLE
+                    if(HT_state == 3 && !busy_o && counter_HTREE == 4 && least1_HTREE[8] && least2_HTREE[8] && least1_HTREE != 384 && least2_HTREE != 384) begin
+                        HT_over_complete = 1;
+                    end
+                    else if ((/*(htree_write == '0 && counter_HTREE == 2 && !busy_o) || */((HT_state == 5 || HT_state == 3) && counter_HTREE == 4 && !busy_o)) && !HT_over_complete) begin
+                        HTREE_complete = 1;
+                        counter_HTREE_n = '0;
+                    end
+                    else if (!least1_HTREE[8] && !least2_HTREE[8] && !busy_o && counter_HTREE == 2) begin
+                        HTREE_complete = 1;
+                        counter_HTREE_n = '0;
+                    end
+                    else if(pulse_HTREE && !busy_o) begin
+                        word_cnt_n = 8;
+                        counter_HTREE_n = 0;
+                    end
+                    else if(htree_r_wr) begin
+                        word_cnt_n = 8;
+                        counter_HTREE_n = 0;
+                    end 
+                    else if((HT_state == 9 || HT_state == 11) && !busy_o && counter_HTREE == 2) begin
+                        nulls_n[31:0] = data_o;
+                        word_cnt_n = 8;
+                        HT_read_complete = 1;
+                        sum_2 = 1;
+                        //write_HT_fin_n = 0;
+                    end
+                    else if (least1_HTREE[8] && least2_HTREE[8] && !busy_o && HT_state == 8 && counter_HTREE == 3) begin
+                        counter_HTREE_n = 0;
+                        word_cnt_n = 8;
+                        //write_HT_fin_n = 0;
+                    end
+                end
+                1: begin //DETERMINE
+                    if (!htree_r_wr && write_HT_fin) begin //OVERWRITE
+                        addr = 32'h33000000 + (htreeindex * 2 * 4);
+                        wr_en = 1;
+                        word_cnt_n = 9;
+                        data_i = {new_node[63:46], 14'd0};
+                        counter_HTREE_n = counter_HTREE + 1;
+                    end
+                    else if(!htree_r_wr) begin //WRITE
+                        addr = 32'h33000000 + (htree_write * 4);
+                        wr_en = 1;
+                        word_cnt_n = 6;
+                        data_i = new_node[63:32];
+                        counter_HTREE_n = counter_HTREE + 1;
+                    end 
+                    else if(htree_r_wr) begin //READ
+                        addr = 32'h33000000 + (htreeindex * 2 * 4);
+                        r_en = 1;
+                        word_cnt_n = 4;
+                        counter_HTREE_n = counter_HTREE + 1;
+                    end
+                end
+                2: begin //WRITE
+                    addr = 32'h33000000 + (ht_write_1 * 4);
+                    wr_en = 1;
+                    word_cnt_n = 0;
+                    data_i = new_node[31:0];
+                    write_HT_fin_n = 1;
+                    counter_HTREE_n = counter_HTREE + 1;
+                end
+                3: begin //READ
+                    addr = 32'h33000000 + (ht_index_1_over * 4);
+                    r_en = 1;
+                    word_cnt_n = 0;
+                    counter_HTREE_n = counter_HTREE + 1;
+                end
+                //4 & 5 are reading waits
+                4: begin
+                    if(!busy_o) begin
+                        word_cnt_n = 5;
+                    end
+                end
+                5: begin
+                    nulls_n[63:32] = data_o;
+                    word_cnt_n = 3;
+                end
+                //6 & 7 are writing waits
+                6: begin
+                    if(!busy_o) begin
+                        word_cnt_n = 7;
+                    end
+                end
+                7: begin
+                    word_cnt_n = 2;
+                end
+                8: begin
+                    word_cnt_n = 1;
+                end
+                9: begin
+                    if(!busy_o) begin
+                        word_cnt_n = 10;
+                    end
+                end
+                10: begin
+                    word_cnt_n = 11;
+                end
+                11: begin //OVERWRITE
+                    addr = 32'h33000000 + (ht_index_1_over * 4);
+                    wr_en = 1;
+                    word_cnt_n = 0;
+                    data_i = '0;
+                    counter_HTREE_n = counter_HTREE + 1;
+                end
+            endcase
         end
-        WAITWRITE:begin
-        next_state = DONE_WR
+        4: begin //CBS
+            case(word_cnt) 
+                0: begin
+                    if(pulse_CB && !busy_o) begin
+                        word_cnt_n = 1;
+                        CB_read_complete_n = 0;
+                        CB_write_complete_n = 0;
+                        CB_write_counter_n = 0;
+                    end
+                    else if(!busy_o && CB_write_counter == 2) begin
+                        CB_write_complete_n = 1;
+                    end
+                    else if(!busy_o && CB_read_counter == 1) begin
+                        h_element_n [31:0] = data_o;
+                        CB_read_complete_n = 1;
+                    end     
+                end
+                1: begin
+                    if(cb_r_wr) begin
+                        addr = 32'h33001024 + (char_index[6:0] * 4 * 4);
+                        wr_en = 1;
+                        data_i = codebook_path [127:96];
+                        word_cnt_n = 2;
+                    end
+                    else if (!cb_r_wr) begin
+                        addr = 32'h33000000 + (curr_index * 4);
+                        r_en = 1;
+                        word_cnt_n = 7;
+                    end
+                end
+                2: begin
+                    if(!busy_o) begin
+                        word_cnt_n = 3;
+                    end
+                end
+                3: begin
+                    if(CB_write_counter == 0) begin
+                        word_cnt_n = 4;
+                    end else if (CB_write_counter == 1) begin
+                        word_cnt_n = 5;
+                    end else if (CB_write_counter == 2) begin
+                        word_cnt_n = 6;
+                    end
+                end
+                4: begin
+                    addr = 32'h33001024 + (char_index_1 * 4);
+                    wr_en = 1;
+                    data_i = codebook_path [95:64];
+                    word_cnt_n = 2;
+                    CB_write_counter_n = CB_write_counter + 1;
+                end
+                5: begin
+                    addr = 32'h33001024 + (char_index_2 * 4);
+                    wr_en = 1;
+                    data_i = codebook_path [63:32];
+                    word_cnt_n = 2;
+                    CB_write_counter_n = CB_write_counter + 1;
+                end
+                6: begin
+                    addr = 32'h33001024 + (char_index_3 * 4);
+                    wr_en = 1;
+                    data_i = codebook_path [31:0];
+                    word_cnt_n = 0;
+                    //CB_write_counter_n = CB_write_counter + 1;
+                end
+                7: begin
+                    if(!busy_o) begin
+                        word_cnt_n = 8;
+                    end
+                end
+                8: begin
+                    h_element_n [63:32] = data_o;
+                    word_cnt_n = 9;
+                end
+                9: begin
+                    addr = 32'h33000000 + (curr_index_1 * 4);
+                    r_en = 1;
+                    word_cnt_n = 0;
+                    CB_read_counter_n = 1;
+                end
+
+
+            endcase
         end
-        DONE_R: begin
-            next_state = IDLE
+        5: begin //Translation
+            case(word_cnt)
+                0: begin
+                    if (!busy_o && TRN_counter == 3) begin
+                        TRN_complete_n = 1;
+                        TRN_counter_n = 0;
+                        path_n[31:0] = data_o;
+                    end else if(pulse_TRN && !busy_o) begin
+                        word_cnt_n = 1;
+                        TRN_complete_n = 0;
+                    end 
+                end
+                1: begin
+                    if(!busy_o) begin
+                        word_cnt_n = 2;
+                    end
+                end
+                2: begin
+                    if(TRN_counter == 0) begin
+                        word_cnt_n = 3;
+                        //path_n[127:96] = data_o;
+                    end else if (TRN_counter == 1) begin
+                        word_cnt_n = 4;
+                        path_n[127:96] = data_o;
+                    end else if (TRN_counter == 2) begin
+                        word_cnt_n = 5;
+                        path_n[95:64] = data_o;
+                    end else if (TRN_counter == 3) begin
+                        word_cnt_n = 6;
+                        path_n[63:32] = data_o;
+                    end        
+                end
+                3: begin
+                    addr = 32'h33001024 + (translation[6:0] * 4 * 4);
+                    TRN_counter_n = TRN_counter + 1;
+                    word_cnt_n = 1;
+                    r_en = 1;
+                end
+                4: begin
+                    addr = 32'h33001024 + (trn_1 * 4);
+                    TRN_counter_n = TRN_counter + 1;
+                    word_cnt_n = 1;
+                    r_en = 1;
+                end
+                5: begin
+                    addr = 32'h33001024 + (trn_2 * 4);
+                    TRN_counter_n = TRN_counter + 1;
+                    word_cnt_n = 1;
+                    r_en = 1;
+                end
+                6: begin
+                    addr = 32'h33001024 + (trn_3 * 4);
+                    word_cnt_n = 0;
+                    r_en = 1;
+                end
+            endcase
         end
-        DONE_WR: begin
-            next_state = IDLE
-        end
-        default: begin 
-            next_state = IDLE;
+        default: begin
+            addr = '0;
         end
     endcase
 
 end
-    always_ff @(posedge clk or posedge rst) begin
-        if (rst) begin
-            old_char <= 0;
-            comp_val <= 0;
-            char_code <= 0;
-            h_element <= 0;
-        end else if (ready_his) begin
-
-            if (r_en && busy_o) begin //include that if the histogram enable from the controller is on too
-                old_char <= sram_data_out_his;
-                addr <= base_addr + (4 * histgram_addr); // Read 32-bit value at 8-bit address
-            end 
-
-            if (wr_en) begin 
-                sram_data_in <= histogram;
-                addr <= base_addr + (4 * histgram_addr);
-            end
-        end else if (ready_ht) begin
-            if (wr_en) begin
-                addr <= base_addr + (4 * htreeindex) 
-                sram_data_in_ht <= h_element[31:0]; 
-            end else if (r_en) begin
-                node_data  <= sram_data_out_ht
-                addr <= [base_addr + (4 * node_addr)];
-
-            end
-        end else if (ready_flv) begin
-            if (find_least <= 255) begin
-                comp_val <= sram_data_out_flv;
-                addr <= base_addr + (4 * find_least); //the address will only give it a 32 bit value
-            end else if (find_least <= 384) begin
-            //    comp_val <= sum value from the htree
-            end
-        end else if (ready_trn && trn_nxt_char) begin
-            char_code <= sram_data_out_trn;
-            addr <= base_addr + (4 * translation);
-        end else if (ready_cb) begin
-            h_element <= sram_data_out_cb;
-            addr <= base_addr + (4 * codebook);  //71 bit code coming from the sram stored by htree
-        end 
-    end
 
 endmodule
-
-
-
-            // else if (wr_en) begin
-            //     sram[base_addr + (4 * histgram_addr)] <= histogram; // Write new 32-bit value
-            // end 
-
-
-
-        // end else if (ready_ht) begin
-        //     if (wr_en) begin
-        //         sram[base_addr + (4 * htreeindex)] <= h_element[31:0]; 
-        //     end else if (r_en) begin
-        //         node_data  <= {32'b0,sram[base_addr + (4* node_addr)]};
-
-        //     end

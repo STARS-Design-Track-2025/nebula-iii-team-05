@@ -23,14 +23,14 @@ module team_05 (
 
 
     // Wishbone master interface
-    // output wire [31:0] ADR_O,
-    // output wire [31:0] DAT_O,
-    // output wire [3:0]  SEL_O,
-    // output wire        WE_O,
-    // output wire        STB_O,
-    // output wire        CYC_O,
-    // input wire [31:0]  DAT_I,
-    // input wire         ACK_I,
+    output wire [31:0] ADR_O,
+    output wire [31:0] DAT_O,
+    output wire [3:0]  SEL_O,
+    output wire        WE_O,
+    output wire        STB_O,
+    output wire        CYC_O,
+    input wire [31:0]  DAT_I,
+    input wire         ACK_I,
 
     // 34 out of 38 GPIOs (Note: if you need up to 38 GPIO, discuss with a TA)
     input  logic [33:0] gpio_in, // Breakout Board Pins
@@ -46,7 +46,34 @@ module team_05 (
     // You can also have input registers controlled by the Caravel Harness's on chip processor
 );
 
-    assign gpio_out = '0;
-    assign gpio_oeb = '0;
+    
+    // Set unused outputs to 0
+    assign {gpio_out[33:2], gpio_out[1:0]} = '0;
+
+    // Se OEBs
+    assign gpio_oeb[10:2] = '1;  //Inputs
+   // assign gpio_oeb[1] = '0;  //Outputs
+    assign {gpio_oeb[33:11], gpio_oeb[1:0]} = '1;  //Unused set to all 1s (doesn't really matter)
+    
+    // T05 Top Instantiation
+    t05_top top (
+        .hwclk(clk), 
+        .reset(~nrst | ~en),
+
+        // HISTOGRAM
+        .read_in_pulse(gpio_in[3]),
+        .in(gpio_in[10:4]),
+        .esp_ack(gpio_in[2]),
+
+        //WRAPPER
+        .wbs_stb_o(STB_O),
+        .wbs_cyc_o(CYC_O),
+        .wbs_we_o(WE_O),
+        .wbs_sel_o(SEL_O),
+        .wbs_dat_o(DAT_O),
+        .wbs_adr_o(ADR_O),
+        .wbs_ack_i(ACK_I),
+        .wbs_dat_i(DAT_I)
+    );
 
 endmodule

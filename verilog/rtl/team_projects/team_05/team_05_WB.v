@@ -34,7 +34,15 @@ module team_05_WB (
 	input	wire	[34-1:0]	gpio_in,
 	output	wire	[34-1:0]	gpio_out,
 	output wire [34-1:0] gpio_oeb,
-input wire nrst
+input wire nrst,
+	input	wire	[32-1:0]	DAT_I,
+	input	wire	[1-1:0]	ACK_I,
+	output	wire	[32-1:0]	ADR_O,
+	output	wire	[32-1:0]	DAT_O,
+	output	wire	[4-1:0]	SEL_O,
+	output	wire	[1-1:0]	WE_O,
+	output	wire	[1-1:0]	STB_O,
+	output	wire	[1-1:0]	CYC_O
 );
 
 	localparam	EN_VAL_REG_OFFSET = `WB_AW'h0000;
@@ -60,7 +68,15 @@ input wire nrst
 		.en(en),
 		.gpio_in(gpio_in),
 		.gpio_out(gpio_out),
-		.gpio_oeb(gpio_oeb)
+		.gpio_oeb(gpio_oeb),
+		.DAT_I(DAT_I),
+		.ACK_I(ACK_I),
+		.ADR_O(ADR_O),
+		.DAT_O(DAT_O),
+		.SEL_O(SEL_O),
+		.WE_O(WE_O),
+		.STB_O(STB_O),
+		.CYC_O(CYC_O)
 	);
 
 	assign	dat_o = 
