@@ -1,5 +1,5 @@
  `default_nettype none
-module t05_controller (
+module t05_OPFIN (
  input logic clk, rst, cont_en,restart_en,compDecomp,
  input logic [3:0] comp_state, 
  input logic [1:0]decomp_state, // assumed to be registered
