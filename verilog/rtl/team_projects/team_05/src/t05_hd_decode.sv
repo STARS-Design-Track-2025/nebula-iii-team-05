@@ -22,6 +22,7 @@ module t05_hd_decode (
     output logic [31:0] tot_chars, // read from compressed file and sent to translation to determine the finish condition
     output logic [3:0] hd_offset
 );
+  logic [7:0] prev_char, prev_char_n;
   logic [3:0] curr_state, next_state; 
   logic [127:0] curr_path, next_path; 
   logic [3:0] offset, next_offset; // marker to keep track of which bit in byte of data_in to read next
@@ -59,6 +60,7 @@ always_ff @(posedge clk, posedge rst) begin
         SRAM_write_en <= 0;
         wait_count <= 0;
         prev_state <= 0;
+        prev_char <= 0;
     end
     else if (hd_enable) begin
         curr_state <= next_state;
@@ -78,6 +80,7 @@ always_ff @(posedge clk, posedge rst) begin
         SRAM_write_en <= next_SRAM_write_en;
         wait_count <= next_wait_count;
         prev_state <= prev_state_n;
+        prev_char <= prev_char_n;
       
     end
 end
@@ -100,6 +103,7 @@ always_comb begin
     next_num_lefts = num_lefts;
     prev_state_n = prev_state;
     next_wait_count = wait_count;
+    prev_char_n = prev_char;
 
     next_SRAM_write_en = SRAM_write_en;
     next_SPI_read_en = SPI_read_en;
@@ -255,11 +259,14 @@ always_comb begin
                 next_first = 0;
             end
           if (count < 1) begin // wait one cycle for path to be set 
-                char_index = curr_char;
-                SRAM_data_out = curr_path;
-                next_count = count + 1;
-                next_char_path = curr_path;
-                next_state = 10;
+                prev_char_n = curr_char;
+                if (prev_char != curr_char) begin
+                  char_index = curr_char;
+                  SRAM_data_out = curr_path;
+                  next_count = count + 1;
+                  next_char_path = curr_path;
+                  next_state = 10;
+                end
             end
             else begin // then shift out last move
                 next_path = {1'b0, curr_path[127:1]}; // shift out last move
